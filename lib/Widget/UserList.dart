@@ -64,7 +64,7 @@ class _MessageListState extends State<MessageList> {
       });
     }
   }
-
+//
   Future<List<Map<String, dynamic>>> _loadData() async {
     // Return cached data if available
     if (_cachedMessages != null) {
@@ -95,7 +95,7 @@ class _MessageListState extends State<MessageList> {
           'isOnline': true,
           'id': '1',
           'isGroup': true, // Mark as group chat
-          'members': ['15', '21', '22', '23'], // Using IDs instead of names
+          'members': ['You', 'Tân', 'Minh', 'Hà'],
         },
         {
           'name': 'GAME 2D/3D JOBS',
@@ -104,13 +104,7 @@ class _MessageListState extends State<MessageList> {
           'isOnline': false,
           'id': '2',
           'isGroup': true, // Mark as group chat
-          'members': [
-            '15',
-            '24',
-            '25',
-            '26',
-            '27'
-          ], // Using IDs instead of names
+          'members': ['You', 'Anh', 'Bình', 'Cường', 'Dũng'],
         },
         {
           'name': 'Da banh ko???',
@@ -119,7 +113,7 @@ class _MessageListState extends State<MessageList> {
           'isOnline': true,
           'id': '3',
           'isGroup': true, // Mark as group chat
-          'members': ['15', '28', '29', '30'], // Using IDs instead of names
+          'members': ['You', 'Nguyễn Minh Trường', 'Hải', 'Long'],
         },
         {
           'name': 'Mai Anh',
@@ -130,84 +124,74 @@ class _MessageListState extends State<MessageList> {
           'isGroup': false,
         },
         {
-          'name': 'Hoàng Long',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '5',
-          'isGroup': false,
         },
         {
-          'name': 'Minh Tuấn',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '6',
-          'isGroup': false,
         },
         {
-          'name': 'Thanh Hà',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '7',
-          'isGroup': false,
         },
         {
-          'name': 'Anh Tú',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '8',
-          'isGroup': false,
         },
         {
-          'name': 'Phương Linh',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '9',
-          'isGroup': false,
         },
         {
-          'name': 'Ngọc Ánh',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '10',
-          'isGroup': false,
         },
         {
-          'name': 'Thành Trung',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '11',
-          'isGroup': false,
         },
         {
-          'name': 'Quang Huy',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '12',
-          'isGroup': false,
         },
         {
-          'name': 'Hồng Nhung',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '13',
-          'isGroup': false,
         },
         {
-          'name': 'Văn Minh',
+          'name': 'Da banh ko???',
           'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '14',
-          'isGroup': false,
         },
       ];
 
@@ -222,16 +206,6 @@ class _MessageListState extends State<MessageList> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _loadNonGroupUsers() async {
-    // Ensure main data is loaded first
-    await _dataFuture;
-
-    // Filter out the current user (ID 15) and group chats
-    return _cachedMessages!
-        .where((user) => user['isGroup'] == false && user['id'] != '15')
-        .toList();
-  }
-
   void _handleUserTap(String userId) {
     if (widget.onUserSelected != null) {
       widget.onUserSelected!(userId);
@@ -239,173 +213,57 @@ class _MessageListState extends State<MessageList> {
   }
 
   void _handleCreateChat() {
-    // Variables to track state
-    String groupName = '';
-    Map<String, bool> selectedUsers = {};
-    bool isCreating = false;
-
     // Show dialog to create new chat
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing when clicking outside
-      builder: (dialogContext) {
-        return StatefulBuilder(builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Text('Create New Chat'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: 'Chat Name',
-                      hintText: 'Enter name for group chat',
-                    ),
-                    onChanged: (value) {
-                      groupName = value;
-                    },
-                  ),
-                  SizedBox(height: 16),
-                  Text('Select Participants:'),
-                  SizedBox(height: 8),
-                  Container(
-                    height: 300,
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _loadNonGroupUsers(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator());
-                        }
-
-                        if (snapshot.hasError) {
-                          return Center(child: Text('Error loading users'));
-                        }
-
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Center(child: Text('No users available'));
-                        }
-
-                        final users = snapshot.data!;
-
-                        // Initialize selection map if empty
-                        if (selectedUsers.isEmpty) {
-                          for (var user in users) {
-                            selectedUsers[user['id']] = false;
-                          }
-                        }
-
-                        return ListView.builder(
-                          itemCount: users.length,
-                          itemBuilder: (context, index) {
-                            final user = users[index];
-                            return CheckboxListTile(
-                              title: Text(user['name']),
-                              value: selectedUsers[user['id']] ?? false,
-                              onChanged: (value) {
-                                setDialogState(() {
-                                  selectedUsers[user['id']] = value!;
-                                });
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
+      builder: (context) => AlertDialog(
+        title: Text('Create New Chat'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                labelText: 'Chat Name',
+                hintText: 'Enter name for group chat',
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
+            SizedBox(height: 16),
+            Text('Select Participants:'),
+            SizedBox(height: 8),
+            Container(
+              height: 200,
+              width: double.maxFinite,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
               ),
-              ElevatedButton(
-                onPressed: isCreating
-                    ? null
-                    : () {
-                        // Validate group creation
-                        final selectedUserIds = selectedUsers.entries
-                            .where((entry) => entry.value)
-                            .map((entry) => entry.key)
-                            .toList();
-
-                        if (groupName.isEmpty || selectedUserIds.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(
-                                  'Please enter a group name and select at least one user')));
-                          return;
-                        }
-
-                        // Set creating flag to prevent multiple clicks
-                        setDialogState(() {
-                          isCreating = true;
-                        });
-
-                        // Add current user ID to member list
-                        final memberIds = ['15', ...selectedUserIds];
-
-                        // Generate a new unique ID (simple approach)
-                        final newId =
-                            (int.parse(_cachedMessages!.last['id']) + 1)
-                                .toString();
-
-                        // Create new group chat
-                        final newGroup = {
-                          'name': groupName,
-                          'message': 'You created this group',
-                          'avatar': 'assets/logoS.jpg',
-                          'isOnline': true,
-                          'id': newId,
-                          'isGroup': true,
-                          'members': memberIds,
-                        };
-
-                        // Update the cached messages
-                        setState(() {
-                          _cachedMessages!.add(newGroup);
-                        });
-
-                        // Reset creating flag
-                        setDialogState(() {
-                          isCreating = false;
-                          // Clear selections for next time
-                          groupName = '';
-                          for (var key in selectedUsers.keys) {
-                            selectedUsers[key] = false;
-                          }
-                        });
-
-                        // Notify user of success
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Group created successfully!')));
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  disabledBackgroundColor: Colors.red.withOpacity(0.5),
-                ),
-                child: isCreating
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text('Create'),
+              child: ListView.builder(
+                itemCount: 5, // Sample users
+                itemBuilder: (context, index) {
+                  return CheckboxListTile(
+                    title: Text('User ${index + 1}'),
+                    value: false,
+                    onChanged: (value) {},
+                  );
+                },
               ),
-            ],
-          );
-        });
-      },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: Text('Create'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -495,8 +353,7 @@ class _MessageListState extends State<MessageList> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
+                              border: Border.all(color: Colors.white, width: 1.5),
                             ),
                             child: Icon(
                               Icons.people,
