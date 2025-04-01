@@ -2,7 +2,7 @@ import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
-import 'package:finalltmcb/Widget/MessageList.dart';
+import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
 
 class ChatTablet extends StatefulWidget {

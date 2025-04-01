@@ -20,6 +20,8 @@ class _ChatContentState extends State<ChatContent> {
   final Map<String, List<ChatMessage>> _userMessages = {};
   late String _currentUserName;
   late String _currentUserAvatar;
+  bool _isGroupChat = false;
+  List<String> _groupMembers = [];
 
   // Controller for the text input field
   final TextEditingController _textController = TextEditingController();
@@ -57,6 +59,16 @@ class _ChatContentState extends State<ChatContent> {
           isMe: false,
           timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
         ),
+        ChatMessage(
+          text: 'How are you doing?',
+          isMe: true,
+          timestamp: DateTime.now().subtract(const Duration(minutes: 3)),
+        ),
+        ChatMessage(
+          text: 'I\'m doing great! Thanks for asking.',
+          isMe: false,
+          timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
+        ),
       ];
     }
 
@@ -79,7 +91,23 @@ class _ChatContentState extends State<ChatContent> {
   void _fetchUserProfile() {
     // In a real app, you would get this from a user service
     // For now, we'll use mock data
-    _currentUserName = "User ${widget.userId}";
+    if (widget.userId == '1' || widget.userId == '2' || widget.userId == '3') {
+      // These IDs are for group chats based on UserList.dart
+      _isGroupChat = true;
+      if (widget.userId == '1') {
+        _currentUserName = "Dory Family";
+        _groupMembers = ['You', 'Tân', 'Minh', 'Hà'];
+      } else if (widget.userId == '2') {
+        _currentUserName = "GAME 2D/3D JOBS";
+        _groupMembers = ['You', 'Anh', 'Bình', 'Cường', 'Dũng'];
+      } else {
+        _currentUserName = "Da banh ko???";
+        _groupMembers = ['You', 'Nguyễn Minh Trường', 'Hải', 'Long'];
+      }
+    } else {
+      _isGroupChat = false;
+      _currentUserName = "User ${widget.userId}";
+    }
     _currentUserAvatar = "assets/logoS.jpg";
   }
 
@@ -122,16 +150,23 @@ class _ChatContentState extends State<ChatContent> {
               radius: 20,
             ),
             SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _currentUserName,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _currentUserName,
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (_isGroupChat)
+                    Text(
+                      "${_groupMembers.length} members",
+                      style: TextStyle(fontSize: 12),
+                    ),
+                ],
+              ),
             ),
-            Spacer(),
             IconButton(onPressed: () {}, icon: Icon(Icons.call)),
           ],
         ),
@@ -148,7 +183,30 @@ class _ChatContentState extends State<ChatContent> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
-                      return ChatBubble(message: message);
+                      if (message.isMe) {
+                        // Current user's message - no avatar
+                        return ChatBubble(message: message);
+                      } else {
+                        // Other user's message - include avatar
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Avatar for other users
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8.0, right: 4.0),
+                                child: CircleAvatar(
+                                  backgroundImage: AssetImage(_currentUserAvatar),
+                                  radius: 16,
+                                ),
+                              ),
+                              // Message bubble
+                              Expanded(child: ChatBubble(message: message)),
+                            ],
+                          ),
+                        );
+                      }
                     },
                   ),
           ),
@@ -158,7 +216,6 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // ... existing _buildChatInput method ...
   Widget _buildChatInput() {
     return Container(
       padding: const EdgeInsets.all(8.0),

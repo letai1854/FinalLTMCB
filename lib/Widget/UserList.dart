@@ -94,6 +94,8 @@ class _MessageListState extends State<MessageList> {
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '1',
+          'isGroup': true, // Mark as group chat
+          'members': ['You', 'Tân', 'Minh', 'Hà'],
         },
         {
           'name': 'GAME 2D/3D JOBS',
@@ -101,6 +103,8 @@ class _MessageListState extends State<MessageList> {
           'avatar': 'assets/logoS.jpg',
           'isOnline': false,
           'id': '2',
+          'isGroup': true, // Mark as group chat
+          'members': ['You', 'Anh', 'Bình', 'Cường', 'Dũng'],
         },
         {
           'name': 'Da banh ko???',
@@ -108,13 +112,16 @@ class _MessageListState extends State<MessageList> {
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '3',
+          'isGroup': true, // Mark as group chat
+          'members': ['You', 'Nguyễn Minh Trường', 'Hải', 'Long'],
         },
         {
-          'name': 'Da banh ko???',
-          'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
+          'name': 'Mai Anh',
+          'message': 'Hẹn gặp lại bạn cuối tuần nhé! 1 giờ',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
           'id': '4',
+          'isGroup': false,
         },
         {
           'name': 'Da banh ko???',
@@ -205,6 +212,61 @@ class _MessageListState extends State<MessageList> {
     }
   }
 
+  void _handleCreateChat() {
+    // Show dialog to create new chat
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Create New Chat'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                labelText: 'Chat Name',
+                hintText: 'Enter name for group chat',
+              ),
+            ),
+            SizedBox(height: 16),
+            Text('Select Participants:'),
+            SizedBox(height: 8),
+            Container(
+              height: 200,
+              width: double.maxFinite,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                itemCount: 5, // Sample users
+                itemBuilder: (context, index) {
+                  return CheckboxListTile(
+                    title: Text('User ${index + 1}'),
+                    value: false,
+                    onChanged: (value) {},
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -229,7 +291,32 @@ class _MessageListState extends State<MessageList> {
             ),
           ),
         ),
+        actions: widget.isDesktopOrTablet
+            ? [
+                // Desktop/tablet create chat button
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _handleCreateChat,
+                    icon: Icon(Icons.chat_bubble_outline),
+                    label: Text('New Chat'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ),
+              ]
+            : null,
       ),
+      // Mobile floating action button for creating chats
+      floatingActionButton: widget.isDesktopOrTablet
+          ? null
+          : FloatingActionButton(
+              onPressed: _handleCreateChat,
+              backgroundColor: Colors.red,
+              child: Icon(Icons.chat_bubble_outline),
+            ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         // Use the static future to prevent rebuilding
         future: _dataFuture,
@@ -251,10 +338,48 @@ class _MessageListState extends State<MessageList> {
                   selected: isSelected,
                   selectedTileColor: Colors.red.withOpacity(0.1),
                   onTap: () => _handleUserTap(message['id']),
-                  leading: CircleAvatar(
-                    backgroundImage: AssetImage(message['avatar']!),
+                  leading: Stack(
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: AssetImage(message['avatar']!),
+                      ),
+                      // Show group indicator for group chats
+                      if (message['isGroup'] == true)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: Icon(
+                              Icons.people,
+                              size: 12,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  title: Text(message['name']!),
+                  title: Row(
+                    children: [
+                      Text(message['name']!),
+                      if (message['isGroup'] == true)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child: Text(
+                            '(${(message['members'] as List).length})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   subtitle: Text(message['message']!),
                   tileColor: Colors.white,
                 );
