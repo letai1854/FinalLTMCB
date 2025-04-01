@@ -1,3 +1,5 @@
+// Import UserList to access the static cache
+import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Widget/ChatBubble.dart';
 import 'package:flutter/material.dart';
@@ -52,7 +54,7 @@ class _ChatContentState extends State<ChatContent> {
         ChatMessage(
           text: 'Hello!',
           isMe: true,
-          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
         ),
         ChatMessage(
           text: 'Hi there!',
@@ -87,28 +89,43 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Fetch user profile information
+  // Fetch user profile information from the static cache in UserList
   void _fetchUserProfile() {
-    // In a real app, you would get this from a user service
-    // For now, we'll use mock data
-    if (widget.userId == '1' || widget.userId == '2' || widget.userId == '3') {
-      // These IDs are for group chats based on UserList.dart
-      _isGroupChat = true;
-      if (widget.userId == '1') {
-        _currentUserName = "Dory Family";
-        _groupMembers = ['You', 'Tân', 'Minh', 'Hà'];
-      } else if (widget.userId == '2') {
-        _currentUserName = "GAME 2D/3D JOBS";
-        _groupMembers = ['You', 'Anh', 'Bình', 'Cường', 'Dũng'];
-      } else {
-        _currentUserName = "Da banh ko???";
-        _groupMembers = ['You', 'Nguyễn Minh Trường', 'Hải', 'Long'];
+    // Access the public static cache from MessageList.
+    // Find the chat data manually to avoid orElse type issues.
+    Map<String, dynamic>? chatData;
+    if (MessageList.cachedMessages != null) {
+      for (var chat in MessageList.cachedMessages!) {
+        if (chat['id'] == widget.userId) {
+          chatData = chat;
+          break;
+        }
       }
-    } else {
-      _isGroupChat = false;
-      _currentUserName = "User ${widget.userId}";
     }
-    _currentUserAvatar = "assets/logoS.jpg";
+
+    if (chatData != null) {
+      // Use null assertion operator (!) since we've checked chatData is not null
+      setState(() { // Update state with fetched data
+        _currentUserName = chatData!['name'] ?? 'Unknown Chat';
+        _currentUserAvatar = chatData!['avatar'] ?? 'assets/logoS.jpg'; // Default avatar
+        _isGroupChat = chatData!['isGroup'] ?? false;
+        if (_isGroupChat) {
+          // If it's a group, get member IDs. We need to convert them back to names if needed.
+          // For now, just store the count or IDs. The AppBar uses length.
+          _groupMembers = List<String>.from(chatData!['members'] ?? []);
+        } else {
+          _groupMembers = [];
+        }
+      });
+    } else {
+      // Handle case where chat ID is not found in the cache
+       setState(() {
+         _currentUserName = "Unknown Chat";
+         _currentUserAvatar = "assets/logoS.jpg";
+         _isGroupChat = false;
+         _groupMembers = [];
+       });
+    }
   }
 
   // Function to handle sending messages
@@ -150,24 +167,28 @@ class _ChatContentState extends State<ChatContent> {
               radius: 20,
             ),
             SizedBox(width: 10),
+            // Use a Key based on userId to force AppBar rebuild when user changes
             Expanded(
+              key: ValueKey(widget.userId), // Force rebuild on ID change
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _currentUserName,
+                    _currentUserName, // This should now be correct
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (_isGroupChat)
                     Text(
+                      // Display member count based on the length of the members list (IDs)
                       "${_groupMembers.length} members",
                       style: TextStyle(fontSize: 12),
                     ),
                 ],
               ),
             ),
-            IconButton(onPressed: () {}, icon: Icon(Icons.call)),
+            // Show Call and Video Call icons for both individual and group chats
+            IconButton(onPressed: () { /* TODO: Implement call action */ }, icon: Icon(Icons.call)),
           ],
         ),
         backgroundColor: Colors.red,
