@@ -1,16 +1,8 @@
 // Import UserList to access the static cache
-import 'package:finalltmcb/Widget/AudioRecorderWidget.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
-import 'dart:io';
 import 'package:finalltmcb/Widget/ChatBubble.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:convert';
-import 'dart:math' as math; // Add this import for min function
-import 'package:finalltmcb/Widget/FilePickerUtil.dart';
-import 'package:file_picker/file_picker.dart';
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -36,29 +28,8 @@ class _ChatContentState extends State<ChatContent> {
   // Controller for the text input field
   final TextEditingController _textController = TextEditingController();
 
-  // List to store selected images
-  List<XFile> _selectedImages = [];
-
   // ScrollController for ListView
   final ScrollController _scrollController = ScrollController();
-
-  // Add a flag to track if we're currently recording
-  bool _isRecording = false;
-
-  // Thêm biến để theo dõi trạng thái gửi audio
-  bool _isSendingAudio = false;
-
-  // Add a state variable to track if the add button menu is showing
-  bool _isAddMenuVisible = false;
-
-  // Add a OverlayEntry để quản lý menu
-  OverlayEntry? _overlayEntry;
-
-  // Create a GlobalKey to track the Add button's position precisely
-  final GlobalKey _addButtonKey = GlobalKey();
-
-  // Add a flag to track if a file is being processed
-  bool _isProcessingFile = false;
 
   @override
   void initState() {
@@ -84,25 +55,21 @@ class _ChatContentState extends State<ChatContent> {
           text: 'Hello!',
           isMe: true,
           timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
-          image: null,
         ),
         ChatMessage(
           text: 'Hi there!',
           isMe: false,
           timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
-          image: null,
         ),
         ChatMessage(
           text: 'How are you doing?',
           isMe: true,
           timestamp: DateTime.now().subtract(const Duration(minutes: 3)),
-          image: null,
         ),
         ChatMessage(
           text: 'I\'m doing great! Thanks for asking.',
           isMe: false,
           timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
-          image: null,
         ),
       ];
     }
@@ -138,11 +105,9 @@ class _ChatContentState extends State<ChatContent> {
 
     if (chatData != null) {
       // Use null assertion operator (!) since we've checked chatData is not null
-      setState(() {
-        // Update state with fetched data
+      setState(() { // Update state with fetched data
         _currentUserName = chatData!['name'] ?? 'Unknown Chat';
-        _currentUserAvatar =
-            chatData!['avatar'] ?? 'assets/logoS.jpg'; // Default avatar
+        _currentUserAvatar = chatData!['avatar'] ?? 'assets/logoS.jpg'; // Default avatar
         _isGroupChat = chatData!['isGroup'] ?? false;
         if (_isGroupChat) {
           // If it's a group, get member IDs. We need to convert them back to names if needed.
@@ -154,547 +119,38 @@ class _ChatContentState extends State<ChatContent> {
       });
     } else {
       // Handle case where chat ID is not found in the cache
+       setState(() {
+         _currentUserName = "Unknown Chat";
+         _currentUserAvatar = "assets/logoS.jpg";
+         _isGroupChat = false;
+         _groupMembers = [];
+       });
+    }
+  }
+//dfsdf
+  // Function to handle sending messages
+  void _handleSubmitted(String text) {
+    if (text.isNotEmpty) {
       setState(() {
-        _currentUserName = "Unknown Chat";
-        _currentUserAvatar = "assets/logoS.jpg";
-        _isGroupChat = false;
-        _groupMembers = [];
-      });
-    }
-  }
-
-  // Improved function to handle sending messages
-  Future<void> _handleSubmitted(String text) async {
-    if (text.isEmpty && _selectedImages.isEmpty) {
-      return; // Don't send empty messages
-    }
-
-    try {
-      // First add text message if not empty
-      if (text.isNotEmpty) {
-        setState(() {
-          if (!_userMessages.containsKey(widget.userId)) {
-            _userMessages[widget.userId] = [];
-          }
-
-          _userMessages[widget.userId]!.add(ChatMessage(
-            text: text,
-            isMe: true,
-            timestamp: DateTime.now(),
-            image: null,
-          ));
-          _textController.clear(); // Clear the input field
-        });
-
-        // Ensure we scroll after adding the text message
-        _scrollToBottom();
-      }
-
-      // Process images outside of setState without showing a snackbar
-      if (_selectedImages.isNotEmpty) {
-        // Process each image one by one
-        for (var image in List<XFile>.from(_selectedImages)) {
-          await _processAndAddImage(image);
-          // Scroll after each image to ensure visibility
-          _scrollToBottom();
-        }
-
-        // Clear selected images after processing
-        setState(() {
-          _selectedImages.clear();
-        });
-      }
-    } catch (e) {
-      print("Error sending message: $e");
-      // Just print error without showing UI notification
-    }
-  }
-
-  // Improved image processing with better scrolling
-  Future<void> _processAndAddImage(XFile image) async {
-    try {
-      String base64Image;
-
-      if (kIsWeb) {
-        final bytes = await image.readAsBytes();
-        base64Image = base64Encode(bytes);
-        print('Web image path: ${image.path}');
-      } else {
-        File imageFile = File(image.path);
-        print('Native image path: ${image.path}');
-        final bytes = await imageFile.readAsBytes();
-        base64Image = base64Encode(bytes);
-      }
-
-      if (base64Image.isNotEmpty) {
-        print(
-            'Base64 image (first 50 chars): ${base64Image.substring(0, math.min(50, base64Image.length))}...');
-
-        // Update UI with the new image message
-        setState(() {
-          if (!_userMessages.containsKey(widget.userId)) {
-            _userMessages[widget.userId] = [];
-          }
-
-          _userMessages[widget.userId]!.add(ChatMessage(
-            text: '', // Empty text for image messages
-            isMe: true,
-            timestamp: DateTime.now(),
-            image: base64Image,
-          ));
-        });
-
-        // Improved scrolling call
-        _scrollToBottom();
-      }
-    } catch (e) {
-      print("Error processing image: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to process image: $e')),
-      );
-    }
-  }
-
-  // Improved helper function to scroll to bottom of chat - make more reliable
-  void _scrollToBottom() {
-    // Use a double-delay approach for more reliable scrolling
-    // First delay ensures widget tree is updated
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        // Second delay ensures the layout has been calculated
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (mounted && _scrollController.hasClients) {
-            try {
-              _scrollController.animateTo(
-                _scrollController.position.maxScrollExtent,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-              );
-            } catch (e) {
-              print("Error scrolling to bottom: $e");
-            }
-          }
-        });
-      }
-    });
-  }
-
-  // Function to send images without text
-  void _sendOnlyImages() {
-    if (_selectedImages.isEmpty) return;
-    _handleSubmitted('');
-  }
-
-  // Helper function to process and add image messages (deprecated, use _processAndAddImage instead)
-  Future<void> _addImageMessage(XFile image) async {
-    await _processAndAddImage(image);
-  }
-
-  // Function to pick image from gallery
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker _picker = ImagePicker();
-      final List<XFile>? images = await _picker.pickMultiImage();
-
-      if (images != null && images.isNotEmpty) {
-        // We'll update this to be smoother
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          setState(() {
-            _selectedImages.addAll(images);
-          });
-        });
-      }
-    } catch (e) {
-      print("Error picking image: $e");
-      // Don't show SnackBar to avoid blocking the chat
-      print('Failed to pick image: $e');
-    }
-  }
-
-  // Function to add selected images smoothly
-  void _updateSelectedImages(List<XFile> newImages) {
-    setState(() {
-      _selectedImages.addAll(newImages);
-    });
-  }
-
-  // Function to remove an image smoothly
-  void _removeImage(int index) {
-    if (index >= 0 && index < _selectedImages.length) {
-      setState(() {
-        _selectedImages.removeAt(index);
-      });
-    }
-  }
-
-  // Add this method to handle audio recording
-  void _handleAudioRecording() {
-    setState(() {
-      _isRecording = true;
-    });
-  }
-
-  // Improved audio handling function
-  void _handleAudioSaved(String audioPath) {
-    print("🔊 Audio saved to path: $audioPath");
-
-    // Bắt đầu trạng thái loading
-    setState(() {
-      _isSendingAudio = true;
-      _isRecording = false; // Kết thúc ghi âm
-    });
-
-    // Xử lý audio trong một luồng riêng để tránh block UI
-    Future.microtask(() async {
-      try {
-        print("🔊 Adding audio message to chat...");
-
-        // Đảm bảo path là absolute path
-        final String absolutePath;
-        if (kIsWeb) {
-          absolutePath = audioPath;
-        } else {
-          // Đảm bảo có absolute path trên mobile
-          final file = File(audioPath);
-          absolutePath = file.absolute.path;
-          print("🔊 Absolute audio path: $absolutePath");
-
-          // Kiểm tra kích thước file
-          if (await file.exists()) {
-            final fileSize = await file.length();
-            print("🔊 Audio file size: $fileSize bytes");
-
-            // Nếu file quá lớn, có thể thực hiện xử lý tối ưu ở đây
-            if (fileSize > 5 * 1024 * 1024) {
-              // > 5MB
-              print("🔊 Large audio file detected - optimizing");
-              // Ở đây có thể thêm logic nén file nếu cần
-            }
-          }
-        }
-
-        // Tạo message mới với file path
-        final newMessage = ChatMessage(
-          text: '', // Empty text for audio messages
-          isMe: true,
-          timestamp: DateTime.now(),
-          audio: absolutePath,
-          isAudioPath: true, // Indicate this is a file path, not base64
-        );
-
-        // Cập nhật UI với message mới
-        if (mounted) {
-          setState(() {
-            _isSendingAudio = false;
-            // Đảm bảo userId tồn tại trong map
-            if (!_userMessages.containsKey(widget.userId)) {
-              _userMessages[widget.userId] = [];
-            }
-            _userMessages[widget.userId]!.add(newMessage);
-          });
-
-          // Improved scrolling - more reliable
-          _scrollToBottom();
-
-          // Add an extra scroll attempt after a longer delay for large audio files
-          Future.delayed(Duration(milliseconds: 500), () {
-            if (mounted) {
-              _scrollToBottom();
-            }
-          });
-        }
-
-        print("🔊 Audio message added successfully");
-      } catch (e) {
-        print("🔊 ERROR adding audio message: $e");
-        if (mounted) {
-          setState(() {
-            _isSendingAudio = false;
-          });
-        }
-        _handleAudioCancel();
-      }
-    });
-  }
-
-  // Add this method to handle canceling recording
-  void _handleAudioCancel() {
-    if (mounted) {
-      setState(() {
-        _isRecording = false;
-      });
-    }
-  }
-
-  // Add method to handle image viewing in full-screen
-  void _viewImage(String base64Image) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            iconTheme: IconThemeData(color: Colors.white),
-            elevation: 0,
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              panEnabled: true,
-              boundaryMargin: EdgeInsets.all(20),
-              minScale: 0.5,
-              maxScale: 4,
-              child: Image.memory(
-                base64Decode(base64Image),
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Improved toggle menu method with better positioning
-  void _toggleAddMenu() {
-    print("Toggle add menu called, current state: $_isAddMenuVisible");
-
-    if (_isAddMenuVisible) {
-      // Nếu menu đang hiển thị, đóng nó lại
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-      setState(() => _isAddMenuVisible = false);
-    } else {
-      // Find the button position using the GlobalKey
-      final RenderBox? buttonBox =
-          _addButtonKey.currentContext?.findRenderObject() as RenderBox?;
-
-      if (buttonBox == null) {
-        print("Cannot find add button position");
-        return;
-      }
-
-      // Calculate the position of the button in the global coordinate system
-      final buttonPosition = buttonBox.localToGlobal(Offset.zero);
-      final buttonSize = buttonBox.size;
-
-      // Calculate the menu position to appear just above the button
-      final double menuLeft = buttonPosition.dx;
-      final double menuTop =
-          buttonPosition.dy - 100; // Position just above the button
-
-      print(
-          "Button position: $buttonPosition, Menu position: ($menuLeft, $menuTop)");
-
-      // Create and position the overlay
-      _overlayEntry = OverlayEntry(
-        builder: (context) => Positioned(
-          left: menuLeft,
-          top: menuTop,
-          child: Material(
-            elevation: 4.0,
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white,
-            child: Container(
-              width: 50, // Fixed width to ensure proper sizing
-              padding: EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // File option
-                  InkWell(
-                    onTap: () {
-                      // Use Future.microtask to prevent UI interruption
-                      Future.microtask(() => _handleFileSend());
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.insert_drive_file,
-                        color: Colors.red,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                  Divider(height: 1, thickness: 1),
-                  // Video option
-                  InkWell(
-                    onTap: () {
-                      // Use Future.microtask to prevent UI interruption
-                      Future.microtask(() => _handleVideoSend());
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Icon(
-                        Icons.videocam,
-                        color: Colors.red,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Use a try-catch to prevent app crashes if overlay insertion fails
-      try {
-        Overlay.of(context).insert(_overlayEntry!);
-        setState(() => _isAddMenuVisible = true);
-      } catch (e) {
-        print("Error showing menu: $e");
-        _overlayEntry = null;
-      }
-    }
-  }
-
-  // Add methods to handle file/video sending (stub implementations for now)
-  Future<void> _handleFileSend() async {
-    print("File send button clicked");
-    _toggleAddMenu(); // Close menu immediately
-
-    if (_isProcessingFile) {
-      print("Already processing a file, ignoring request");
-      return;
-    }
-
-    // Set processing flag
-    setState(() => _isProcessingFile = true);
-
-    // Không hiển thị thông báo Snackbar khi chọn file
-    try {
-      // Step 1: Let user pick a file without showing a snackbar
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        allowMultiple: false,
-        withData: kIsWeb, // Only load file data on web
-        dialogTitle: 'Select a file to share',
-      );
-
-      // Reset processing flag
-      setState(() => _isProcessingFile = false);
-
-      if (result == null || result.files.isEmpty) {
-        print("No file selected or selection canceled");
-        return;
-      }
-
-      final file = result.files.first;
-      print("Selected file: ${file.name}, size: ${file.size} bytes");
-
-      // Create file message from result
-      final fileMessage = FileMessage(
-        fileName: file.name,
-        mimeType: FilePickerUtil.getMimeType(
-            file.name), // Changed from _getMimeType to getMimeType
-        fileSize: file.size,
-        filePath: file.path ?? '',
-        fileBytes: file.bytes,
-      );
-
-      // Add the file message to chat
-      setState(() {
-        if (!_userMessages.containsKey(widget.userId)) {
-          _userMessages[widget.userId] = [];
-        }
-
         _userMessages[widget.userId]!.add(ChatMessage(
-          text: '', // Empty text for file messages
+          text: text,
           isMe: true,
           timestamp: DateTime.now(),
-          file: fileMessage,
         ));
+        _textController.clear(); // Clear the input field
+
+        // Scroll to the bottom after a new message is added
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       });
-
-      // Scroll to bottom to show the new message
-      _scrollToBottom();
-
-      // Add an extra scroll attempt for reliability
-      Future.delayed(Duration(milliseconds: 300), () {
-        if (mounted) _scrollToBottom();
-      });
-    } catch (e) {
-      print("Error handling file: $e");
-      setState(() => _isProcessingFile = false);
-
-      // Chỉ hiển thị thông báo lỗi ngắn gọn nếu cần thiết
-      _showTopNotification(
-          'Không thể chọn file: ${e.toString().split('\n').first}');
     }
-  }
-
-  void _showTopNotification(String message, {Duration? duration}) {
-    // Sử dụng overlay để hiển thị thông báo ở phía trên
-    final overlay = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: MediaQuery.of(context).padding.top + 10,
-        left: 20,
-        right: 20,
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.red.shade700,
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.white),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    overlay.insert(overlayEntry);
-
-    // Tự động đóng sau một khoảng thời gian
-    Future.delayed(duration ?? Duration(seconds: 3), () {
-      overlayEntry.remove();
-    });
-  }
-
-  void _handleFileDownload(FileMessage file) async {
-    print("Attempting to download/open file: ${file.fileName}");
-
-    // Use the platform-safe downloader
-    await FileDownloader.downloadFile(file, context);
-  }
-
-  void _handleVideoSend() {
-    // Implement video picking functionality here
-    print("Video send button clicked");
-    _toggleAddMenu(); // Hide menu after selection
-  }
-
-  // Đảm bảo đóng overlay khi widget bị dispose
-  @override
-  void dispose() {
-    // Close any open menu
-    if (_isAddMenuVisible) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-    super.dispose();
   }
 
   @override
@@ -732,9 +188,7 @@ class _ChatContentState extends State<ChatContent> {
               ),
             ),
             // Show Call and Video Call icons for both individual and group chats
-            IconButton(
-                onPressed: () {/* TODO: Implement call action */},
-                icon: Icon(Icons.call)),
+            IconButton(onPressed: () { /* TODO: Implement call action */ }, icon: Icon(Icons.call)),
           ],
         ),
         backgroundColor: Colors.red,
@@ -748,16 +202,11 @@ class _ChatContentState extends State<ChatContent> {
                 : ListView.builder(
                     controller: _scrollController,
                     itemCount: messages.length,
-                    // Add padding at the bottom to ensure messages aren't hidden behind input
-                    padding: EdgeInsets.only(bottom: 16),
                     itemBuilder: (context, index) {
                       final message = messages[index];
                       if (message.isMe) {
-                        // Pass the file download handler to ChatBubble
-                        return ChatBubble(
-                          message: message,
-                          onFileDownload: _handleFileDownload,
-                        );
+                        // Current user's message - no avatar
+                        return ChatBubble(message: message);
                       } else {
                         // Other user's message - include avatar
                         return Padding(
@@ -767,21 +216,14 @@ class _ChatContentState extends State<ChatContent> {
                             children: [
                               // Avatar for other users
                               Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 8.0, right: 4.0),
+                                padding: const EdgeInsets.only(left: 8.0, right: 4.0),
                                 child: CircleAvatar(
-                                  backgroundImage:
-                                      AssetImage(_currentUserAvatar),
+                                  backgroundImage: AssetImage(_currentUserAvatar),
                                   radius: 16,
                                 ),
                               ),
-                              // Message bubble - with file download handler
-                              Expanded(
-                                child: ChatBubble(
-                                  message: message,
-                                  onFileDownload: _handleFileDownload,
-                                ),
-                              ),
+                              // Message bubble
+                              Expanded(child: ChatBubble(message: message)),
                             ],
                           ),
                         );
@@ -795,320 +237,57 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // Update the _buildChatInput method to show AudioRecorderWidget when recording
   Widget _buildChatInput() {
-    if (_isRecording) {
-      return Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: AudioRecorderWidget(
-          onAudioSaved: _handleAudioSaved,
-          onCancel: _handleAudioCancel,
-        ),
-      );
-    }
-
-    if (_isSendingAudio) {
-      // Hiển thị loading khi đang xử lý audio
-      return Container(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Colors.red),
-              SizedBox(height: 8),
-              Text(
-                "Đang xử lý audio...",
-                style: TextStyle(color: Colors.red.shade700),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Existing chat input UI for normal mode
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          // Use AnimatedSize instead of AnimatedContainer for better transitions
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
+          IconButton(
+              onPressed: () {},
+              icon: const Icon(
+                Icons.add,
+                color: Colors.red,
+              )),
+          Expanded(
             child: Container(
-              height: _selectedImages.isEmpty ? 0 : 90,
-              margin:
-                  EdgeInsets.only(bottom: _selectedImages.isEmpty ? 0 : 8.0),
-              child: _selectedImages.isEmpty
-                  ? const SizedBox.shrink()
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _selectedImages.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                // Pre-sized container to avoid layout shifts
-                                Container(
-                                  color: Colors.grey.shade100,
-                                  width: 70,
-                                  height: 70,
-                                ),
-                                // Image
-                                kIsWeb
-                                    ? Image.network(
-                                        _selectedImages[index].path,
-                                        fit: BoxFit.cover,
-                                        width: 70,
-                                        height: 70,
-                                      )
-                                    : Image.file(
-                                        File(_selectedImages[index].path),
-                                        fit: BoxFit.cover,
-                                        width: 70,
-                                        height: 70,
-                                      ),
-                                // Close button
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: GestureDetector(
-                                    onTap: () => _removeImage(index),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade700,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ),
-          Stack(
-            children: [
-              // Main input row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Replace the add button with our new implementation
-                  IconButton(
-                    key: _addButtonKey,
-                    onPressed: () {
-                      print("Add button pressed");
-                      _toggleAddMenu();
-                    },
-                    icon: const Icon(
-                      Icons.add,
-                      color: Colors.red,
-                    ),
+              decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(25)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Aa',
                   ),
-                  // Rest of the row - text field, image and mic buttons
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(25)),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                        child: TextField(
-                          controller: _textController,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Aa',
-                          ),
-                          onSubmitted: _handleSubmitted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                      onPressed: _pickImage,
-                      icon: const Icon(
-                        Icons.image,
-                        color: Colors.red,
-                      )),
-                  IconButton(
-                      onPressed:
-                          _handleAudioRecording, // Connect to the audio recording handler
-                      icon: const Icon(
-                        Icons.mic,
-                        color: Colors.red,
-                      )),
-                  // Smart send button - handles both text and images
-                  IconButton(
-                      onPressed: () {
-                        // If there's text or images or both, send them
-                        if (_textController.text.isNotEmpty ||
-                            _selectedImages.isNotEmpty) {
-                          _handleSubmitted(_textController.text);
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.send,
-                        color: Colors.red,
-                      )),
-                ],
+                  onSubmitted: _handleSubmitted,
+                ),
               ),
-            ],
+            ),
           ),
+          IconButton(
+              onPressed: () {},
+              icon: const Icon(
+                Icons.camera_alt,
+                color: Colors.red,
+              )),
+          IconButton(
+              onPressed: () {},
+              icon: const Icon(
+                Icons.mic,
+                color: Colors.red,
+              )),
+          IconButton(
+              onPressed: () => _handleSubmitted(_textController.text),
+              icon: const Icon(
+                Icons.send,
+                color: Colors.red,
+              )),
         ],
-      ),
-    );
-  }
-
-  // Creating a separate widget for image preview for better maintainability
-  Widget _buildSelectedImages() {
-    if (_selectedImages.isEmpty) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 70,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _selectedImages.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: kIsWeb
-                      ? Image.network(
-                          _selectedImages[index].path,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.file(
-                          File(_selectedImages[index].path),
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedImages.removeAt(index);
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// Create a separate widget for image preview
-class ImagePreviewWidget extends StatelessWidget {
-  final List<XFile> images;
-  final Function(int) onRemove;
-
-  const ImagePreviewWidget({
-    Key? key,
-    required this.images,
-    required this.onRemove,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.only(bottom: 8.0),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: images.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Stack(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: kIsWeb
-                      ? Image.network(
-                          images[index].path,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.file(
-                          File(images[index].path),
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () => onRemove(index),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade700,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }

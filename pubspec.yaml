@@ -40,6 +40,7 @@ dependencies:
   path_provider: ^2.1.2 # Lấy đường dẫn thư mục tạm để lưu file ghi âm
   permission_handler: ^11.3.0 # Yêu cầu quyền truy cập (camera, mic, storage)
   uuid: ^4.3.3 # 
+  file_picker: ^5.2.10 # Add this line
 
 dev_dependencies:
   flutter_test:
