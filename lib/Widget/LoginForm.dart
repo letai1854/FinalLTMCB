@@ -22,6 +22,11 @@ class _LoginFormState extends State<LoginForm> {
   String? _successMessage; // Added for success messages
 
   Future<void> _handleLogin() async {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/chat',
+      (route) => false,
+    );
     // Validate fields
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() {

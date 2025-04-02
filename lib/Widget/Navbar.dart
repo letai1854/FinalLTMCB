@@ -20,11 +20,11 @@ class Navbar extends StatelessWidget {
                 right: isTablet ? 200 : 550), // Adjusted margin for tablet
             child: Row(
               children: [
-                Image.asset(
-                  '/logoS.jpg',
-                  height: 60,
-                  width: 60,
-                ),
+                // Image.asset(
+                //   '/logoS.jpg',
+                //   height: 60,
+                //   width: 60,
+                // ),
                 SizedBox(width: 8),
                 Text(
                   'Shopii',
