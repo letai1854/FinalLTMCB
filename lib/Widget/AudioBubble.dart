@@ -273,6 +273,8 @@ class _AudioBubbleState extends State<AudioBubble> {
   Widget build(BuildContext context) {
     // Làm cho bubble thậm chí nhỏ gọn hơn nữa
     return Container(
+      width: MediaQuery.of(context).size.width *
+          0.3, // Set width to 30% of screen width
       padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 6.0),
       decoration: BoxDecoration(
         color: widget.isMe ? Colors.red.shade100 : Colors.grey.shade200,
