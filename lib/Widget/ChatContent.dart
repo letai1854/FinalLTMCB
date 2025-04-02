@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:math' as math; // Add this import for min function
+import 'package:finalltmcb/Widget/FilePickerUtil.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -51,6 +53,12 @@ class _ChatContentState extends State<ChatContent> {
 
   // Add a OverlayEntry để quản lý menu
   OverlayEntry? _overlayEntry;
+
+  // Create a GlobalKey to track the Add button's position precisely
+  final GlobalKey _addButtonKey = GlobalKey();
+
+  // Add a flag to track if a file is being processed
+  bool _isProcessingFile = false;
 
   @override
   void initState() {
@@ -446,7 +454,7 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // Toggle the add button menu visibility
+  // Improved toggle menu method with better positioning
   void _toggleAddMenu() {
     print("Toggle add menu called, current state: $_isAddMenuVisible");
 
@@ -456,25 +464,48 @@ class _ChatContentState extends State<ChatContent> {
       _overlayEntry = null;
       setState(() => _isAddMenuVisible = false);
     } else {
-      // Nếu menu chưa hiển thị, mở nó lên
-      final RenderBox renderBox = context.findRenderObject() as RenderBox;
-      final RenderBox buttonBox = context.findRenderObject() as RenderBox;
-      final Offset offset = renderBox.localToGlobal(Offset.zero);
+      // Find the button position using the GlobalKey
+      final RenderBox? buttonBox =
+          _addButtonKey.currentContext?.findRenderObject() as RenderBox?;
 
-      // Tạo một overlay entry mới để hiển thị menu
+      if (buttonBox == null) {
+        print("Cannot find add button position");
+        return;
+      }
+
+      // Calculate the position of the button in the global coordinate system
+      final buttonPosition = buttonBox.localToGlobal(Offset.zero);
+      final buttonSize = buttonBox.size;
+
+      // Calculate the menu position to appear just above the button
+      final double menuLeft = buttonPosition.dx;
+      final double menuTop =
+          buttonPosition.dy - 100; // Position just above the button
+
+      print(
+          "Button position: $buttonPosition, Menu position: ($menuLeft, $menuTop)");
+
+      // Create and position the overlay
       _overlayEntry = OverlayEntry(
         builder: (context) => Positioned(
-          // Điều chỉnh vị trí tùy thuộc vào vị trí nút
-          left: 10, // Vị trí của nút Add
-          top: offset.dy - 120, // Vị trí phía trên nút
+          left: menuLeft,
+          top: menuTop,
           child: Material(
             elevation: 4.0,
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
             child: Container(
+              width: 50, // Fixed width to ensure proper sizing
               padding: EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -482,7 +513,8 @@ class _ChatContentState extends State<ChatContent> {
                   // File option
                   InkWell(
                     onTap: () {
-                      _handleFileSend();
+                      // Use Future.microtask to prevent UI interruption
+                      Future.microtask(() => _handleFileSend());
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -497,7 +529,8 @@ class _ChatContentState extends State<ChatContent> {
                   // Video option
                   InkWell(
                     onTap: () {
-                      _handleVideoSend();
+                      // Use Future.microtask to prevent UI interruption
+                      Future.microtask(() => _handleVideoSend());
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -515,17 +548,136 @@ class _ChatContentState extends State<ChatContent> {
         ),
       );
 
-      // Hiển thị overlay
-      Overlay.of(context).insert(_overlayEntry!);
-      setState(() => _isAddMenuVisible = true);
+      // Use a try-catch to prevent app crashes if overlay insertion fails
+      try {
+        Overlay.of(context).insert(_overlayEntry!);
+        setState(() => _isAddMenuVisible = true);
+      } catch (e) {
+        print("Error showing menu: $e");
+        _overlayEntry = null;
+      }
     }
   }
 
   // Add methods to handle file/video sending (stub implementations for now)
-  void _handleFileSend() {
-    // Implement file picking functionality here
+  Future<void> _handleFileSend() async {
     print("File send button clicked");
-    _toggleAddMenu(); // Hide menu after selection
+    _toggleAddMenu(); // Close menu immediately
+
+    if (_isProcessingFile) {
+      print("Already processing a file, ignoring request");
+      return;
+    }
+
+    // Set processing flag
+    setState(() => _isProcessingFile = true);
+
+    // Không hiển thị thông báo Snackbar khi chọn file
+    try {
+      // Step 1: Let user pick a file without showing a snackbar
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        withData: kIsWeb, // Only load file data on web
+        dialogTitle: 'Select a file to share',
+      );
+
+      // Reset processing flag
+      setState(() => _isProcessingFile = false);
+
+      if (result == null || result.files.isEmpty) {
+        print("No file selected or selection canceled");
+        return;
+      }
+
+      final file = result.files.first;
+      print("Selected file: ${file.name}, size: ${file.size} bytes");
+
+      // Create file message from result
+      final fileMessage = FileMessage(
+        fileName: file.name,
+        mimeType: FilePickerUtil.getMimeType(
+            file.name), // Changed from _getMimeType to getMimeType
+        fileSize: file.size,
+        filePath: file.path ?? '',
+        fileBytes: file.bytes,
+      );
+
+      // Add the file message to chat
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+
+        _userMessages[widget.userId]!.add(ChatMessage(
+          text: '', // Empty text for file messages
+          isMe: true,
+          timestamp: DateTime.now(),
+          file: fileMessage,
+        ));
+      });
+
+      // Scroll to bottom to show the new message
+      _scrollToBottom();
+
+      // Add an extra scroll attempt for reliability
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (mounted) _scrollToBottom();
+      });
+    } catch (e) {
+      print("Error handling file: $e");
+      setState(() => _isProcessingFile = false);
+
+      // Chỉ hiển thị thông báo lỗi ngắn gọn nếu cần thiết
+      _showTopNotification(
+          'Không thể chọn file: ${e.toString().split('\n').first}');
+    }
+  }
+
+  void _showTopNotification(String message, {Duration? duration}) {
+    // Sử dụng overlay để hiển thị thông báo ở phía trên
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 20,
+        right: 20,
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.red.shade700,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // Tự động đóng sau một khoảng thời gian
+    Future.delayed(duration ?? Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
+  }
+
+  void _handleFileDownload(FileMessage file) async {
+    print("Attempting to download/open file: ${file.fileName}");
+
+    // Use the platform-safe downloader
+    await FileDownloader.downloadFile(file, context);
   }
 
   void _handleVideoSend() {
@@ -537,8 +689,11 @@ class _ChatContentState extends State<ChatContent> {
   // Đảm bảo đóng overlay khi widget bị dispose
   @override
   void dispose() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    // Close any open menu
+    if (_isAddMenuVisible) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    }
     super.dispose();
   }
 
@@ -598,8 +753,11 @@ class _ChatContentState extends State<ChatContent> {
                     itemBuilder: (context, index) {
                       final message = messages[index];
                       if (message.isMe) {
-                        // Current user's message - no avatar
-                        return ChatBubble(message: message);
+                        // Pass the file download handler to ChatBubble
+                        return ChatBubble(
+                          message: message,
+                          onFileDownload: _handleFileDownload,
+                        );
                       } else {
                         // Other user's message - include avatar
                         return Padding(
@@ -617,8 +775,13 @@ class _ChatContentState extends State<ChatContent> {
                                   radius: 16,
                                 ),
                               ),
-                              // Message bubble
-                              Expanded(child: ChatBubble(message: message)),
+                              // Message bubble - with file download handler
+                              Expanded(
+                                child: ChatBubble(
+                                  message: message,
+                                  onFileDownload: _handleFileDownload,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -756,6 +919,7 @@ class _ChatContentState extends State<ChatContent> {
                 children: [
                   // Replace the add button with our new implementation
                   IconButton(
+                    key: _addButtonKey,
                     onPressed: () {
                       print("Add button pressed");
                       _toggleAddMenu();

@@ -1,12 +1,19 @@
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Widget/AudioBubble.dart';
+import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
+  // Add a callback for file download handling
+  final Function(FileMessage)? onFileDownload;
 
-  const ChatBubble({Key? key, required this.message}) : super(key: key);
+  const ChatBubble({
+    Key? key,
+    required this.message,
+    this.onFileDownload,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +47,25 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildMessageContent(BuildContext context) {
+    // Check if message has a file
+    if (message.isFileMessage) {
+      return FileBubble(
+        file: message.file!,
+        isMe: message.isMe,
+        onTap: () {
+          // Use the callback directly instead of trying to find ancestor
+          if (onFileDownload != null) {
+            onFileDownload!(message.file!);
+          } else {
+            // Fallback if callback not provided
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Cannot download file right now')),
+            );
+          }
+        },
+      );
+    }
+
     // Check if message has audio
     if (message.isAudioMessage) {
       print(
