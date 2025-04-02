@@ -3,6 +3,7 @@ import 'package:finalltmcb/Widget/AudioBubble.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:finalltmcb/Widget/VideoBubble.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -47,6 +48,15 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildMessageContent(BuildContext context) {
+    // Check if message has a video
+    if (message.isVideoMessage) {
+      return VideoBubble(
+        videoPath: message.video!,
+        isMe: message.isMe,
+        isLoading: message.isVideoLoading,
+      );
+    }
+
     // Check if message has a file
     if (message.isFileMessage) {
       return FileBubble(

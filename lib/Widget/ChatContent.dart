@@ -11,6 +11,8 @@ import 'dart:convert';
 import 'dart:math' as math; // Add this import for min function
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -634,9 +636,23 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  void _showTopNotification(String message, {Duration? duration}) {
+  void _showTopNotification(String message,
+      {bool isError = false,
+      bool isSuccess = false,
+      bool isInfo = false,
+      Duration? duration}) {
     // Sử dụng overlay để hiển thị thông báo ở phía trên
     final overlay = Overlay.of(context);
+
+    // Determine background color based on message type
+    final Color backgroundColor = isError
+        ? Colors.red.shade700
+        : isSuccess
+            ? Colors.green.shade700
+            : isInfo
+                ? Colors.blue.shade700
+                : Colors.grey.shade700;
+
     final overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         top: MediaQuery.of(context).padding.top + 10,
@@ -645,7 +661,7 @@ class _ChatContentState extends State<ChatContent> {
         child: Material(
           elevation: 4,
           borderRadius: BorderRadius.circular(8),
-          color: Colors.red.shade700,
+          color: backgroundColor,
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             child: Row(
@@ -680,10 +696,202 @@ class _ChatContentState extends State<ChatContent> {
     await FileDownloader.downloadFile(file, context);
   }
 
-  void _handleVideoSend() {
-    // Implement video picking functionality here
+  void _handleVideoSend() async {
     print("Video send button clicked");
-    _toggleAddMenu(); // Hide menu after selection
+    _toggleAddMenu(); // Close menu immediately
+
+    if (_isProcessingFile) {
+      print("Already processing a file/video, ignoring request");
+      return;
+    }
+
+    // Set processing flag
+    setState(() => _isProcessingFile = true);
+
+    try {
+      // Pick video from gallery
+      final ImagePicker picker = ImagePicker();
+
+      // Show a small loading indicator
+      _showTopNotification("Đang mở chọn video...",
+          isInfo: true, duration: Duration(seconds: 1));
+
+      final XFile? pickedVideo = await picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 10), // Increased max duration
+      );
+
+      if (pickedVideo == null) {
+        setState(() => _isProcessingFile = false);
+        print("No video selected or selection canceled");
+        return;
+      }
+
+      print("Selected video: ${pickedVideo.path}");
+
+      // Lưu video vào thư mục ứng dụng để xử lý sau này
+      final String savedVideoPath = await _saveVideoToAppDirectory(pickedVideo);
+      print("Video saved to: $savedVideoPath");
+
+      // Add a loading placeholder message immediately
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+
+        _userMessages[widget.userId]!.add(ChatMessage(
+          text: '',
+          isMe: true,
+          timestamp: DateTime.now(),
+          video: savedVideoPath, // Use the saved path for persistence
+          isVideoLoading: true, // Show as loading
+        ));
+      });
+
+      // Scroll to show the loading message
+      _scrollToBottom();
+
+      // Process the video in background
+      Future.microtask(() async {
+        try {
+          // For large videos, show a processing message
+          if (!kIsWeb) {
+            try {
+              final File videoFile = File(savedVideoPath);
+              if (await videoFile.exists()) {
+                final fileSize = await videoFile.length();
+                print("Video file size: $fileSize bytes");
+
+                if (fileSize > 10 * 1024 * 1024) {
+                  // > 10MB
+                  _showTopNotification(
+                      "Đang xử lý video lớn (${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB)...",
+                      isInfo: true,
+                      duration: Duration(seconds: 3));
+
+                  // Simulate processing time for large files
+                  await Future.delayed(Duration(milliseconds: 1500));
+                }
+              }
+            } catch (e) {
+              print("Error checking video file size: $e");
+            }
+          }
+
+          // Update the message with processed video
+          if (mounted) {
+            setState(() {
+              // Find the loading message and replace it
+              final messages = _userMessages[widget.userId] ?? [];
+              for (int i = messages.length - 1; i >= 0; i--) {
+                final msg = messages[i];
+                if (msg.isVideoMessage &&
+                    msg.isVideoLoading &&
+                    msg.video == savedVideoPath) {
+                  messages[i] = ChatMessage(
+                    text: '',
+                    isMe: true,
+                    timestamp: msg.timestamp,
+                    video: savedVideoPath,
+                    isVideoLoading: false, // No longer loading
+                  );
+                  break;
+                }
+              }
+              _isProcessingFile = false;
+            });
+
+            // Scroll to show the updated message
+            _scrollToBottom();
+          }
+        } catch (e) {
+          print("Error processing video: $e");
+          if (mounted) {
+            setState(() => _isProcessingFile = false);
+            _showTopNotification(
+                "Lỗi xử lý video: ${e.toString().split('\n').first}",
+                isError: true);
+          }
+        }
+      });
+    } catch (e) {
+      print("Error handling video: $e");
+      setState(() => _isProcessingFile = false);
+      _showTopNotification("Lỗi chọn video: ${e.toString().split('\n').first}",
+          isError: true);
+    }
+  }
+
+  // Hàm lưu video vào thư mục ứng dụng để xử lý sau này
+  Future<String> _saveVideoToAppDirectory(XFile videoFile) async {
+    try {
+      print("Saving video to app directory: ${videoFile.path}");
+
+      // Lấy thư mục ứng dụng
+      final appDir = await getApplicationDocumentsDirectory();
+
+      // Tạo thư mục videos nếu chưa có
+      final videosDir = Directory('${appDir.path}/videos');
+      if (!await videosDir.exists()) {
+        await videosDir.create(recursive: true);
+      }
+
+      // Đảm bảo tên file độc nhất
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = path.extension(videoFile.path).toLowerCase();
+      final validExtension =
+          ['.mp4', '.mov', '.avi', '.mkv', '.wmv', '.3gp'].contains(extension)
+              ? extension
+              : '.mp4';
+
+      final newFileName = 'video_${timestamp}$validExtension';
+
+      // Đường dẫn đích - đảm bảo format đường dẫn
+      final destinationPath =
+          path.join(videosDir.path, newFileName).replaceAll('\\', '/');
+
+      print("Video will be saved to: $destinationPath");
+
+      try {
+        // Đọc file gốc
+        final bytes = await videoFile.readAsBytes();
+        print("Read ${bytes.length} bytes from source video");
+
+        // Viết vào file đích
+        final File newFile = File(destinationPath);
+        await newFile.writeAsBytes(bytes);
+
+        // Kiểm tra file đã được tạo
+        if (await newFile.exists()) {
+          final fileSize = await newFile.length();
+          print("Successfully saved video (${fileSize} bytes)");
+          return destinationPath;
+        } else {
+          print("Failed to create video file at destination");
+          return videoFile.path;
+        }
+      } catch (e) {
+        print("Error copying video file: $e");
+
+        // Fallback to copy method if writeAsBytes fails
+        try {
+          final File sourceFile = File(videoFile.path);
+          final File newFile = await sourceFile.copy(destinationPath);
+
+          if (await newFile.exists()) {
+            print("Copied video file successfully using File.copy()");
+            return destinationPath;
+          }
+        } catch (e2) {
+          print("Error with fallback copy: $e2");
+        }
+
+        return videoFile.path;
+      }
+    } catch (e) {
+      print("Error in _saveVideoToAppDirectory: $e");
+      return videoFile.path;
+    }
   }
 
   // Đảm bảo đóng overlay khi widget bị dispose
