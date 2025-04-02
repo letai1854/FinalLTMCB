@@ -11,6 +11,10 @@ class ChatMessage {
   final String? video; // Added for video messages
   final bool isVideoLoading; // Flag for video loading state
 
+  // --- Audio Specific Fields (Commented out - for future use) ---
+  // final int? audioDuration; // Duration in milliseconds
+  // final List<double>? audioWaveform; // For waveform visualization
+
   const ChatMessage({
     required this.text,
     required this.isMe,

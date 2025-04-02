@@ -1,5 +1,5 @@
 // Import UserList to access the static cache
-import 'package:finalltmcb/Widget/AudioRecorderWidget.dart';
+import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'dart:io';
@@ -48,14 +48,11 @@ class _ChatContentState extends State<ChatContent> {
   // ScrollController for ListView
   final ScrollController _scrollController = ScrollController();
 
-  // Add a flag to track if we're currently recording
-  bool _isRecording = false;
-
-  // Thêm biến để theo dõi trạng thái gửi audio
-  bool _isSendingAudio = false;
-
   // Add a state variable to track if the add button menu is showing
   bool _isAddMenuVisible = false;
+
+  // Add a state variable to know if the AudioHandlerWidget is active (recording/sending)
+  bool _isAudioHandlerActive = false;
 
   // Add a OverlayEntry để quản lý menu
   OverlayEntry? _overlayEntry;
@@ -333,102 +330,29 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Add this method to handle audio recording
-  void _handleAudioRecording() {
-    setState(() {
-      _isRecording = true;
-    });
-  }
-
-  // Improved audio handling function
-  void _handleAudioSaved(String audioPath) {
-    print("🔊 Audio saved to path: $audioPath");
-
-    // Bắt đầu trạng thái loading
-    setState(() {
-      _isSendingAudio = true;
-      _isRecording = false; // Kết thúc ghi âm
-    });
-
-    // Xử lý audio trong một luồng riêng để tránh block UI
-    Future.microtask(() async {
-      try {
-        print("🔊 Adding audio message to chat...");
-
-        // Đảm bảo path là absolute path
-        final String absolutePath;
-        if (kIsWeb) {
-          absolutePath = audioPath;
-        } else {
-          // Đảm bảo có absolute path trên mobile
-          final file = File(audioPath);
-          absolutePath = file.absolute.path;
-          print("🔊 Absolute audio path: $absolutePath");
-
-          // Kiểm tra kích thước file
-          if (await file.exists()) {
-            final fileSize = await file.length();
-            print("🔊 Audio file size: $fileSize bytes");
-
-            // Nếu file quá lớn, có thể thực hiện xử lý tối ưu ở đây
-            if (fileSize > 5 * 1024 * 1024) {
-              // > 5MB
-              print("🔊 Large audio file detected - optimizing");
-              // Ở đây có thể thêm logic nén file nếu cần
-            }
-          }
-        }
-
-        // Tạo message mới với file path
-        final newMessage = ChatMessage(
-          text: '', // Empty text for audio messages
-          isMe: true,
-          timestamp: DateTime.now(),
-          audio: absolutePath,
-          isAudioPath: true, // Indicate this is a file path, not base64
-        );
-
-        // Cập nhật UI với message mới
-        if (mounted) {
-          setState(() {
-            _isSendingAudio = false;
-            // Đảm bảo userId tồn tại trong map
-            if (!_userMessages.containsKey(widget.userId)) {
-              _userMessages[widget.userId] = [];
-            }
-            _userMessages[widget.userId]!.add(newMessage);
-          });
-
-          // Improved scrolling - more reliable
-          _scrollToBottom();
-
-          // Add an extra scroll attempt after a longer delay for large audio files
-          Future.delayed(Duration(milliseconds: 500), () {
-            if (mounted) {
-              _scrollToBottom();
-            }
-          });
-        }
-
-        print("🔊 Audio message added successfully");
-      } catch (e) {
-        print("🔊 ERROR adding audio message: $e");
-        if (mounted) {
-          setState(() {
-            _isSendingAudio = false;
-          });
-        }
-        _handleAudioCancel();
-      }
-    });
-  }
-
-  // Add this method to handle canceling recording
-  void _handleAudioCancel() {
+  // Callback function to handle the audio message sent from AudioHandlerWidget
+  void _handleAudioMessageSent(ChatMessage message) {
     if (mounted) {
       setState(() {
-        _isRecording = false;
+        // Ensure the user's message list exists
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+        // Add the new audio message
+        _userMessages[widget.userId]!.add(message);
+        _isAudioHandlerActive = false; // Reset the flag after message is added
       });
+
+      // Scroll to bottom after adding the message
+      _scrollToBottom();
+
+      // Add an extra scroll attempt for reliability, especially after media processing
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) {
+          _scrollToBottom();
+        }
+      });
+      print("🔊 Audio message received and added to chat list.");
     }
   }
 
@@ -984,39 +908,36 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // Update the _buildChatInput method to show AudioRecorderWidget when recording
+  // Update the _buildChatInput method to use AudioHandlerWidget
   Widget _buildChatInput() {
-    if (_isRecording) {
-      return Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: AudioRecorderWidget(
-          onAudioSaved: _handleAudioSaved,
-          onCancel: _handleAudioCancel,
-        ),
-      );
-    }
-
-    if (_isSendingAudio) {
-      // Hiển thị loading khi đang xử lý audio
+    // If the audio handler is active (recording/sending), show only it
+    if (_isAudioHandlerActive) {
       return Container(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Colors.red),
-              SizedBox(height: 8),
-              Text(
-                "Đang xử lý audio...",
-                style: TextStyle(color: Colors.red.shade700),
-              ),
-            ],
-          ),
+        padding: const EdgeInsets.all(8.0),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.grey)),
+        ),
+        // Pass the state to control showing the recorder
+        child: AudioHandlerWidget(
+          showRecorder: _isAudioHandlerActive, // Control visibility
+          onAudioMessageSent: _handleAudioMessageSent,
+          onRecordingStart: () {
+            // This callback is now triggered by the IconButton in the normal input
+            if (mounted) {
+              setState(() => _isAudioHandlerActive = true);
+            }
+          },
+          onRecordingEnd: () {
+            // This callback is triggered by AudioHandlerWidget when recording stops/cancels/sends
+            if (mounted) {
+              setState(() => _isAudioHandlerActive = false);
+            }
+          },
         ),
       );
     }
 
-    // Existing chat input UI for normal mode
+    // Normal chat input UI
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: const BoxDecoration(
@@ -1076,13 +997,26 @@ class _ChatContentState extends State<ChatContent> {
                     },
                     iconColor: Colors.red,
                   ),
-                  IconButton(
-                      onPressed:
-                          _handleAudioRecording, // Connect to the audio recording handler
-                      icon: const Icon(
-                        Icons.mic,
-                        color: Colors.red,
-                      )),
+                  // Use the AudioHandlerWidget, but only show the button part here
+                  AudioHandlerWidget(
+                    showRecorder: false, // Always show button here
+                    onAudioMessageSent:
+                        _handleAudioMessageSent, // Still need this
+                    onRecordingStart: () {
+                      // When the button inside AudioHandlerWidget is pressed
+                      if (mounted) {
+                        setState(() => _isAudioHandlerActive =
+                            true); // Show the recorder UI
+                      }
+                    },
+                    onRecordingEnd: () {
+                      // This shouldn't be triggered from the button state,
+                      // but handle it just in case to reset state.
+                      if (mounted) {
+                        setState(() => _isAudioHandlerActive = false);
+                      }
+                    },
+                  ),
                   // Smart send button - handles both text and images
                   IconButton(
                       onPressed: () {
