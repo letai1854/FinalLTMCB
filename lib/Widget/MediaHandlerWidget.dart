@@ -1,21 +1,24 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
-import 'package:finalltmcb/Model/ChatMessage.dart';
-import 'package:finalltmcb/Widget/FilePickerUtil.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:finalltmcb/Model/ChatMessage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
+import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:typed_data';
+import 'package:path/path.dart' as path;
 
-typedef MediaMessageCallback = void Function(ChatMessage message);
+typedef MessageCallback = void Function(ChatMessage message);
+typedef ProcessingCallback = void Function();
+typedef ErrorCallback = void Function(String message,
+    {bool isError, bool isSuccess, bool isInfo, Duration? duration});
 
 class MediaHandlerWidget {
   final BuildContext context;
-  final MediaMessageCallback onMessageCreated;
+  final MessageCallback onMessageCreated;
   final String userId;
-  final Function() onProcessingStart;
-  final Function() onProcessingEnd;
-  final Function(String) onError;
+  final ProcessingCallback onProcessingStart;
+  final ProcessingCallback onProcessingEnd;
+  final ErrorCallback onError;
 
   MediaHandlerWidget({
     required this.context,
@@ -26,7 +29,6 @@ class MediaHandlerWidget {
     required this.onError,
   });
 
-  // Handle file selection and upload
   Future<void> handleFileSend() async {
     print("File send button clicked");
 
@@ -78,15 +80,16 @@ class MediaHandlerWidget {
     }
   }
 
-  // Handle video selection and upload with fix for loading issue
   Future<void> handleVideoSend() async {
     print("Video send button clicked");
-
     onProcessingStart();
 
     try {
-      // Pick video from gallery
+      // Pick video using image_picker
       final ImagePicker picker = ImagePicker();
+
+      onError("Đang mở chọn video...",
+          isInfo: true, duration: Duration(seconds: 1));
 
       final XFile? pickedVideo = await picker.pickVideo(
         source: ImageSource.gallery,
@@ -94,46 +97,65 @@ class MediaHandlerWidget {
       );
 
       if (pickedVideo == null) {
-        print("No video selected or selection canceled");
+        print("No video selected");
         onProcessingEnd();
         return;
       }
 
       print("Selected video: ${pickedVideo.path}");
 
-      // Read video as bytes - this fixes the loading issue by keeping video in memory
-      final Uint8List videoBytes = await pickedVideo.readAsBytes();
+      // Verify video file exists and has content
+      if (!kIsWeb) {
+        try {
+          final File videoFile = File(pickedVideo.path);
+          if (!await videoFile.exists()) {
+            onError("Không thể truy cập file video", isError: true);
+            onProcessingEnd();
+            return;
+          }
 
-      // Store the bytes temporarily to use with the message
-      // (We'll store this in memory only, not in local storage)
+          final size = await videoFile.length();
+          print("Video file size: $size bytes");
 
-      // Create the video message with compatible parameters
-      // Use only parameters that are supported by the ChatMessage class
-      final ChatMessage videoMessage = ChatMessage(
+          if (size == 0) {
+            onError("Không thể gửi video rỗng", isError: true);
+            onProcessingEnd();
+            return;
+          }
+
+          // Check Windows compatibility
+          if (Platform.isWindows) {
+            final extension = path.extension(pickedVideo.path).toLowerCase();
+            if (!['.mp4', '.webm'].contains(extension)) {
+              onError(
+                  "Windows chỉ hỗ trợ video định dạng MP4 và WebM, định dạng hiện tại: $extension",
+                  isError: true,
+                  duration: Duration(seconds: 5));
+              // Continue anyway to let VideoBubble handle the error display
+            }
+          }
+        } catch (e) {
+          print("Error checking video file: $e");
+        }
+      }
+
+      // Create message with direct path - no need to save to app directory
+      final message = ChatMessage(
         text: '',
         isMe: true,
         timestamp: DateTime.now(),
         video: pickedVideo.path,
-        isVideoLoading:
-            false, // Set to false immediately to avoid loading spinner
+        isVideoLoading: false, // No loading state needed
       );
 
-      // Additional info for debugging
-      print("Video loaded into memory: ${videoBytes.length} bytes");
-      print("Video name: ${pickedVideo.name}");
-
-      // Pass the message back via callback (only once)
-      onMessageCreated(videoMessage);
+      // Send message
+      onMessageCreated(message);
       onProcessingEnd();
-
-      /*
-      // For server implementation (commented as requested):
-      // Upload video to server code would go here
-      */
     } catch (e) {
       print("Error handling video: $e");
+      onError("Lỗi chọn video: ${e.toString().split('\n').first}",
+          isError: true);
       onProcessingEnd();
-      onError("Lỗi chọn video: ${e.toString().split('\n').first}");
     }
   }
 }

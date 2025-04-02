@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 
 class ChatMessage {
@@ -9,6 +11,8 @@ class ChatMessage {
   final bool isAudioPath;
   final FileMessage? file;
   final String? video; // Added for video messages
+  final String? mimeType;
+  final Uint8List? videoBytes;
   final bool isVideoLoading; // Flag for video loading state
 
   // --- Audio Specific Fields (Commented out - for future use) ---
@@ -23,8 +27,10 @@ class ChatMessage {
     this.audio,
     this.isAudioPath = false,
     this.file,
-    this.video, // New video path property
-    this.isVideoLoading = false, // New loading state property
+    this.video,
+    this.mimeType = null,
+    this.videoBytes = null,
+    this.isVideoLoading = false,
   });
 
   // Helper method to determine if this is an audio message

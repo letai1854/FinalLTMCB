@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
-import 'dart:async'; // Add this import for TimeoutException
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as path;
-import 'package:chewie/chewie.dart'; // Add chewie for better video controls
+import 'package:chewie/chewie.dart';
+// Add media_kit imports for Windows
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 class VideoBubble extends StatefulWidget {
   final String videoPath;
@@ -24,30 +26,44 @@ class VideoBubble extends StatefulWidget {
 
 class _VideoBubbleState extends State<VideoBubble> {
   VideoPlayerController? _controller;
-  ChewieController? _chewieController; // Add Chewie controller
-  bool _isInitialized = false;
-  bool _showControls = false;
+  ChewieController? _chewieController;
   bool _hasError = false;
   String _errorMessage = "Không thể tải video";
-  bool _isRetrying = false;
-  bool _useFallback = false; // Use fallback player when default fails
+
+  // Add media_kit components for Windows
+  Player? _mediaKitPlayer;
+  VideoController? _mediaKitVideoController;
+  bool _useMediaKit = false;
 
   @override
   void initState() {
     super.initState();
     if (!widget.isLoading) {
-      _initializeController();
+      _initializeVideo();
     }
   }
 
-  Future<void> _initializeController() async {
+  void _initializeVideo() {
+    if (widget.videoPath.isEmpty) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = "Đường dẫn video không hợp lệ";
+      });
+      return;
+    }
+
     try {
-      // First check if the file exists (for non-web platforms)
+      // Dispose any existing controllers
+      _disposeControllers();
+
+      // Check file existence and size first for non-web platforms
       if (!kIsWeb) {
         try {
-          final file = File(widget.videoPath);
-          final exists = await file.exists();
-          if (!exists) {
+          String normalizedPath = widget.videoPath.replaceAll('\\', '/');
+          final File videoFile = File(normalizedPath);
+
+          if (!videoFile.existsSync()) {
+            print("VideoBubble: File does not exist: $normalizedPath");
             setState(() {
               _hasError = true;
               _errorMessage = "Không tìm thấy file video";
@@ -55,148 +71,131 @@ class _VideoBubbleState extends State<VideoBubble> {
             return;
           }
 
-          // Kiểm tra kích thước file
-          final fileSize = await file.length();
-          print("Video file size: $fileSize bytes");
-
+          final fileSize = videoFile.lengthSync();
           if (fileSize == 0) {
+            print("VideoBubble: Empty file: $normalizedPath");
             setState(() {
               _hasError = true;
               _errorMessage = "File video rỗng";
             });
             return;
           }
+
+          print("VideoBubble: Video file verified, size: $fileSize bytes");
         } catch (e) {
-          print("Error checking video file: $e");
-          // Continue anyway
+          print("VideoBubble: Error checking file: $e");
+          // Continue with initialization anyway
         }
       }
 
-      // Create the appropriate controller
-      try {
-        if (_controller != null) {
-          await _controller!.dispose();
-          _controller = null;
-        }
-
-        if (_chewieController != null) {
-          _chewieController!.dispose();
-          _chewieController = null;
-        }
-
-        print("Creating video controller for: ${widget.videoPath}");
-
-        // Use different initialization approach based on platform
-        if (_useFallback) {
-          // Use a simplified approach when the default fails
-          print("Using fallback video player initialization");
-          _showFallbackVideoPlayer();
-          return;
-        }
-
-        if (kIsWeb) {
-          _controller =
-              VideoPlayerController.networkUrl(Uri.parse(widget.videoPath));
-        } else {
-          // For Windows & other platforms, handle paths more carefully
-          File file = File(widget.videoPath);
-          if (await file.exists()) {
-            try {
-              _controller = VideoPlayerController.file(file);
-            } catch (e) {
-              print("Error with file controller, trying asset approach: $e");
-              // If direct file fails, try network approach as fallback
-              final uri = Uri.file(widget.videoPath);
-              _controller = VideoPlayerController.networkUrl(uri);
-            }
-          } else {
-            throw Exception("Video file not found: ${widget.videoPath}");
-          }
-        }
-
-        // Initialize with a timeout
-        print("Starting video initialization");
-        bool initialized = false;
-
-        try {
-          await _controller!.initialize().timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              print("Video initialization timed out after 15 seconds");
-              throw TimeoutException("Video initialization timed out");
-            },
-          );
-          initialized = true;
-        } catch (e) {
-          print("Initialization failed: $e");
-          initialized = false;
-        }
-
-        if (!initialized) {
-          // Explicitly handle initialization failure
-          throw Exception("Failed to initialize video controller");
-        }
-
-        // Create Chewie controller for better playback experience
-        _chewieController = ChewieController(
-          videoPlayerController: _controller!,
-          autoPlay: false,
-          looping: false,
-          aspectRatio: _controller!.value.aspectRatio,
-          allowMuting: true,
-          allowPlaybackSpeedChanging: false,
-          showControls: false, // We'll use our own controls
-        );
-
-        // Set volume if initialization succeeded
-        if (initialized) {
-          await _controller!.setVolume(1.0);
-        }
-
-        if (mounted) {
-          setState(() {
-            _isInitialized = true;
-            _hasError = false;
-          });
-        }
-      } catch (e) {
-        print("Error creating video controller: $e");
-
-        if (!_useFallback) {
-          // Try with fallback approach
-          setState(() {
-            _useFallback = true;
-          });
-          _initializeController();
-          return;
-        }
-
-        throw e;
+      // Choose which player implementation to use based on platform
+      if (kIsWeb) {
+        _initializeStandardPlayer();
+      } else if (Platform.isWindows) {
+        _initializeMediaKitPlayer();
+      } else {
+        _initializeStandardPlayer();
       }
     } catch (e) {
-      print("Final error initializing video player: $e");
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          if (e.toString().contains("UnimplementedError")) {
-            _errorMessage = "Video không được hỗ trợ trên thiết bị này";
-          } else if (e.toString().contains("TimeoutException")) {
-            _errorMessage = "Tải video quá lâu";
-          } else {
-            _errorMessage =
-                "Lỗi khi tải video: ${e.toString().split('\n').first}";
+      print("VideoBubble: Error creating controller: $e");
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            "Lỗi tạo trình phát video: ${e.toString().split('\n').first}";
+      });
+    }
+  }
+
+  // Initialize standard video_player for non-Windows platforms
+  void _initializeStandardPlayer() {
+    print("Using standard video player for: ${widget.videoPath}");
+
+    try {
+      if (kIsWeb) {
+        _controller =
+            VideoPlayerController.networkUrl(Uri.parse(widget.videoPath));
+      } else {
+        String normalizedPath = widget.videoPath.replaceAll('\\', '/');
+        _controller = VideoPlayerController.file(File(normalizedPath));
+      }
+
+      _controller!.initialize().then((_) {
+        print("Standard video player initialized successfully");
+        if (mounted) {
+          _chewieController = ChewieController(
+            videoPlayerController: _controller!,
+            aspectRatio: _controller!.value.aspectRatio,
+            autoPlay: false,
+            looping: false,
+            showControls: true,
+            errorBuilder: (context, errorMessage) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error, color: Colors.red),
+                    Text(errorMessage, style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              );
+            },
+          );
+          setState(() {
+            _useMediaKit = false;
+          });
+        }
+      }).catchError((error) {
+        print("Standard video player initialization error: $error");
+        if (mounted) {
+          // If standard player fails, try media_kit on Windows
+          if (Platform.isWindows) {
+            _initializeMediaKitPlayer();
+            return;
           }
-        });
+
+          setState(() {
+            _hasError = true;
+            _errorMessage =
+                "Không thể tải video: ${error.toString().split('\n').first}";
+          });
+        }
+      });
+    } catch (e) {
+      print("Error creating standard video player: $e");
+      // Try media_kit on Windows if standard player fails
+      if (Platform.isWindows) {
+        _initializeMediaKitPlayer();
+      } else {
+        throw e;
       }
     }
   }
 
-  // Show a simplified fallback video player (thumbnail with play button)
-  void _showFallbackVideoPlayer() {
-    if (mounted) {
+  // Initialize media_kit player for Windows
+  void _initializeMediaKitPlayer() {
+    print("Using MediaKit player for Windows: ${widget.videoPath}");
+
+    try {
+      String normalizedPath = widget.videoPath.replaceAll('\\', '/');
+
+      // Create and initialize the player
+      _mediaKitPlayer = Player();
+      _mediaKitVideoController = VideoController(_mediaKitPlayer!);
+
+      // Open the media file
+      _mediaKitPlayer!.open(Media(normalizedPath));
+
       setState(() {
-        _hasError = false;
-        _isInitialized = true;
+        _useMediaKit = true;
+      });
+
+      print("MediaKit player initialized successfully");
+    } catch (e) {
+      print("MediaKit initialization error: $e");
+      setState(() {
+        _hasError = true;
+        _errorMessage =
+            "Windows không thể phát video này: ${e.toString().split('\n').first}";
       });
     }
   }
@@ -206,96 +205,42 @@ class _VideoBubbleState extends State<VideoBubble> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoPath != widget.videoPath ||
         (oldWidget.isLoading && !widget.isLoading)) {
-      _disposeController();
-      _initializeController();
+      _initializeVideo();
     }
   }
 
-  void _disposeController() {
+  void _disposeControllers() {
+    // Dispose standard controllers
     if (_controller != null) {
       _controller!.dispose();
       _controller = null;
-      _isInitialized = false;
     }
     if (_chewieController != null) {
       _chewieController!.dispose();
       _chewieController = null;
     }
+
+    // Dispose media_kit controllers
+    if (_mediaKitPlayer != null) {
+      _mediaKitPlayer!.dispose();
+      _mediaKitPlayer = null;
+      _mediaKitVideoController = null;
+    }
   }
 
   @override
   void dispose() {
-    _disposeController();
+    _disposeControllers();
     super.dispose();
   }
 
-  void _tryOpenExternalVideo() {
-    if (!kIsWeb) {
-      // Show a dialog with options for the user
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Tùy chọn video"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Không thể phát video trong ứng dụng."),
-              SizedBox(height: 8),
-              Text("Đường dẫn: ${widget.videoPath}",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              SizedBox(height: 12),
-              Text("Bạn muốn thực hiện thao tác nào?"),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  _isRetrying = true;
-                });
-                _initializeController().then((_) {
-                  if (mounted) {
-                    setState(() {
-                      _isRetrying = false;
-                    });
-                  }
-                });
-              },
-              child: Text("Thử lại"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // Mở video trong chế độ toàn màn hình
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => Scaffold(
-                      backgroundColor: Colors.black,
-                      appBar: AppBar(
-                        backgroundColor: Colors.black,
-                        iconTheme: IconThemeData(color: Colors.white),
-                        title: Text("Video",
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                      body: Center(
-                        child: Text(
-                          "Video sẽ được xử lý bởi server",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              child: Text("Xem toàn màn hình"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Đóng"),
-            ),
-          ],
+  void _openFullscreenVideo() {
+    if (_controller != null) {
+      _controller!.pause();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) =>
+              FullscreenVideoPlayer(videoPath: widget.videoPath),
         ),
       );
     }
@@ -305,7 +250,7 @@ class _VideoBubbleState extends State<VideoBubble> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
+        maxWidth: MediaQuery.of(context).size.width * 0.3,
         maxHeight: 200,
       ),
       decoration: BoxDecoration(
@@ -318,9 +263,7 @@ class _VideoBubbleState extends State<VideoBubble> {
             ? _buildLoadingView()
             : _hasError
                 ? _buildErrorView()
-                : _isInitialized && _controller != null
-                    ? _buildVideoPlayer()
-                    : _buildInitializingView(),
+                : _buildVideoPlayer(),
       ),
     );
   }
@@ -344,32 +287,14 @@ class _VideoBubbleState extends State<VideoBubble> {
     );
   }
 
-  Widget _buildInitializingView() {
-    return Container(
-      width: 200,
-      height: 150,
-      color: Colors.black.withOpacity(0.1),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Colors.blue),
-          SizedBox(height: 8),
-          Text(
-            "Đang tải video...",
-            style: TextStyle(color: Colors.blue.shade700),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildErrorView() {
     final fileName = path.basename(widget.videoPath);
     final shortName =
         fileName.length > 20 ? '${fileName.substring(0, 17)}...' : fileName;
+    final extension = path.extension(widget.videoPath).toLowerCase();
 
     return InkWell(
-      onTap: _tryOpenExternalVideo,
+      onTap: _openFullscreenVideo,
       child: Container(
         width: 200,
         height: 150,
@@ -397,6 +322,15 @@ class _VideoBubbleState extends State<VideoBubble> {
               overflow: TextOverflow.ellipsis,
             ),
             SizedBox(height: 4),
+            if (Platform.isWindows && !['.mp4', '.webm'].contains(extension))
+              Text(
+                "Định dạng: $extension (không hỗ trợ)",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 10,
+                ),
+              ),
+            SizedBox(height: 4),
             Text(
               "Nhấn để mở",
               style: TextStyle(
@@ -412,244 +346,137 @@ class _VideoBubbleState extends State<VideoBubble> {
   }
 
   Widget _buildVideoPlayer() {
-    if (_controller == null || _useFallback) {
-      return _buildFallbackVideoPlayer();
+    // Use Media Kit for Windows
+    if (_useMediaKit &&
+        _mediaKitPlayer != null &&
+        _mediaKitVideoController != null) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 180,
+              width: double.infinity,
+              child: Video(
+                controller: _mediaKitVideoController!,
+                controls: MaterialVideoControls,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: InkWell(
+              onTap: () {
+                // Mở trong chế độ toàn màn hình
+                _mediaKitPlayer!.pause();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        MediaKitFullscreenPlayer(videoPath: widget.videoPath),
+                  ),
+                );
+              },
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  Icons.fullscreen,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
     }
 
     // Check if we have a valid controller and it's initialized
+    if (_controller == null) {
+      return _buildInitializingView();
+    }
+
     if (!_controller!.value.isInitialized) {
       return _buildInitializingView();
     }
 
-    // Use Chewie for better video playback if available
+    // Return Chewie player if available
     if (_chewieController != null) {
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            _showControls = !_showControls;
-          });
-        },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Container with fixed size to prevent layout jumps
-            Container(
-              color: Colors.black,
-              width: double.infinity,
-              height: 180,
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: Chewie(controller: _chewieController!),
-                ),
-              ),
-            ),
-
-            // Custom overlay controls if needed
-            if (_showControls)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: InkWell(
-                  onTap: () {
-                    _controller!.pause();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => FullscreenVideoPlayer(
-                          videoPath: widget.videoPath,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Icon(
-                      Icons.fullscreen,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    // Fallback to basic player if Chewie isn't available
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _showControls = !_showControls;
-        });
-      },
-      child: Stack(
+      return Stack(
         alignment: Alignment.center,
         children: [
-          // Video container
-          Container(
-            color: Colors.black,
-            width: double.infinity,
-            height: 180,
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: VideoPlayer(_controller!),
+          Chewie(controller: _chewieController!),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: InkWell(
+              onTap: _openFullscreenVideo,
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  Icons.fullscreen,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
+        ],
+      );
+    }
 
-          // Play/pause button
-          if (_showControls || !_controller!.value.isPlaying)
-            IconButton(
-              icon: Icon(
-                _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 40,
-              ),
-              onPressed: () {
-                setState(() {
-                  if (_controller!.value.isPlaying) {
-                    _controller!.pause();
-                  } else {
-                    _controller!.play();
-                  }
-                });
-              },
+    // Fallback to basic VideoPlayer if no Chewie
+    return AspectRatio(
+      aspectRatio: _controller!.value.aspectRatio,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          VideoPlayer(_controller!),
+          IconButton(
+            icon: Icon(
+              _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 40,
             ),
-
-          // Nút toàn màn hình
-          if (_showControls)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: InkWell(
-                onTap: () {
-                  // Tạm dừng video trước khi mở toàn màn hình
+            onPressed: () {
+              setState(() {
+                if (_controller!.value.isPlaying) {
                   _controller!.pause();
-
-                  // Mở video trong chế độ toàn màn hình
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          FullscreenVideoPlayer(videoPath: widget.videoPath),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Icon(
-                    Icons.fullscreen,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-
-          // Video progress indicator
-          if (_showControls)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                color: Colors.black.withOpacity(0.5),
-                child: Row(
-                  children: [
-                    Text(
-                      _formatDuration(_controller!.value.position),
-                      style: TextStyle(color: Colors.white, fontSize: 10),
-                    ),
-                    Expanded(
-                      child: VideoProgressIndicator(
-                        _controller!,
-                        allowScrubbing: true,
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        colors: VideoProgressColors(
-                          playedColor: Colors.red,
-                          bufferedColor: Colors.red.shade100,
-                          backgroundColor: Colors.grey.shade300,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      _formatDuration(_controller!.value.duration),
-                      style: TextStyle(color: Colors.white, fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                } else {
+                  _controller!.play();
+                }
+              });
+            },
+          ),
         ],
       ),
     );
   }
 
-  // Fallback player shows a thumbnail with play button
-  Widget _buildFallbackVideoPlayer() {
-    return GestureDetector(
-      onTap: () => _tryOpenExternalVideo(),
-      child: Container(
-        color: Colors.black,
-        width: double.infinity,
-        height: 180,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Video thumbnail or placeholder
-            Container(
-              color: Colors.grey.shade800,
-              child: Center(
-                child: Icon(
-                  Icons.video_file,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ),
-            ),
-
-            // Play button overlay
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                shape: BoxShape.circle,
-              ),
-              padding: EdgeInsets.all(8),
-              child: Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 40,
-              ),
-            ),
-
-            // Info text
-            Positioned(
-              bottom: 8,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Text(
-                  "Nhấn để mở video",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+  Widget _buildInitializingView() {
+    return Container(
+      width: 200,
+      height: 150,
+      color: Colors.black.withOpacity(0.1),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Colors.blue),
+          SizedBox(height: 8),
+          Text(
+            "Đang tải video...",
+            style: TextStyle(color: Colors.blue.shade700),
+          ),
+        ],
       ),
     );
   }
@@ -757,6 +584,73 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
               ),
             )
           : null,
+    );
+  }
+}
+
+// Add a new class for MediaKit fullscreen player
+class MediaKitFullscreenPlayer extends StatefulWidget {
+  final String videoPath;
+
+  const MediaKitFullscreenPlayer({Key? key, required this.videoPath})
+      : super(key: key);
+
+  @override
+  State<MediaKitFullscreenPlayer> createState() =>
+      _MediaKitFullscreenPlayerState();
+}
+
+class _MediaKitFullscreenPlayerState extends State<MediaKitFullscreenPlayer> {
+  late Player _player;
+  late VideoController _controller;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePlayer();
+  }
+
+  void _initializePlayer() {
+    try {
+      String normalizedPath = widget.videoPath.replaceAll('\\', '/');
+      _player = Player();
+      _controller = VideoController(_player);
+      _player.open(Media(normalizedPath));
+      _player.play();
+    } catch (e) {
+      print("MediaKit fullscreen error: $e");
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: IconThemeData(color: Colors.white),
+        title: Text("Video", style: TextStyle(color: Colors.white)),
+      ),
+      body: _hasError
+          ? Center(
+              child: Text("Không thể phát video",
+                  style: TextStyle(color: Colors.white)))
+          : Center(
+              child: Video(
+                controller: _controller,
+                controls: MaterialVideoControls,
+              ),
+            ),
     );
   }
 }

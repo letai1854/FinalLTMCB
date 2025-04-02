@@ -9,6 +9,9 @@ import 'package:finalltmcb/Screen/SignUp/ReponsiveSignUp.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_strategy/url_strategy.dart';
+import 'package:video_player/video_player.dart';
+// Add media_kit import
+import 'package:media_kit/media_kit.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -29,7 +32,12 @@ Future<void> initApp() async {
 }
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
+
+  // Initialize MediaKit
+  MediaKit.ensureInitialized();
+
   await initApp();
   runApp(const MyApp());
 }
