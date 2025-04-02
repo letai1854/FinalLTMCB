@@ -17,6 +17,8 @@ import 'package:finalltmcb/Widget/ImagePickerButtonWidget.dart';
 import 'package:finalltmcb/Widget/ImageViewerWidget.dart';
 import 'package:finalltmcb/Widget/FullScreenImageViewer.dart';
 import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
+import 'package:finalltmcb/Widget/AttachmentMenuWidget.dart';
+import 'package:finalltmcb/Widget/MediaHandlerWidget.dart';
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -63,10 +65,23 @@ class _ChatContentState extends State<ChatContent> {
   // Add a flag to track if a file is being processed
   bool _isProcessingFile = false;
 
+  // Add this field to hold our media handler instance
+  late MediaHandlerWidget _mediaHandler;
+
   @override
   void initState() {
     super.initState();
     _loadUserMessages();
+
+    // Initialize the media handler
+    _mediaHandler = MediaHandlerWidget(
+      context: context,
+      onMessageCreated: _handleMessageCreated,
+      userId: widget.userId,
+      onProcessingStart: () => setState(() => _isProcessingFile = true),
+      onProcessingEnd: () => setState(() => _isProcessingFile = false),
+      onError: _showTopNotification,
+    );
   }
 
   @override
@@ -125,10 +140,7 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Fetch user profile information from the static cache in UserList
   void _fetchUserProfile() {
-    // Access the public static cache from MessageList.
-    // Find the chat data manually to avoid orElse type issues.
     Map<String, dynamic>? chatData;
     if (MessageList.cachedMessages != null) {
       for (var chat in MessageList.cachedMessages!) {
@@ -140,23 +152,18 @@ class _ChatContentState extends State<ChatContent> {
     }
 
     if (chatData != null) {
-      // Use null assertion operator (!) since we've checked chatData is not null
       setState(() {
-        // Update state with fetched data
         _currentUserName = chatData!['name'] ?? 'Unknown Chat';
         _currentUserAvatar =
             chatData!['avatar'] ?? 'assets/logoS.jpg'; // Default avatar
         _isGroupChat = chatData!['isGroup'] ?? false;
         if (_isGroupChat) {
-          // If it's a group, get member IDs. We need to convert them back to names if needed.
-          // For now, just store the count or IDs. The AppBar uses length.
           _groupMembers = List<String>.from(chatData!['members'] ?? []);
         } else {
           _groupMembers = [];
         }
       });
     } else {
-      // Handle case where chat ID is not found in the cache
       setState(() {
         _currentUserName = "Unknown Chat";
         _currentUserAvatar = "assets/logoS.jpg";
@@ -166,14 +173,12 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Improved function to handle sending messages
   Future<void> _handleSubmitted(String text) async {
     if (text.isEmpty && _selectedImages.isEmpty) {
       return; // Don't send empty messages
     }
 
     try {
-      // First add text message if not empty
       if (text.isNotEmpty) {
         setState(() {
           if (!_userMessages.containsKey(widget.userId)) {
@@ -189,31 +194,24 @@ class _ChatContentState extends State<ChatContent> {
           _textController.clear(); // Clear the input field
         });
 
-        // Ensure we scroll after adding the text message
         _scrollToBottom();
       }
 
-      // Process images outside of setState without showing a snackbar
       if (_selectedImages.isNotEmpty) {
-        // Process each image one by one
         for (var image in List<XFile>.from(_selectedImages)) {
           await _processAndAddImage(image);
-          // Scroll after each image to ensure visibility
           _scrollToBottom();
         }
 
-        // Clear selected images after processing
         setState(() {
           _selectedImages.clear();
         });
       }
     } catch (e) {
       print("Error sending message: $e");
-      // Just print error without showing UI notification
     }
   }
 
-  // Improved image processing with better scrolling
   Future<void> _processAndAddImage(XFile image) async {
     try {
       String base64Image;
@@ -233,21 +231,19 @@ class _ChatContentState extends State<ChatContent> {
         print(
             'Base64 image (first 50 chars): ${base64Image.substring(0, math.min(50, base64Image.length))}...');
 
-        // Update UI with the new image message
         setState(() {
           if (!_userMessages.containsKey(widget.userId)) {
             _userMessages[widget.userId] = [];
           }
 
           _userMessages[widget.userId]!.add(ChatMessage(
-            text: '', // Empty text for image messages
+            text: '',
             isMe: true,
             timestamp: DateTime.now(),
             image: base64Image,
           ));
         });
 
-        // Improved scrolling call
         _scrollToBottom();
       }
     } catch (e) {
@@ -258,13 +254,9 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Improved helper function to scroll to bottom of chat - make more reliable
   void _scrollToBottom() {
-    // Use a double-delay approach for more reliable scrolling
-    // First delay ensures widget tree is updated
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        // Second delay ensures the layout has been calculated
         Future.delayed(Duration(milliseconds: 100), () {
           if (mounted && _scrollController.hasClients) {
             try {
@@ -282,13 +274,11 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Function to send images without text
   void _sendOnlyImages() {
     if (_selectedImages.isEmpty) return;
     _handleSubmitted('');
   }
 
-  // Helper function to process and add image messages (deprecated, use _processAndAddImage instead)
   Future<void> _addImageMessage(XFile image) async {
     await _processAndAddImage(image);
   }
@@ -300,28 +290,21 @@ class _ChatContentState extends State<ChatContent> {
       final List<XFile>? images = await _picker.pickMultiImage();
 
       if (images != null && images.isNotEmpty) {
-        // We'll update this to be smoother
         WidgetsBinding.instance.addPostFrameCallback((_) {
           setState(() {
             _selectedImages.addAll(images);
           });
         });
       }
-    } catch (e) {
-      print("Error picking image: $e");
-      // Don't show SnackBar to avoid blocking the chat
-      print('Failed to pick image: $e');
-    }
+    } catch (e) {}
   }
 
-  // Function to add selected images smoothly
   void _updateSelectedImages(List<XFile> newImages) {
     setState(() {
       _selectedImages.addAll(newImages);
     });
   }
 
-  // Function to remove an image smoothly
   void _removeImage(int index) {
     if (index >= 0 && index < _selectedImages.length) {
       setState(() {
@@ -330,23 +313,18 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Callback function to handle the audio message sent from AudioHandlerWidget
   void _handleAudioMessageSent(ChatMessage message) {
     if (mounted) {
       setState(() {
-        // Ensure the user's message list exists
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
-        // Add the new audio message
         _userMessages[widget.userId]!.add(message);
         _isAudioHandlerActive = false; // Reset the flag after message is added
       });
 
-      // Scroll to bottom after adding the message
       _scrollToBottom();
 
-      // Add an extra scroll attempt for reliability, especially after media processing
       Future.delayed(Duration(milliseconds: 500), () {
         if (mounted) {
           _scrollToBottom();
@@ -356,22 +334,18 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Add method to handle image viewing in full-screen
   void _viewImage(String base64Image) {
     ImageViewerWidget.viewImage(context, base64Image);
   }
 
-  // Improved toggle menu method with better positioning
   void _toggleAddMenu() {
     print("Toggle add menu called, current state: $_isAddMenuVisible");
 
     if (_isAddMenuVisible) {
-      // Nếu menu đang hiển thị, đóng nó lại
       _overlayEntry?.remove();
       _overlayEntry = null;
       setState(() => _isAddMenuVisible = false);
     } else {
-      // Find the button position using the GlobalKey
       final RenderBox? buttonBox =
           _addButtonKey.currentContext?.findRenderObject() as RenderBox?;
 
@@ -380,19 +354,15 @@ class _ChatContentState extends State<ChatContent> {
         return;
       }
 
-      // Calculate the position of the button in the global coordinate system
       final buttonPosition = buttonBox.localToGlobal(Offset.zero);
       final buttonSize = buttonBox.size;
 
-      // Calculate the menu position to appear just above the button
       final double menuLeft = buttonPosition.dx;
-      final double menuTop =
-          buttonPosition.dy - 100; // Position just above the button
+      final double menuTop = buttonPosition.dy - 100;
 
       print(
           "Button position: $buttonPosition, Menu position: ($menuLeft, $menuTop)");
 
-      // Create and position the overlay
       _overlayEntry = OverlayEntry(
         builder: (context) => Positioned(
           left: menuLeft,
@@ -402,7 +372,7 @@ class _ChatContentState extends State<ChatContent> {
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
             child: Container(
-              width: 50, // Fixed width to ensure proper sizing
+              width: 50,
               padding: EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
@@ -417,10 +387,8 @@ class _ChatContentState extends State<ChatContent> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // File option
                   InkWell(
                     onTap: () {
-                      // Use Future.microtask to prevent UI interruption
                       Future.microtask(() => _handleFileSend());
                     },
                     child: Padding(
@@ -433,10 +401,8 @@ class _ChatContentState extends State<ChatContent> {
                     ),
                   ),
                   Divider(height: 1, thickness: 1),
-                  // Video option
                   InkWell(
                     onTap: () {
-                      // Use Future.microtask to prevent UI interruption
                       Future.microtask(() => _handleVideoSend());
                     },
                     child: Padding(
@@ -455,7 +421,6 @@ class _ChatContentState extends State<ChatContent> {
         ),
       );
 
-      // Use a try-catch to prevent app crashes if overlay insertion fails
       try {
         Overlay.of(context).insert(_overlayEntry!);
         setState(() => _isAddMenuVisible = true);
@@ -466,7 +431,6 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Add methods to handle file/video sending (stub implementations for now)
   Future<void> _handleFileSend() async {
     print("File send button clicked");
     _toggleAddMenu(); // Close menu immediately
@@ -481,7 +445,6 @@ class _ChatContentState extends State<ChatContent> {
 
     // Không hiển thị thông báo Snackbar khi chọn file
     try {
-      // Step 1: Let user pick a file without showing a snackbar
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
@@ -489,7 +452,6 @@ class _ChatContentState extends State<ChatContent> {
         dialogTitle: 'Select a file to share',
       );
 
-      // Reset processing flag
       setState(() => _isProcessingFile = false);
 
       if (result == null || result.files.isEmpty) {
@@ -510,7 +472,6 @@ class _ChatContentState extends State<ChatContent> {
         fileBytes: file.bytes,
       );
 
-      // Add the file message to chat
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
@@ -778,28 +739,22 @@ class _ChatContentState extends State<ChatContent> {
       } catch (e) {
         print("Error copying video file: $e");
 
-        // Fallback to copy method if writeAsBytes fails
         try {
           final File sourceFile = File(videoFile.path);
           final File newFile = await sourceFile.copy(destinationPath);
 
           if (await newFile.exists()) {
-            print("Copied video file successfully using File.copy()");
             return destinationPath;
           }
-        } catch (e2) {
-          print("Error with fallback copy: $e2");
-        }
+        } catch (e2) {}
 
         return videoFile.path;
       }
     } catch (e) {
-      print("Error in _saveVideoToAppDirectory: $e");
       return videoFile.path;
     }
   }
 
-  // Đảm bảo đóng overlay khi widget bị dispose
   @override
   void dispose() {
     // Close any open menu
@@ -808,6 +763,26 @@ class _ChatContentState extends State<ChatContent> {
       _overlayEntry = null;
     }
     super.dispose();
+  }
+
+  void _handleMessageCreated(ChatMessage message) {
+    if (mounted) {
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+        _userMessages[widget.userId]!.add(message);
+      });
+
+      _scrollToBottom();
+
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) {
+          _scrollToBottom();
+        }
+      });
+      print("Message added to chat: ${message.timestamp}");
+    }
   }
 
   @override
@@ -824,7 +799,6 @@ class _ChatContentState extends State<ChatContent> {
               radius: 20,
             ),
             SizedBox(width: 10),
-            // Use a Key based on userId to force AppBar rebuild when user changes
             Expanded(
               key: ValueKey(widget.userId), // Force rebuild on ID change
               child: Column(
@@ -837,14 +811,12 @@ class _ChatContentState extends State<ChatContent> {
                   ),
                   if (_isGroupChat)
                     Text(
-                      // Display member count based on the length of the members list (IDs)
                       "${_groupMembers.length} members",
                       style: TextStyle(fontSize: 12),
                     ),
                 ],
               ),
             ),
-            // Show Call and Video Call icons for both individual and group chats
             IconButton(
                 onPressed: () {/* TODO: Implement call action */},
                 icon: Icon(Icons.call)),
@@ -861,24 +833,20 @@ class _ChatContentState extends State<ChatContent> {
                 : ListView.builder(
                     controller: _scrollController,
                     itemCount: messages.length,
-                    // Add padding at the bottom to ensure messages aren't hidden behind input
                     padding: EdgeInsets.only(bottom: 16),
                     itemBuilder: (context, index) {
                       final message = messages[index];
                       if (message.isMe) {
-                        // Pass the file download handler to ChatBubble
                         return ChatBubble(
                           message: message,
                           onFileDownload: _handleFileDownload,
                         );
                       } else {
-                        // Other user's message - include avatar
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Avatar for other users
                               Padding(
                                 padding: const EdgeInsets.only(
                                     left: 8.0, right: 4.0),
@@ -888,7 +856,6 @@ class _ChatContentState extends State<ChatContent> {
                                   radius: 16,
                                 ),
                               ),
-                              // Message bubble - with file download handler
                               Expanded(
                                 child: ChatBubble(
                                   message: message,
@@ -908,27 +875,22 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // Update the _buildChatInput method to use AudioHandlerWidget
   Widget _buildChatInput() {
-    // If the audio handler is active (recording/sending), show only it
     if (_isAudioHandlerActive) {
       return Container(
         padding: const EdgeInsets.all(8.0),
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey)),
         ),
-        // Pass the state to control showing the recorder
         child: AudioHandlerWidget(
           showRecorder: _isAudioHandlerActive, // Control visibility
           onAudioMessageSent: _handleAudioMessageSent,
           onRecordingStart: () {
-            // This callback is now triggered by the IconButton in the normal input
             if (mounted) {
               setState(() => _isAudioHandlerActive = true);
             }
           },
           onRecordingEnd: () {
-            // This callback is triggered by AudioHandlerWidget when recording stops/cancels/sends
             if (mounted) {
               setState(() => _isAudioHandlerActive = false);
             }
@@ -937,7 +899,6 @@ class _ChatContentState extends State<ChatContent> {
       );
     }
 
-    // Normal chat input UI
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: const BoxDecoration(
@@ -946,30 +907,20 @@ class _ChatContentState extends State<ChatContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Replace the image preview with our ImagesPreviewWidget
           ImagesPreviewWidget(
             images: _selectedImages,
             onRemove: _removeImage,
           ),
           Stack(
             children: [
-              // Main input row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Replace the add button with our new implementation
-                  IconButton(
-                    key: _addButtonKey,
-                    onPressed: () {
-                      print("Add button pressed");
-                      _toggleAddMenu();
-                    },
-                    icon: const Icon(
-                      Icons.add,
-                      color: Colors.red,
-                    ),
+                  AttachmentMenuWidget(
+                    onFileSelected: _mediaHandler.handleFileSend,
+                    onVideoSelected: _mediaHandler.handleVideoSend,
+                    iconColor: Colors.red,
                   ),
-                  // Rest of the row - text field, image and mic buttons
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -988,7 +939,6 @@ class _ChatContentState extends State<ChatContent> {
                       ),
                     ),
                   ),
-                  // Replace the image button with our new widget
                   ImagePickerButtonWidget(
                     onImagesSelected: (List<XFile> images) {
                       setState(() {
@@ -997,30 +947,24 @@ class _ChatContentState extends State<ChatContent> {
                     },
                     iconColor: Colors.red,
                   ),
-                  // Use the AudioHandlerWidget, but only show the button part here
                   AudioHandlerWidget(
                     showRecorder: false, // Always show button here
                     onAudioMessageSent:
-                        _handleAudioMessageSent, // Still need this
+                        _handleMessageCreated, // Still need this
                     onRecordingStart: () {
-                      // When the button inside AudioHandlerWidget is pressed
                       if (mounted) {
                         setState(() => _isAudioHandlerActive =
                             true); // Show the recorder UI
                       }
                     },
                     onRecordingEnd: () {
-                      // This shouldn't be triggered from the button state,
-                      // but handle it just in case to reset state.
                       if (mounted) {
                         setState(() => _isAudioHandlerActive = false);
                       }
                     },
                   ),
-                  // Smart send button - handles both text and images
                   IconButton(
                       onPressed: () {
-                        // If there's text or images or both, send them
                         if (_textController.text.isNotEmpty ||
                             _selectedImages.isNotEmpty) {
                           _handleSubmitted(_textController.text);
@@ -1039,7 +983,6 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
-  // Creating a separate widget for image preview for better maintainability
   Widget _buildSelectedImages() {
     if (_selectedImages.isEmpty) return const SizedBox.shrink();
 
