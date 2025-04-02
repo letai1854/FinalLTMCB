@@ -13,6 +13,10 @@ import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:finalltmcb/Widget/ImagePickerButtonWidget.dart';
+import 'package:finalltmcb/Widget/ImageViewerWidget.dart';
+import 'package:finalltmcb/Widget/FullScreenImageViewer.dart';
+import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -430,30 +434,7 @@ class _ChatContentState extends State<ChatContent> {
 
   // Add method to handle image viewing in full-screen
   void _viewImage(String base64Image) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            iconTheme: IconThemeData(color: Colors.white),
-            elevation: 0,
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              panEnabled: true,
-              boundaryMargin: EdgeInsets.all(20),
-              minScale: 0.5,
-              maxScale: 4,
-              child: Image.memory(
-                base64Decode(base64Image),
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    ImageViewerWidget.viewImage(context, base64Image);
   }
 
   // Improved toggle menu method with better positioning
@@ -1044,80 +1025,10 @@ class _ChatContentState extends State<ChatContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Use AnimatedSize instead of AnimatedContainer for better transitions
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: Container(
-              height: _selectedImages.isEmpty ? 0 : 90,
-              margin:
-                  EdgeInsets.only(bottom: _selectedImages.isEmpty ? 0 : 8.0),
-              child: _selectedImages.isEmpty
-                  ? const SizedBox.shrink()
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _selectedImages.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                // Pre-sized container to avoid layout shifts
-                                Container(
-                                  color: Colors.grey.shade100,
-                                  width: 70,
-                                  height: 70,
-                                ),
-                                // Image
-                                kIsWeb
-                                    ? Image.network(
-                                        _selectedImages[index].path,
-                                        fit: BoxFit.cover,
-                                        width: 70,
-                                        height: 70,
-                                      )
-                                    : Image.file(
-                                        File(_selectedImages[index].path),
-                                        fit: BoxFit.cover,
-                                        width: 70,
-                                        height: 70,
-                                      ),
-                                // Close button
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: GestureDetector(
-                                    onTap: () => _removeImage(index),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade700,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+          // Replace the image preview with our ImagesPreviewWidget
+          ImagesPreviewWidget(
+            images: _selectedImages,
+            onRemove: _removeImage,
           ),
           Stack(
             children: [
@@ -1156,12 +1067,15 @@ class _ChatContentState extends State<ChatContent> {
                       ),
                     ),
                   ),
-                  IconButton(
-                      onPressed: _pickImage,
-                      icon: const Icon(
-                        Icons.image,
-                        color: Colors.red,
-                      )),
+                  // Replace the image button with our new widget
+                  ImagePickerButtonWidget(
+                    onImagesSelected: (List<XFile> images) {
+                      setState(() {
+                        _selectedImages.addAll(images);
+                      });
+                    },
+                    iconColor: Colors.red,
+                  ),
                   IconButton(
                       onPressed:
                           _handleAudioRecording, // Connect to the audio recording handler
@@ -1233,76 +1147,6 @@ class _ChatContentState extends State<ChatContent> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// Create a separate widget for image preview
-class ImagePreviewWidget extends StatelessWidget {
-  final List<XFile> images;
-  final Function(int) onRemove;
-
-  const ImagePreviewWidget({
-    Key? key,
-    required this.images,
-    required this.onRemove,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      margin: const EdgeInsets.only(bottom: 8.0),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: images.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Stack(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: kIsWeb
-                      ? Image.network(
-                          images[index].path,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.file(
-                          File(images[index].path),
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: () => onRemove(index),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade700,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
