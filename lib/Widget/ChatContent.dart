@@ -1,4 +1,5 @@
 // Import UserList to access the static cache
+import 'package:finalltmcb/Widget/AudioRecorderWidget.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'dart:io';
@@ -38,6 +39,18 @@ class _ChatContentState extends State<ChatContent> {
 
   // ScrollController for ListView
   final ScrollController _scrollController = ScrollController();
+
+  // Add a flag to track if we're currently recording
+  bool _isRecording = false;
+
+  // Thêm biến để theo dõi trạng thái gửi audio
+  bool _isSendingAudio = false;
+
+  // Add a state variable to track if the add button menu is showing
+  bool _isAddMenuVisible = false;
+
+  // Add a OverlayEntry để quản lý menu
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -142,7 +155,7 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Function to handle sending messages
+  // Improved function to handle sending messages
   Future<void> _handleSubmitted(String text) async {
     if (text.isEmpty && _selectedImages.isEmpty) {
       return; // Don't send empty messages
@@ -152,6 +165,10 @@ class _ChatContentState extends State<ChatContent> {
       // First add text message if not empty
       if (text.isNotEmpty) {
         setState(() {
+          if (!_userMessages.containsKey(widget.userId)) {
+            _userMessages[widget.userId] = [];
+          }
+
           _userMessages[widget.userId]!.add(ChatMessage(
             text: text,
             isMe: true,
@@ -160,6 +177,9 @@ class _ChatContentState extends State<ChatContent> {
           ));
           _textController.clear(); // Clear the input field
         });
+
+        // Ensure we scroll after adding the text message
+        _scrollToBottom();
       }
 
       // Process images outside of setState without showing a snackbar
@@ -167,6 +187,8 @@ class _ChatContentState extends State<ChatContent> {
         // Process each image one by one
         for (var image in List<XFile>.from(_selectedImages)) {
           await _processAndAddImage(image);
+          // Scroll after each image to ensure visibility
+          _scrollToBottom();
         }
 
         // Clear selected images after processing
@@ -174,16 +196,13 @@ class _ChatContentState extends State<ChatContent> {
           _selectedImages.clear();
         });
       }
-
-      // Scroll to bottom after all messages are added
-      _scrollToBottom();
     } catch (e) {
       print("Error sending message: $e");
       // Just print error without showing UI notification
     }
   }
 
-  // Separate method to process and add an image to chat
+  // Improved image processing with better scrolling
   Future<void> _processAndAddImage(XFile image) async {
     try {
       String base64Image;
@@ -205,6 +224,10 @@ class _ChatContentState extends State<ChatContent> {
 
         // Update UI with the new image message
         setState(() {
+          if (!_userMessages.containsKey(widget.userId)) {
+            _userMessages[widget.userId] = [];
+          }
+
           _userMessages[widget.userId]!.add(ChatMessage(
             text: '', // Empty text for image messages
             isMe: true,
@@ -213,7 +236,7 @@ class _ChatContentState extends State<ChatContent> {
           ));
         });
 
-        // Force scroll to bottom after adding the image
+        // Improved scrolling call
         _scrollToBottom();
       }
     } catch (e) {
@@ -224,15 +247,26 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // Helper function to scroll to bottom of chat
+  // Improved helper function to scroll to bottom of chat - make more reliable
   void _scrollToBottom() {
+    // Use a double-delay approach for more reliable scrolling
+    // First delay ensures widget tree is updated
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // Second delay ensures the layout has been calculated
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (mounted && _scrollController.hasClients) {
+            try {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            } catch (e) {
+              print("Error scrolling to bottom: $e");
+            }
+          }
+        });
       }
     });
   }
@@ -283,6 +317,229 @@ class _ChatContentState extends State<ChatContent> {
         _selectedImages.removeAt(index);
       });
     }
+  }
+
+  // Add this method to handle audio recording
+  void _handleAudioRecording() {
+    setState(() {
+      _isRecording = true;
+    });
+  }
+
+  // Improved audio handling function
+  void _handleAudioSaved(String audioPath) {
+    print("🔊 Audio saved to path: $audioPath");
+
+    // Bắt đầu trạng thái loading
+    setState(() {
+      _isSendingAudio = true;
+      _isRecording = false; // Kết thúc ghi âm
+    });
+
+    // Xử lý audio trong một luồng riêng để tránh block UI
+    Future.microtask(() async {
+      try {
+        print("🔊 Adding audio message to chat...");
+
+        // Đảm bảo path là absolute path
+        final String absolutePath;
+        if (kIsWeb) {
+          absolutePath = audioPath;
+        } else {
+          // Đảm bảo có absolute path trên mobile
+          final file = File(audioPath);
+          absolutePath = file.absolute.path;
+          print("🔊 Absolute audio path: $absolutePath");
+
+          // Kiểm tra kích thước file
+          if (await file.exists()) {
+            final fileSize = await file.length();
+            print("🔊 Audio file size: $fileSize bytes");
+
+            // Nếu file quá lớn, có thể thực hiện xử lý tối ưu ở đây
+            if (fileSize > 5 * 1024 * 1024) {
+              // > 5MB
+              print("🔊 Large audio file detected - optimizing");
+              // Ở đây có thể thêm logic nén file nếu cần
+            }
+          }
+        }
+
+        // Tạo message mới với file path
+        final newMessage = ChatMessage(
+          text: '', // Empty text for audio messages
+          isMe: true,
+          timestamp: DateTime.now(),
+          audio: absolutePath,
+          isAudioPath: true, // Indicate this is a file path, not base64
+        );
+
+        // Cập nhật UI với message mới
+        if (mounted) {
+          setState(() {
+            _isSendingAudio = false;
+            // Đảm bảo userId tồn tại trong map
+            if (!_userMessages.containsKey(widget.userId)) {
+              _userMessages[widget.userId] = [];
+            }
+            _userMessages[widget.userId]!.add(newMessage);
+          });
+
+          // Improved scrolling - more reliable
+          _scrollToBottom();
+
+          // Add an extra scroll attempt after a longer delay for large audio files
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted) {
+              _scrollToBottom();
+            }
+          });
+        }
+
+        print("🔊 Audio message added successfully");
+      } catch (e) {
+        print("🔊 ERROR adding audio message: $e");
+        if (mounted) {
+          setState(() {
+            _isSendingAudio = false;
+          });
+        }
+        _handleAudioCancel();
+      }
+    });
+  }
+
+  // Add this method to handle canceling recording
+  void _handleAudioCancel() {
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+      });
+    }
+  }
+
+  // Add method to handle image viewing in full-screen
+  void _viewImage(String base64Image) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: IconThemeData(color: Colors.white),
+            elevation: 0,
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4,
+              child: Image.memory(
+                base64Decode(base64Image),
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Toggle the add button menu visibility
+  void _toggleAddMenu() {
+    print("Toggle add menu called, current state: $_isAddMenuVisible");
+
+    if (_isAddMenuVisible) {
+      // Nếu menu đang hiển thị, đóng nó lại
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      setState(() => _isAddMenuVisible = false);
+    } else {
+      // Nếu menu chưa hiển thị, mở nó lên
+      final RenderBox renderBox = context.findRenderObject() as RenderBox;
+      final RenderBox buttonBox = context.findRenderObject() as RenderBox;
+      final Offset offset = renderBox.localToGlobal(Offset.zero);
+
+      // Tạo một overlay entry mới để hiển thị menu
+      _overlayEntry = OverlayEntry(
+        builder: (context) => Positioned(
+          // Điều chỉnh vị trí tùy thuộc vào vị trí nút
+          left: 10, // Vị trí của nút Add
+          top: offset.dy - 120, // Vị trí phía trên nút
+          child: Material(
+            elevation: 4.0,
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // File option
+                  InkWell(
+                    onTap: () {
+                      _handleFileSend();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.insert_drive_file,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  Divider(height: 1, thickness: 1),
+                  // Video option
+                  InkWell(
+                    onTap: () {
+                      _handleVideoSend();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.videocam,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Hiển thị overlay
+      Overlay.of(context).insert(_overlayEntry!);
+      setState(() => _isAddMenuVisible = true);
+    }
+  }
+
+  // Add methods to handle file/video sending (stub implementations for now)
+  void _handleFileSend() {
+    // Implement file picking functionality here
+    print("File send button clicked");
+    _toggleAddMenu(); // Hide menu after selection
+  }
+
+  void _handleVideoSend() {
+    // Implement video picking functionality here
+    print("Video send button clicked");
+    _toggleAddMenu(); // Hide menu after selection
+  }
+
+  // Đảm bảo đóng overlay khi widget bị dispose
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    super.dispose();
   }
 
   @override
@@ -336,6 +593,8 @@ class _ChatContentState extends State<ChatContent> {
                 : ListView.builder(
                     controller: _scrollController,
                     itemCount: messages.length,
+                    // Add padding at the bottom to ensure messages aren't hidden behind input
+                    padding: EdgeInsets.only(bottom: 16),
                     itemBuilder: (context, index) {
                       final message = messages[index];
                       if (message.isMe) {
@@ -373,7 +632,39 @@ class _ChatContentState extends State<ChatContent> {
     );
   }
 
+  // Update the _buildChatInput method to show AudioRecorderWidget when recording
   Widget _buildChatInput() {
+    if (_isRecording) {
+      return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: AudioRecorderWidget(
+          onAudioSaved: _handleAudioSaved,
+          onCancel: _handleAudioCancel,
+        ),
+      );
+    }
+
+    if (_isSendingAudio) {
+      // Hiển thị loading khi đang xử lý audio
+      return Container(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.red),
+              SizedBox(height: 8),
+              Text(
+                "Đang xử lý audio...",
+                style: TextStyle(color: Colors.red.shade700),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Existing chat input UI for normal mode
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: const BoxDecoration(
@@ -457,58 +748,70 @@ class _ChatContentState extends State<ChatContent> {
                     ),
             ),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          Stack(
             children: [
-              IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.add,
-                    color: Colors.red,
-                  )),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(25)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: TextField(
-                      controller: _textController,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Aa',
-                      ),
-                      onSubmitted: _handleSubmitted,
+              // Main input row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Replace the add button with our new implementation
+                  IconButton(
+                    onPressed: () {
+                      print("Add button pressed");
+                      _toggleAddMenu();
+                    },
+                    icon: const Icon(
+                      Icons.add,
+                      color: Colors.red,
                     ),
                   ),
-                ),
+                  // Rest of the row - text field, image and mic buttons
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(25)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: TextField(
+                          controller: _textController,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Aa',
+                          ),
+                          onSubmitted: _handleSubmitted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                      onPressed: _pickImage,
+                      icon: const Icon(
+                        Icons.image,
+                        color: Colors.red,
+                      )),
+                  IconButton(
+                      onPressed:
+                          _handleAudioRecording, // Connect to the audio recording handler
+                      icon: const Icon(
+                        Icons.mic,
+                        color: Colors.red,
+                      )),
+                  // Smart send button - handles both text and images
+                  IconButton(
+                      onPressed: () {
+                        // If there's text or images or both, send them
+                        if (_textController.text.isNotEmpty ||
+                            _selectedImages.isNotEmpty) {
+                          _handleSubmitted(_textController.text);
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.send,
+                        color: Colors.red,
+                      )),
+                ],
               ),
-              IconButton(
-                  onPressed: _pickImage,
-                  icon: const Icon(
-                    Icons.camera_alt,
-                    color: Colors.red,
-                  )),
-              IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    Icons.mic,
-                    color: Colors.red,
-                  )),
-              // Smart send button - handles both text and images
-              IconButton(
-                  onPressed: () {
-                    // If there's text or images or both, send them
-                    if (_textController.text.isNotEmpty ||
-                        _selectedImages.isNotEmpty) {
-                      _handleSubmitted(_textController.text);
-                    }
-                  },
-                  icon: const Icon(
-                    Icons.send,
-                    color: Colors.red,
-                  )),
             ],
           ),
         ],

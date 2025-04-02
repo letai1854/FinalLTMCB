@@ -44,11 +44,11 @@ class NavbarAdmin extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      Image.asset(
-                        '/logoS.jpg',
-                        height: 60,
-                        width: 60,
-                      ),
+                      // Image.asset(
+                      //   '/logoS.jpg',
+                      //   height: 60,
+                      //   width: 60,
+                      // ),
                       const SizedBox(width: 8),
                       const Text(
                         'Shopii',
