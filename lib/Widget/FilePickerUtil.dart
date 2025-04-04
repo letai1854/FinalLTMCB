@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
+import 'dart:convert';
 
 // Conditional import for web
 // This will be ignored on non-web platforms
@@ -71,6 +72,30 @@ class FileMessage {
     required this.filePath,
     this.fileBytes,
   });
+
+  // Add toJson method for server communication
+  Map<String, dynamic> toJson() => {
+        'fileName': fileName,
+        'mimeType': mimeType,
+        'fileSize': fileSize,
+        'fileData': fileBytes != null ? base64Encode(fileBytes!) : null,
+      };
+
+  // Create FileMessage from json data received from server
+  factory FileMessage.fromJson(Map<String, dynamic> json) {
+    Uint8List? bytes;
+    if (json['fileData'] != null) {
+      bytes = base64Decode(json['fileData']);
+    }
+
+    return FileMessage(
+      fileName: json['fileName'],
+      mimeType: json['mimeType'],
+      fileSize: json['fileSize'],
+      filePath: '',
+      fileBytes: bytes,
+    );
+  }
 
   // Helper to determine if the message has file bytes (for web)
   bool get hasFileBytes => fileBytes != null && fileBytes!.isNotEmpty;

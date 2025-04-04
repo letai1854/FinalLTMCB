@@ -378,24 +378,92 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  void _handleAudioMessageSent(ChatMessage message) {
-    if (mounted) {
+  // First add this class to properly handle audio data
+
+// Update the _handleAudioMessageSent method
+  void _handleAudioMessageSent(ChatMessage message) async {
+    if (!mounted) return;
+
+    try {
+      // Convert audio path/content to base64 if needed
+      AudioData audioData;
+
+      if (message.isAudioPath && message.audio != null) {
+        // If audio is stored as a file path
+        final File audioFile = File(message.audio!);
+        final bytes = await audioFile.readAsBytes();
+        audioData = AudioData(
+          audioBase64: base64Encode(bytes),
+          duration: 0, // You might want to get actual duration
+          mimeType: 'audio/mp4',
+          fileSize: bytes.length,
+        );
+      } else if (message.audio != null) {
+        // If audio is already in base64
+        audioData = AudioData(
+          audioBase64: message.audio!,
+          duration: 0,
+          mimeType: 'audio/mp4',
+          fileSize: base64Decode(message.audio!).length,
+        );
+      } else {
+        throw Exception('No audio data found in message');
+      }
+
+      // Create AudioMessage with the processed data
+      final audioMessage = AudioMessage(
+        base64Data: audioData.audioBase64,
+        duration: audioData.duration,
+        mimeType: audioData.mimeType,
+        size: audioData.fileSize,
+      );
+
+      // Create message data
+      final messageData = MessageData(
+        text: null,
+        images: [],
+        audios: [audioMessage],
+        timestamp: DateTime.now(),
+      );
+
+      // Update UI
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
         _userMessages[widget.userId]!.add(message);
-        _isAudioHandlerActive = false; // Reset the flag after message is added
+        _isAudioHandlerActive = false;
       });
 
-      _scrollToBottom();
+      // Print debug info
+      print('Audio Message Details:');
+      print('Size: ${audioMessage.size} bytes');
+      print('Duration: ${audioMessage.duration}ms');
+      print('MIME Type: ${audioMessage.mimeType}');
+      print(
+          'Base64 Preview: ${audioMessage.base64Data.substring(0, math.min(50, audioMessage.base64Data.length))}...');
 
-      Future.delayed(Duration(milliseconds: 500), () {
-        if (mounted) {
+      // Async processing for server upload
+      Future.microtask(() async {
+        try {
+          // TODO: Add your server upload logic here
+          print("Processing audio message:");
+          print(jsonEncode(messageData.toJson()));
+
           _scrollToBottom();
+        } catch (e) {
+          print("Error processing audio message: $e");
+          if (mounted) {
+            _showTopNotification('Failed to process audio message',
+                isError: true);
+          }
         }
       });
-      print("🔊 Audio message received and added to chat list.");
+    } catch (e) {
+      print("Error handling audio message: $e");
+      if (mounted) {
+        _showTopNotification('Error handling audio message', isError: true);
+      }
     }
   }
 
@@ -925,25 +993,22 @@ class _ChatContentState extends State<ChatContent> {
 
 class AudioMessage {
   final String base64Data;
-  final String? path;
   final int duration;
+  final String mimeType;
   final int size;
-  final bool isPath;
 
   AudioMessage({
     required this.base64Data,
-    this.path,
     required this.duration,
+    required this.mimeType,
     required this.size,
-    this.isPath = false,
   });
 
   Map<String, dynamic> toJson() => {
         'base64Data': base64Data,
-        'path': path,
         'duration': duration,
+        'mimeType': mimeType,
         'size': size,
-        'isPath': isPath,
       };
 }
 
@@ -966,26 +1031,39 @@ class ImageMessage {
       };
 }
 
+class AudioData {
+  final String audioBase64;
+  final int duration;
+  final String mimeType;
+  final int fileSize;
+
+  AudioData({
+    required this.audioBase64,
+    required this.duration,
+    required this.mimeType,
+    required this.fileSize,
+  });
+}
+
 // Modify MessageData class
 class MessageData {
   final String? text;
   final List<ImageMessage> images;
-  final List<AudioMessage> audios; // Thêm trường audio
+  final List<AudioMessage> audios; // Add audio support
   final DateTime timestamp;
 
   MessageData({
     this.text,
-    required this.images,
-    this.audios = const [], // Default empty list
+    List<ImageMessage>? images,
+    List<AudioMessage>? audios,
     required this.timestamp,
-  });
+  })  : images = images ?? [],
+        audios = audios ?? [];
 
   Map<String, dynamic> toJson() => {
         'text': text,
         'images': images.map((img) => img.toJson()).toList(),
-        'audios': audios
-            .map((audio) => audio.toJson())
-            .toList(), // Thêm audio vào JSON
+        'audios': audios.map((audio) => audio.toJson()).toList(),
         'timestamp': timestamp.toIso8601String(),
       };
 }
