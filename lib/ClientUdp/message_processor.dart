@@ -19,14 +19,16 @@ class MessageProcessor {
     try {
       Map<String, dynamic> responseJson = json.decode(jsonString);
       if (!responseJson.containsKey(Constants.KEY_ACTION)) {
-        logger.log('Confirmed server action JSON missing \'action\' field: $jsonString');
+        logger.log(
+            'Confirmed server action JSON missing \'action\' field: $jsonString');
         return;
       }
-      
+
       String action = responseJson[Constants.KEY_ACTION];
-      String? status = responseJson[Constants.KEY_STATUS]; // Status might not always be present in S->C initial actions
+      String? status = responseJson[Constants
+          .KEY_STATUS]; // Status might not always be present in S->C initial actions
       String? message = responseJson[Constants.KEY_MESSAGE];
-      Map<String, dynamic>? data = responseJson[Constants.KEY_DATA]; 
+      Map<String, dynamic>? data = responseJson[Constants.KEY_DATA];
 
       logger.log('Processing confirmed server action: $action');
 
@@ -35,10 +37,13 @@ class MessageProcessor {
 
       switch (action) {
         case Constants.ACTION_ROOM_CREATED:
-          if (Constants.STATUS_SUCCESS == status && data != null && data.containsKey(Constants.KEY_ROOM_ID)) {
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID)) {
             String roomId = data[Constants.KEY_ROOM_ID];
             print("\nRoom created successfully! ID: $roomId");
-            print("You can now send messages using: /send $roomId <your_message>");
+            print(
+                "You can now send messages using: /send $roomId <your_message>");
           } else {
             print("\nRoom creation failed: ${message ?? "Unknown reason"}");
           }
@@ -46,11 +51,11 @@ class MessageProcessor {
 
         case Constants.ACTION_RECEIVE_MESSAGE:
           // RECEIVE_MESSAGE comes directly from server (S->C), status might not be relevant here, focus on data
-          if (data != null && data.containsKey(Constants.KEY_ROOM_ID) && 
-              data.containsKey(Constants.KEY_SENDER_CHAT_ID) && 
-              data.containsKey(Constants.KEY_CONTENT) && 
+          if (data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID) &&
+              data.containsKey(Constants.KEY_SENDER_CHAT_ID) &&
+              data.containsKey(Constants.KEY_CONTENT) &&
               data.containsKey(Constants.KEY_TIMESTAMP)) {
-            
             String roomId = data[Constants.KEY_ROOM_ID];
             String sender = data[Constants.KEY_SENDER_CHAT_ID];
             String content = data[Constants.KEY_CONTENT];
@@ -83,7 +88,9 @@ class MessageProcessor {
 
         case Constants.ACTION_MESSAGES_LIST:
           // MESSAGES_LIST comes directly from server (S->C)
-          if (data != null && data.containsKey("room_id") && data.containsKey("messages")) {
+          if (data != null &&
+              data.containsKey("room_id") &&
+              data.containsKey("messages")) {
             String roomId = data["room_id"];
             List<dynamic> messagesArray = data["messages"];
             print("\nMessages in room '$roomId':");
@@ -95,13 +102,145 @@ class MessageProcessor {
                 String sender = msgObject["sender_chatid"];
                 String content = msgObject["content"];
                 String timestampStr = msgObject["timestamp"];
-                String formattedTime = formatTimestamp(timestampStr, "yyyy-MM-dd HH:mm:ss");
+                String formattedTime =
+                    formatTimestamp(timestampStr, "yyyy-MM-dd HH:mm:ss");
                 print("  [$formattedTime] $sender: $content");
               }
             }
           } else {
             logger.log('Received invalid MESSAGES_LIST data: $jsonString');
             print("\nFailed to retrieve messages from server.");
+          }
+          break;
+
+        case Constants.ACTION_GET_USERS:
+          if (data != null && data.containsKey("users")) {
+            List<dynamic> users = data["users"];
+            print("\nUsers in system:");
+            if (users.isEmpty) {
+              print("  (No users found)");
+            } else {
+              for (var user in users) {
+                print("  - $user");
+              }
+            }
+          }
+          break;
+
+        case Constants.ACTION_GET_ROOM_USERS:
+          if (data != null &&
+              data.containsKey("room_id") &&
+              data.containsKey("users")) {
+            String roomId = data["room_id"];
+            List<dynamic> users = data["users"];
+            print("\nUsers in room '$roomId':");
+            if (users.isEmpty) {
+              print("  (No users found)");
+            } else {
+              for (var user in users) {
+                print("  - $user");
+              }
+            }
+          }
+          break;
+
+        case Constants.ACTION_USERS_LIST:
+          if (data != null && data.containsKey("users")) {
+            List<dynamic> usersArray = data["users"];
+            print("\nUsers in the system:");
+            if (usersArray.isEmpty) {
+              print("  (No users found)");
+            } else {
+              for (int i = 0; i < usersArray.length; i++) {
+                String username = usersArray[i];
+                print("  ${i + 1}. $username");
+              }
+            }
+          } else {
+            logger.log('Received invalid USERS_LIST data: $jsonString');
+            print("\nFailed to retrieve users list from server.");
+          }
+          break;
+
+        case Constants.ACTION_USER_ADDED:
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID) &&
+              data.containsKey("user_added")) {
+            String roomId = data[Constants.KEY_ROOM_ID];
+            String userAdded = data["user_added"];
+            print("\nUser '$userAdded' successfully added to room: $roomId");
+          } else {
+            print(
+                "\nFailed to add user to room: ${message ?? 'Unknown reason'}");
+          }
+          break;
+
+        case Constants.ACTION_USER_REMOVED:
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID) &&
+              data.containsKey("user_removed")) {
+            String roomId = data[Constants.KEY_ROOM_ID];
+            String userRemoved = data["user_removed"];
+            print(
+                "\nUser '$userRemoved' successfully removed from room: $roomId");
+          } else {
+            print(
+                "\nFailed to remove user from room: ${message ?? 'Unknown reason'}");
+          }
+          break;
+
+        case Constants.ACTION_ROOM_DELETED:
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID)) {
+            String roomId = data[Constants.KEY_ROOM_ID];
+            print("\nRoom '$roomId' successfully deleted.");
+          } else {
+            print("\nFailed to delete room: ${message ?? 'Unknown reason'}");
+          }
+          break;
+
+        case Constants.ACTION_ROOM_RENAMED:
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID) &&
+              data.containsKey("new_room_name")) {
+            String roomId = data[Constants.KEY_ROOM_ID];
+            String newRoomName = data["new_room_name"];
+            print("\nRoom '$roomId' successfully renamed to '$newRoomName'.");
+          } else {
+            print("\nFailed to rename room: ${message ?? 'Unknown reason'}");
+          }
+          break;
+
+        case Constants.ACTION_ROOM_USERS_LIST:
+          if (Constants.STATUS_SUCCESS == status &&
+              data != null &&
+              data.containsKey(Constants.KEY_ROOM_ID) &&
+              data.containsKey("users")) {
+            String roomId = data[Constants.KEY_ROOM_ID];
+            List<dynamic> usersArray = data["users"];
+            print("\nUsers in room '$roomId':");
+            if (usersArray.isEmpty) {
+              print("  (No users found in this room)");
+            } else {
+              for (int i = 0; i < usersArray.length; i++) {
+                String username = usersArray[i];
+                print("  ${i + 1}. $username");
+              }
+            }
+          } else {
+            print("\nFailed to get room users: ${message ?? 'Unknown reason'}");
+          }
+          break;
+
+        case Constants.ACTION_REGISTER:
+          if (Constants.STATUS_SUCCESS == status && message != null) {
+            print("\nRegistration successful: $message");
+          } else {
+            print("\nRegistration failed: ${message ?? 'Unknown error'}");
           }
           break;
 

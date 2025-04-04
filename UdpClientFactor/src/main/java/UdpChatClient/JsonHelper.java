@@ -72,7 +72,7 @@ public final class JsonHelper {
 
         try {
             // Assume the entire data payload is the encrypted string
-            String encryptedString = new String(packet.getData(), 0, packet.getLength(), "UTF-8");
+            String encryptedString = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
             // log.trace("Received raw encrypted string: {}", encryptedString); // Can be noisy
 
             // Decrypt using Caesar cipher
