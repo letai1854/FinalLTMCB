@@ -165,8 +165,8 @@ class MyApp extends StatelessWidget {
             );
           default:
             return PageRouteBuilder(
-                pageBuilder: (context, _, __) => const Responsivechat(),
-                settings: const RouteSettings(name: '/chat'));
+                pageBuilder: (context, _, __) => const ResponsiveLogin(),
+                settings: const RouteSettings(name: '/login'));
         }
       },
     );
