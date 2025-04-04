@@ -47,6 +47,7 @@ dependencies:
   media_kit_video: ^1.2.4             # For video rendering
   media_kit_libs_windows_video: ^1.0.9 # Windows support
 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

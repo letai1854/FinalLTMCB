@@ -1,9 +1,12 @@
 import 'dart:io';
-
+import 'dart:developer' as logger;
+import 'package:finalltmcb/ClientUdp/constants.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
+import 'package:finalltmcb/Controllers/UserController.dart';
 import 'package:finalltmcb/Screen/Chat/ChatMobile.dart';
 import 'package:finalltmcb/Screen/Chat/Responsivechat.dart';
 import 'package:finalltmcb/Screen/Chat/listUserMobile.dart';
+import 'package:finalltmcb/Screen/Debug/CommandConsole.dart'; // Import the debug console
 import 'package:finalltmcb/Screen/Login/ResponsiveLogin.dart';
 import 'package:finalltmcb/Screen/SignUp/ReponsiveSignUp.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +15,8 @@ import 'package:url_strategy/url_strategy.dart';
 import 'package:video_player/video_player.dart';
 // Add media_kit import
 import 'package:media_kit/media_kit.dart';
+
+import 'package:finalltmcb/ClientUdp/udpmain.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -29,6 +34,64 @@ Future<void> initApp() async {
   // Initialize user session
   final userProvider = UserProvider();
   await userProvider.loadUserSession();
+
+  // Start UDP service for Flutter
+  await startUdpService();
+}
+
+// Function to start UDP service in Flutter environment
+Future<void> startUdpService() async {
+  print("Starting UDP client for Flutter environment...");
+  logger.log("Initializing UDP client for Flutter environment");
+
+  // Get the singleton instance of UserController
+  final userController = UserController();
+
+  try {
+    // Choose the right host based on platform
+    String host;
+    if (Platform.isAndroid) {
+      // For Android emulator, use 10.0.2.2 to reach host machine
+      host = "10.0.2.2";
+      logger.log("Running on Android, using host: $host");
+    } else {
+      host = "localhost";
+      logger.log("Using host: $host");
+    }
+
+    logger.log(
+        "Creating UdpChatClient for $host:${Constants.DEFAULT_SERVER_PORT}...");
+    UdpChatClient client =
+        await UdpChatClient.create(host, Constants.DEFAULT_SERVER_PORT);
+
+    // Set the client instance in UserController
+    userController.setUdpClient(client);
+    logger.log("UdpClient set in UserController");
+    print("UDP client setup completed");
+
+    // Test socket connection before starting
+    try {
+      logger.log("Testing socket connection...");
+      var socket = client.clientState.socket;
+      logger.log(
+          "Local socket info - Port: ${socket.port}, Address: ${socket.address}");
+      logger.log(
+          "Target server: ${client.clientState.serverAddress}:${client.clientState.serverPort}");
+      print("UDP socket ready for communication");
+    } catch (e) {
+      logger.log("Socket connection test failed: $e");
+      print("WARNING: Socket connection test failed: $e");
+    }
+
+    // Start the client in Flutter mode (just start the listener, not the input loop)
+    await client.startForFlutter();
+    logger.log("Message listener started for Flutter environment.");
+    print("UDP message listener started");
+  } catch (e, stackTrace) {
+    logger.log("Failed to start UDP client: $e");
+    logger.log("Stack trace: $stackTrace");
+    print("Failed to start UDP client: $e");
+  }
 }
 
 Future<void> main() async {
@@ -95,13 +158,15 @@ class MyApp extends StatelessWidget {
               pageBuilder: (context, _, __) => const ReponsiveSignUp(),
               settings: settings,
             );
-
+          case '/debug': // Add a route for the debug console
+            return PageRouteBuilder(
+              pageBuilder: (context, _, __) => const CommandConsole(),
+              settings: settings,
+            );
           default:
             return PageRouteBuilder(
-                pageBuilder: (context, _, __) => const ResponsiveLogin(),
-                settings: const RouteSettings(name: '/login'));
-          // pageBuilder: (context, _, __) => const ListUserMobile(),
-          // settings: const RouteSettings(name: '/chatMobile'));
+                pageBuilder: (context, _, __) => const Responsivechat(),
+                settings: const RouteSettings(name: '/chat'));
         }
       },
     );

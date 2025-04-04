@@ -26,7 +26,6 @@ class _ChatDesktopState extends State<ChatDesktop> {
   @override
   Widget build(BuildContext context) {
     final userProvider = UserProvider();
-    final isAdmin = userProvider.currentUser?.role == UserRole.admin;
 
     return Scaffold(
       appBar: PreferredSize(

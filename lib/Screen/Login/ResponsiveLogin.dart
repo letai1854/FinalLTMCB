@@ -9,10 +9,21 @@ class ResponsiveLogin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveLayout(
-      mobileScaffold: const LoginMobile(),
-      tableScaffold: const LoginTablet(),
-      destopScaffold: const LoginDesktop(),
+    return Scaffold(
+      body: ResponsiveLayout(
+        mobileScaffold: const LoginMobile(),
+        tableScaffold: const LoginTablet(),
+        destopScaffold: const LoginDesktop(),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.grey.shade800,
+        mini: true,
+        child: const Icon(Icons.bug_report, size: 20),
+        onPressed: () {
+          Navigator.pushNamed(context, '/debug');
+        },
+        tooltip: 'UDP Debug Console',
+      ),
     );
   }
 }

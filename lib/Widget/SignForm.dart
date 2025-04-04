@@ -79,7 +79,7 @@ class _SignFormState extends State<SignForm> {
       print('Sending user data: $userData');
 
       // Call register method
-      await _userController.register(userData);
+      // await _userController.register(userData);
 
       // Show success message and navigate
 // In your _handleSignup method, replace the existing SnackBar with:
