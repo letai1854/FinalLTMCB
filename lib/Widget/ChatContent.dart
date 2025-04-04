@@ -19,6 +19,7 @@ import 'package:finalltmcb/Widget/FullScreenImageViewer.dart';
 import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
 import 'package:finalltmcb/Widget/AttachmentMenuWidget.dart';
 import 'package:finalltmcb/Widget/MediaHandlerWidget.dart';
+import 'package:mime/mime.dart';
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -173,42 +174,106 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  Future<void> _handleSubmitted(String text) async {
-    if (text.isEmpty && _selectedImages.isEmpty) {
-      return; // Don't send empty messages
+  Future<ImageMessage?> _convertImageToBase64(XFile image) async {
+    try {
+      final bytes = await image.readAsBytes();
+      final base64Data = base64Encode(bytes);
+      final mimeType = lookupMimeType(image.path) ?? 'image/jpeg';
+
+      print('Processing image:');
+      print('Path: ${image.path}');
+      print('Size: ${bytes.length} bytes');
+      print('MIME type: $mimeType');
+      print('Base64 length: ${base64Data.length}');
+      print(
+          'Base64 preview: ${base64Data.substring(0, math.min(50, base64Data.length))}...');
+
+      return ImageMessage(
+        base64Data: base64Data,
+        mimeType: mimeType,
+        size: bytes.length,
+      );
+    } catch (e) {
+      print("Error converting image to base64: $e");
+      return null;
     }
+  }
+
+  Future<void> _handleSubmitted(String text) async {
+    if (text.isEmpty && _selectedImages.isEmpty) return;
 
     try {
-      if (text.isNotEmpty) {
-        setState(() {
-          if (!_userMessages.containsKey(widget.userId)) {
-            _userMessages[widget.userId] = [];
-          }
+      List<ImageMessage> processedImages = [];
+      DateTime timestamp = DateTime.now();
 
+      // Process images
+      if (_selectedImages.isNotEmpty) {
+        print('Processing ${_selectedImages.length} images...');
+
+        for (var image in List<XFile>.from(_selectedImages)) {
+          ImageMessage? imgMsg = await _convertImageToBase64(image);
+          if (imgMsg != null) {
+            processedImages.add(imgMsg);
+          }
+        }
+
+        print('Successfully processed ${processedImages.length} images');
+      }
+
+      // Create message data
+      final messageData = MessageData(
+        text: text.isNotEmpty ? text : null,
+        images: processedImages,
+        timestamp: timestamp,
+      );
+
+      // Log message details
+      print('\nPreparing to send message:');
+      print('Text: ${messageData.text ?? "No text"}');
+      print('Number of images: ${messageData.images.length}');
+      for (var i = 0; i < messageData.images.length; i++) {
+        print('\nImage $i:');
+        print('Size: ${messageData.images[i].size} bytes');
+        print('Type: ${messageData.images[i].mimeType}');
+      }
+      print(
+          'Total message size: ${jsonEncode(messageData.toJson()).length} bytes');
+
+      // Add to UI
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+
+        // Add text if present
+        if (text.isNotEmpty) {
           _userMessages[widget.userId]!.add(ChatMessage(
             text: text,
             isMe: true,
-            timestamp: DateTime.now(),
+            timestamp: timestamp,
             image: null,
           ));
-          _textController.clear(); // Clear the input field
-        });
-
-        _scrollToBottom();
-      }
-
-      if (_selectedImages.isNotEmpty) {
-        for (var image in List<XFile>.from(_selectedImages)) {
-          await _processAndAddImage(image);
-          _scrollToBottom();
         }
 
-        setState(() {
-          _selectedImages.clear();
-        });
-      }
+        // Add images
+        for (var img in processedImages) {
+          _userMessages[widget.userId]!.add(ChatMessage(
+            text: '',
+            isMe: true,
+            timestamp: timestamp,
+            image: img.base64Data,
+            mimeType: img.mimeType,
+          ));
+        }
+
+        _textController.clear();
+        _selectedImages.clear();
+      });
+
+      _scrollToBottom();
     } catch (e) {
       print("Error sending message: $e");
+      _showTopNotification('Failed to send message', isError: true);
     }
   }
 
@@ -856,4 +921,71 @@ class _ChatContentState extends State<ChatContent> {
       ),
     );
   }
+}
+
+class AudioMessage {
+  final String base64Data;
+  final String? path;
+  final int duration;
+  final int size;
+  final bool isPath;
+
+  AudioMessage({
+    required this.base64Data,
+    this.path,
+    required this.duration,
+    required this.size,
+    this.isPath = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'base64Data': base64Data,
+        'path': path,
+        'duration': duration,
+        'size': size,
+        'isPath': isPath,
+      };
+}
+
+// Add this class to handle image data
+class ImageMessage {
+  final String base64Data;
+  final String mimeType;
+  final int size;
+
+  ImageMessage({
+    required this.base64Data,
+    required this.mimeType,
+    required this.size,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'base64Data': base64Data,
+        'mimeType': mimeType,
+        'size': size,
+      };
+}
+
+// Modify MessageData class
+class MessageData {
+  final String? text;
+  final List<ImageMessage> images;
+  final List<AudioMessage> audios; // Thêm trường audio
+  final DateTime timestamp;
+
+  MessageData({
+    this.text,
+    required this.images,
+    this.audios = const [], // Default empty list
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'text': text,
+        'images': images.map((img) => img.toJson()).toList(),
+        'audios': audios
+            .map((audio) => audio.toJson())
+            .toList(), // Thêm audio vào JSON
+        'timestamp': timestamp.toIso8601String(),
+      };
 }
