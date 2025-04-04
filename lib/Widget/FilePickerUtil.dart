@@ -73,7 +73,7 @@ class FileMessage {
     this.fileBytes,
   });
 
-  // Add toJson method for server communication
+  // Convert to JSON for server
   Map<String, dynamic> toJson() => {
         'fileName': fileName,
         'mimeType': mimeType,
@@ -81,7 +81,7 @@ class FileMessage {
         'fileData': fileBytes != null ? base64Encode(fileBytes!) : null,
       };
 
-  // Create FileMessage from json data received from server
+  // Create from server response
   factory FileMessage.fromJson(Map<String, dynamic> json) {
     Uint8List? bytes;
     if (json['fileData'] != null) {

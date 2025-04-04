@@ -522,6 +522,7 @@ class _ChatContentState extends State<ChatContent> {
                 children: [
                   InkWell(
                     onTap: () {
+                      print("--- _handleFileSend ENTERED ---");
                       Future.microtask(() => _handleFileSend());
                     },
                     child: Padding(
@@ -565,73 +566,111 @@ class _ChatContentState extends State<ChatContent> {
   }
 
   Future<void> _handleFileSend() async {
-    print("File send button clicked");
-    _toggleAddMenu(); // Close menu immediately
+    print("\n========== FILE SEND DEBUG LOG ==========");
+    print("Time: ${DateTime.now().toString()}");
+    _toggleAddMenu();
 
     if (_isProcessingFile) {
-      print("Already processing a file, ignoring request");
+      print("⚠️ Already processing a file, ignoring request");
       return;
     }
 
-    // Set processing flag
     setState(() => _isProcessingFile = true);
 
-    // Không hiển thị thông báo Snackbar khi chọn file
     try {
+      print("\n📂 Opening file picker...");
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
-        withData: kIsWeb, // Only load file data on web
+        withData: true,
         dialogTitle: 'Select a file to share',
       );
 
-      setState(() => _isProcessingFile = false);
-
       if (result == null || result.files.isEmpty) {
-        print("No file selected or selection canceled");
+        print("❌ No file selected");
+        setState(() => _isProcessingFile = false);
         return;
       }
 
       final file = result.files.first;
-      print("Selected file: ${file.name}, size: ${file.size} bytes");
 
-      // Create file message from result
+      // Detailed file info logging
+      print("\n📄 File Details:");
+      print("Name: ${file.name}");
+      print("Size: ${file.size} bytes");
+      print("Path: ${file.path ?? 'No path (web)'}");
+      print("Extension: ${file.extension}");
+      print("Bytes available: ${file.bytes != null}");
+      if (file.bytes != null) {
+        print("Actual bytes length: ${file.bytes!.length}");
+        // Log first 100 bytes as hex for debugging
+        print(
+            "First 100 bytes (hex): ${file.bytes!.take(100).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}");
+      }
+
+      print("\n🔍 Creating FileMessage");
       final fileMessage = FileMessage(
         fileName: file.name,
-        mimeType: FilePickerUtil.getMimeType(
-            file.name), // Changed from _getMimeType to getMimeType
+        mimeType: FilePickerUtil.getMimeType(file.name),
         fileSize: file.size,
         filePath: file.path ?? '',
         fileBytes: file.bytes,
       );
 
+      print("\n📦 FileMessage Created:");
+      print("Filename: ${fileMessage.fileName}");
+      print("MIME Type: ${fileMessage.mimeType}");
+      print("Size: ${fileMessage.readableSize}");
+      print("Has bytes: ${fileMessage.hasFileBytes}");
+
+      print("\n🚀 Creating MessageData");
+      final messageData = MessageData(
+        text: null,
+        files: [fileMessage],
+        timestamp: DateTime.now(),
+      );
+
+      // Log the complete message data
+      print("\n📋 MessageData JSON:");
+      final jsonData = messageData.toJson();
+      print(JsonEncoder.withIndent('  ').convert({
+        ...jsonData,
+        'files': jsonData['files']?.map((f) {
+          final fileData = f['fileData'] as String?;
+          final truncatedLength =
+              fileData != null ? math.min<int>(50, fileData.length) : 0;
+
+          return {
+            ...f,
+            'fileData': fileData != null
+                ? '${fileData.substring(0, truncatedLength)}... (truncated)'
+                : null,
+          };
+        })?.toList(),
+      }));
+
+      // Update UI
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
 
         _userMessages[widget.userId]!.add(ChatMessage(
-          text: '', // Empty text for file messages
+          text: '',
           isMe: true,
           timestamp: DateTime.now(),
           file: fileMessage,
         ));
       });
 
-      // Scroll to bottom to show the new message
+      print("\n✅ File processing completed successfully");
       _scrollToBottom();
-
-      // Add an extra scroll attempt for reliability
-      Future.delayed(Duration(milliseconds: 300), () {
-        if (mounted) _scrollToBottom();
-      });
     } catch (e) {
-      print("Error handling file: $e");
+      print("\n❌ Error handling file:");
+      print(e.toString());
+    } finally {
       setState(() => _isProcessingFile = false);
-
-      // Chỉ hiển thị thông báo lỗi ngắn gọn nếu cần thiết
-      _showTopNotification(
-          'Không thể chọn file: ${e.toString().split('\n').first}');
+      print("\n========== END FILE SEND DEBUG LOG ==========\n");
     }
   }
 
@@ -715,6 +754,7 @@ class _ChatContentState extends State<ChatContent> {
 
   void _handleMessageCreated(ChatMessage message) {
     if (mounted) {
+      //lay file o day
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
@@ -1050,20 +1090,24 @@ class MessageData {
   final String? text;
   final List<ImageMessage> images;
   final List<AudioMessage> audios; // Add audio support
+  final List<FileMessage> files; // Add file support
   final DateTime timestamp;
 
   MessageData({
     this.text,
     List<ImageMessage>? images,
     List<AudioMessage>? audios,
+    List<FileMessage>? files,
     required this.timestamp,
   })  : images = images ?? [],
-        audios = audios ?? [];
+        audios = audios ?? [],
+        files = files ?? [];
 
   Map<String, dynamic> toJson() => {
         'text': text,
         'images': images.map((img) => img.toJson()).toList(),
         'audios': audios.map((audio) => audio.toJson()).toList(),
+        'files': files.map((file) => file.toJson()).toList(),
         'timestamp': timestamp.toIso8601String(),
       };
 }
