@@ -39,9 +39,12 @@ dependencies:
   record: ^5.0.4 # Để ghi âm audio
   path_provider: ^2.1.2 # Lấy đường dẫn thư mục tạm để lưu file ghi âm
   permission_handler: ^11.3.0 # Yêu cầu quyền truy cập (camera, mic, storage)
-  uuid: ^4.3.3 # 
+  uuid: ^4.3.3 # Thêm package uuid nếu chưa có
   file_picker: ^5.2.10 # Add this line
-
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+  convert: ^3.1.1 # Hoặc phiên bản mới hơn (cho utf8)
+  logging: ^1.2.0 # Hoặc phiên bản mới hơn
 dev_dependencies:
   flutter_test:
     sdk: flutter
