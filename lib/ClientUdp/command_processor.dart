@@ -91,6 +91,14 @@ class CommandProcessor {
         stdout.write("> ");
       }
     }
+    if (command == "send") {
+      CommandHandler? handler =
+          commandHandlers[Constants.CMD_SEND.toLowerCase()];
+      if (handler != null) {
+        logger.log('Found registered handler for command: $command');
+        handler.handle(args, clientState, handshakeManager);
+      }
+    }
   }
 
   // This method is no longer needed since we're using the proper handler
