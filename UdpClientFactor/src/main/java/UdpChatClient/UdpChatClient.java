@@ -9,6 +9,14 @@ import java.net.UnknownHostException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// Import classes from the same package
+import UdpChatClient.ClientState;
+import UdpChatClient.CommandProcessor;
+import UdpChatClient.Constants;
+import UdpChatClient.HandshakeManager;
+import UdpChatClient.MessageListener;
+import UdpChatClient.MessageProcessor;
+
 public class UdpChatClient {
     private static final Logger log = LoggerFactory.getLogger(UdpChatClient.class);
     public static final String DEFAULT_SERVER_HOST = "localhost"; // Keep default host here
@@ -123,3 +131,4 @@ public class UdpChatClient {
         }
     }
 }
+// mvn compile exec:java
