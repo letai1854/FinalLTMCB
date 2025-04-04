@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 
 class ChatMessage {
@@ -7,7 +9,15 @@ class ChatMessage {
   final String? image;
   final String? audio;
   final bool isAudioPath;
-  final FileMessage? file; // Add file message support
+  final FileMessage? file;
+  final String? video; // Added for video messages
+  final String? mimeType;
+  final Uint8List? videoBytes;
+  final bool isVideoLoading; // Flag for video loading state
+
+  // --- Audio Specific Fields (Commented out - for future use) ---
+  // final int? audioDuration; // Duration in milliseconds
+  // final List<double>? audioWaveform; // For waveform visualization
 
   const ChatMessage({
     required this.text,
@@ -17,6 +27,10 @@ class ChatMessage {
     this.audio,
     this.isAudioPath = false,
     this.file,
+    this.video,
+    this.mimeType = null,
+    this.videoBytes = null,
+    this.isVideoLoading = false,
   });
 
   // Helper method to determine if this is an audio message
@@ -27,4 +41,7 @@ class ChatMessage {
 
   // Helper method to determine if this is a file message
   bool get isFileMessage => file != null;
+
+  // Helper method to determine if this is a video message
+  bool get isVideoMessage => video != null && video!.isNotEmpty;
 }

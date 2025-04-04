@@ -11,24 +11,18 @@ class LoginForm extends StatefulWidget {
 
 class _LoginFormState extends State<LoginForm> {
   // Initialize focus nodes and controllers
-  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _chatIdFocusNode = FocusNode(); // Changed from _emailFocusNode
   final FocusNode _passwordFocusNode = FocusNode();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _chatIdController = TextEditingController(); // Changed from _emailController
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   final UserController _userController = UserController();
   bool _isLoading = false;
   String? _errorMessage;
-  String? _successMessage; // Added for success messages
+  String? _successMessage;
 
   Future<void> _handleLogin() async {
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/chat',
-      (route) => false,
-    );
-    // Validate fields
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_chatIdController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() {
         _errorMessage = 'Vui lòng điền đầy đủ thông tin';
         _successMessage = null;
@@ -44,7 +38,7 @@ class _LoginFormState extends State<LoginForm> {
 
     try {
       final user = await _userController.login(
-        _emailController.text,
+        _chatIdController.text,
         _passwordController.text,
       );
 
@@ -58,7 +52,7 @@ class _LoginFormState extends State<LoginForm> {
         });
 
         // Clear form
-        _emailController.clear();
+        _chatIdController.clear();
         _passwordController.clear();
 
         // Navigate after brief delay to show success message
@@ -66,7 +60,7 @@ class _LoginFormState extends State<LoginForm> {
           if (mounted) {
             Navigator.pushNamedAndRemoveUntil(
               context,
-              '/home',
+              '/chat',
               (route) => false,
             );
           }
@@ -76,10 +70,17 @@ class _LoginFormState extends State<LoginForm> {
       setState(() {
         String errorMsg = e.toString().replaceAll('Exception: ', '');
         _errorMessage = errorMsg;
-
-        // Focus email field if credentials are invalid
-        if (errorMsg.contains('Email hoặc mật khẩu không đúng')) {
-          _emailFocusNode.requestFocus();
+        
+        // Focus the appropriate field based on the error
+        if (errorMsg.contains('Chat ID không tồn tại')) {
+          _chatIdFocusNode.requestFocus();
+        } else if (errorMsg.contains('Sai mật khẩu')) {
+          // Keep what the user typed in the username field but focus on password
+          _passwordController.clear();
+          _passwordFocusNode.requestFocus();
+        } else {
+          // For other errors, default to focusing the username field
+          _chatIdFocusNode.requestFocus();
         }
       });
     } finally {
@@ -100,9 +101,9 @@ class _LoginFormState extends State<LoginForm> {
   @override
   void dispose() {
     // Clean up the controllers and focus nodes
-    _emailFocusNode.dispose();
+    _chatIdFocusNode.dispose(); // Changed from _emailFocusNode
     _passwordFocusNode.dispose();
-    _emailController.dispose();
+    _chatIdController.dispose(); // Changed from _emailController
     _passwordController.dispose();
     super.dispose();
   }
@@ -128,9 +129,9 @@ class _LoginFormState extends State<LoginForm> {
           ),
           SizedBox(height: 20),
           TextFormField(
-            focusNode: _emailFocusNode,
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
+            focusNode: _chatIdFocusNode, // Changed from _emailFocusNode
+            controller: _chatIdController, // Changed from _emailController
+            keyboardType: TextInputType.text, // Changed from TextInputType.emailAddress
             textInputAction: TextInputAction.next,
             onFieldSubmitted: (_) {
               FocusScope.of(context).requestFocus(_passwordFocusNode);
@@ -144,9 +145,9 @@ class _LoginFormState extends State<LoginForm> {
               }
             },
             decoration: InputDecoration(
-              hintText: 'Email',
+              hintText: 'Chat ID', // Changed from 'Email'
               prefixIcon: Icon(
-                Icons.email_outlined,
+                Icons.person_outline, // Changed from Icons.email_outlined
                 color: Colors.grey[600],
               ),
               border: OutlineInputBorder(

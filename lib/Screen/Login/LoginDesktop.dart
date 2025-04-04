@@ -32,9 +32,9 @@ class LoginDesktop extends StatelessWidget {
                             flex: 5,
                             child: Container(
                               decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('/banner.jpg'),
-                                ),
+                                // image: DecorationImage(
+                                //   image: AssetImage('/banner.jpg'),
+                                // ),
                               ),
                             ),
                           ),
