@@ -72,7 +72,7 @@ public final class JsonHelper {
 
         try {
             // Assume the entire data payload is the encrypted string
-            String encryptedString = new String(packet.getData(), 0, packet.getLength(), "UTF-8");
+            String encryptedString = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
             // log.trace("Received raw encrypted string: {}", encryptedString); // Can be noisy
 
             // Decrypt using Caesar cipher
@@ -156,12 +156,13 @@ public final class JsonHelper {
 
         try {
             String jsonString = gson.toJson(json);
-            // log.trace("Plain JSON string to send: {}", jsonString); // Can be noisy
 
+            // log.trace("Plain JSON string to send: {}", jsonString); // Can be noisy
+            System.out.println("--------------------------------------Plain JSON string to send: " + jsonString); // For debugging
             // Encrypt the JSON string
             String encryptedString = CaesarCipher.encrypt(jsonString, keyString);
             // log.trace("Encrypted JSON string to send: {}", encryptedString); // Can be noisy
-
+            System.out.println("--------------------------------------Encrypted JSON string to send: " + encryptedString); // For debugging
             byte[] sendData = encryptedString.getBytes(StandardCharsets.UTF_8);
 
             if (sendData.length > Constants.MAX_UDP_PACKET_SIZE) {

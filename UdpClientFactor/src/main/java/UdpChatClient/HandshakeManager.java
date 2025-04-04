@@ -1,6 +1,5 @@
 package UdpChatClient;
 
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.UUID;
@@ -200,7 +199,21 @@ public class HandshakeManager {
                 pendingReq.latch.countDown();
                 log.info("Signaled completion for pending login request associated with transaction {}", transactionId);
 
-            } else {
+            } 
+            else if (Constants.ACTION_REGISTER.equals(originalAction)) {
+                if (Constants.STATUS_SUCCESS.equals(status)) {
+                    String message = data.has(Constants.KEY_MESSAGE) ? data.get(Constants.KEY_MESSAGE).getAsString() : "Registration successful.";
+                    log.info("Registration successful ");
+                    System.out.println("\n" + message);
+                } else {
+                    String message = responseJson.has(Constants.KEY_MESSAGE) ? responseJson.get(Constants.KEY_MESSAGE).getAsString() : "Unknown reason";
+                    log.warn("Registration failed via ACK. Status: {}, Message: {}", status, message);
+                    System.out.println("\nRegistration failed: " + message + " (Status: " + status + ")");
+                }
+                pendingReq.latch.countDown(); // Add this line to signal completion for registration
+                log.info("Signaled completion for pending registration request associated with transaction {}", transactionId);
+            }
+            else {
                 // Handle ACK for other actions
                 pendingReq.latch.countDown();
                 log.info("Signaled completion for pending request (Action: {}) associated with transaction {}", originalAction, transactionId);
@@ -312,7 +325,9 @@ public class HandshakeManager {
 
     public void sendClientRequestWithAck(JsonObject request, String action, String encryptionKey) {
         String tempId = UUID.randomUUID().toString();
+        System.out.println("\nSending action: " + action + " (TempID: " + tempId + ")");
         String jsonToSend = gson.toJson(request);
+        System.out.println("---------------------"+jsonToSend);
         ClientPendingRequest pendingReq = new ClientPendingRequest(action, jsonToSend);
         pendingClientRequestsByTempId.put(tempId, pendingReq);
 
@@ -341,7 +356,12 @@ public class HandshakeManager {
                         if (!action.equals(Constants.ACTION_LOGIN)) {
                              System.out.println("\nServer couldn't process request: " + serverMessage + " (Status: " + status + ")");
                         }
-                    } else {
+                    }
+                    else if (action.equals(Constants.ACTION_GET_USERS)) {
+                        // Thông báo thành công cho get_users được xử lý trong handleConfirmCountResponse (S->C flow)
+                        log.info("Action {} (TempID: {}) acknowledged successfully by server.", action, tempId);
+                    }
+                    else {
                         log.info("Action {} (TempID: {}) acknowledged successfully by server.", action, tempId);
                         // Specific success messages for non-login actions
                         if (action.equals(Constants.ACTION_SEND_MESSAGE)) System.out.println("\nMessage sent successfully!");
