@@ -3,13 +3,14 @@ import 'dart:typed_data';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/ImageMessage.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
+import 'package:finalltmcb/Model/VideoFileMessage.dart';
 
 class MessageData {
   final String? text;
   final List<ImageMessage> images;
   final List<AudioData> audios; // Add audio support
   final List<FileMessage> files; // Add file support
-  final Uint8List? videoBytes; // Add videoBytes support
+  final VideoFileMessage? video;
   final DateTime timestamp;
 
   MessageData({
@@ -17,7 +18,7 @@ class MessageData {
     List<ImageMessage>? images,
     List<AudioData>? audios,
     List<FileMessage>? files,
-    this.videoBytes, // Add videoBytes to constructor
+    this.video,
     required this.timestamp,
   })  : images = images ?? [],
         audios = audios ?? [],
@@ -28,9 +29,7 @@ class MessageData {
         'images': images.map((img) => img.toJson()).toList(),
         'audios': audios.map((audio) => audio.toJson()).toList(),
         'files': files.map((file) => file.toJson()).toList(),
-        'videoBytes': videoBytes != null
-            ? base64Encode(videoBytes!.cast<int>())
-            : null, // Encode videoBytes to base64
+        'video': video?.toJson(),
         'timestamp': timestamp.toIso8601String(),
       };
 
@@ -49,9 +48,9 @@ class MessageData {
               ?.map((file) => FileMessage.fromJson(file))
               .toList() ??
           [],
-      videoBytes: json['videoBytes'] != null
-          ? base64Decode(json['videoBytes']).cast<int>() as Uint8List
-          : null, // Decode base64 to Uint8List
+      video: json['video'] != null
+          ? VideoFileMessage.fromJson(json['video'])
+          : null,
       timestamp: DateTime.parse(json['timestamp']),
     );
   }

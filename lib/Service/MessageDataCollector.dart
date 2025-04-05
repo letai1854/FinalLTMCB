@@ -4,6 +4,7 @@ import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/VideoFileMessage.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 
 class MessageDataCollector {
   static Future<MessageData> collectTextAndImageData({

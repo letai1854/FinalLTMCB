@@ -48,10 +48,10 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildMessageContent(BuildContext context) {
-    // Check if message has a video (using videoBytes)
-    if (message.videoBytes != null) {
+    // Check if message has a video
+    if (message.isVideoMessage) {
       return VideoBubble(
-        videoPath: message.video!, // Still use videoPath for now
+        videoPath: message.video!.localPath,
         isMe: message.isMe,
         isLoading: message.isVideoLoading,
       );

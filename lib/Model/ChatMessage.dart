@@ -4,6 +4,7 @@ import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/ImageMessage.dart';
 import 'package:finalltmcb/Model/MessageData.dart'; // Import MessageData
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
+import 'package:finalltmcb/Model/VideoFileMessage.dart'; // Thêm import này
 
 class ChatMessage {
   final String text;
@@ -14,9 +15,7 @@ class ChatMessage {
   final FileMessage? file;
   final String? audio;
   final bool isAudioPath;
-  final FileMessage? videoFile; // Use FileMessage for video
-  final String? video; //  video messages
-  final Uint8List? videoBytes;
+  final VideoFileMessage? video; // Thay đổi chính
   final bool isVideoLoading; // Flag for video loading state
   final bool isVideoUploading; // Flag for video uploading state
   final MessageData? messageData;
@@ -30,9 +29,7 @@ class ChatMessage {
     this.file,
     this.audio,
     this.isAudioPath = false,
-    this.videoFile, // FileMessage for video
-    this.video,
-    this.videoBytes = null,
+    this.video, // Cập nhật constructor
     this.isVideoLoading = false,
     this.isVideoUploading = false,
     this.messageData,
@@ -47,6 +44,9 @@ class ChatMessage {
   // Helper method to determine if this is a file message
   bool get isFileMessage => file != null;
 
+  // Helper method to determine if this is a video message
+  bool get isVideoMessage => video != null;
+
   Map<String, dynamic> toJson() {
     return {
       'text': text,
@@ -57,12 +57,10 @@ class ChatMessage {
       'file': file?.toJson(),
       'audio': audio,
       'isAudioPath': isAudioPath,
-      'videoFile': videoFile?.toJson(), // Include videoFile in toJson
-      'video': video,
-      'videoBytes': videoBytes,
+      'video': video?.toJson(), // Cập nhật toJson
       'isVideoLoading': isVideoLoading,
       'isVideoUploading': isVideoUploading,
-      'messageData': messageData?.toJson(), // Include messageData in toJson
+      'messageData': messageData?.toJson(),
     };
   }
 
@@ -76,16 +74,14 @@ class ChatMessage {
       file: json['file'] != null ? FileMessage.fromJson(json['file']) : null,
       audio: json['audio'],
       isAudioPath: json['isAudioPath'],
-      videoFile: json['videoFile'] != null
-          ? FileMessage.fromJson(json['videoFile'])
-          : null, // Include videoFile in fromJson
-      video: json['video'],
-      videoBytes: json['videoBytes'],
-      isVideoLoading: json['isVideoLoading'],
-      isVideoUploading: json['isVideoUploading'],
+      video: json['video'] != null // Cập nhật fromJson
+          ? VideoFileMessage.fromJson(json['video'])
+          : null,
+      isVideoLoading: json['isVideoLoading'] ?? false,
+      isVideoUploading: json['isVideoUploading'] ?? false,
       messageData: json['messageData'] != null
           ? MessageData.fromJson(json['messageData'])
-          : null, // Include messageData in fromJson
+          : null,
     );
   }
 }
