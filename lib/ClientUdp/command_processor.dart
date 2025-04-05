@@ -72,7 +72,7 @@ class CommandProcessor {
     String args = parts.length > 1 ? parts[1] : "";
 
     logger.log('Command: $command, Args: $args');
-    
+
     CommandHandler? handler = commandHandlers[command];
     if (handler != null) {
       logger.log('Found registered handler for command: $command');

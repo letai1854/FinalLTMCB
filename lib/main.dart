@@ -1,7 +1,11 @@
 import 'dart:io';
 import 'dart:developer' as logger;
 import 'package:finalltmcb/ClientUdp/constants.dart';
+
 import 'package:finalltmcb/Controllers/GroupController.dart';
+
+import 'package:finalltmcb/Controllers/MessageController.dart';
+
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Controllers/UserController.dart';
 import 'package:finalltmcb/Screen/Chat/ChatMobile.dart';
@@ -52,6 +56,7 @@ Future<void> startUdpService() async {
   final userController = UserController();
   // Initialize global GroupController
   globalGroupController = GroupController();
+  final messageController = MessageController();
 
   try {
     // Choose the right host based on platform
@@ -75,6 +80,9 @@ Future<void> startUdpService() async {
     globalGroupController.setUdpClient(client);
     // logger.log("UdpClient set in UserController");
     // print("UDP client setup completed");
+    messageController.setUdpClient(client);
+    logger.log("UdpClient set in UserController");
+    print("UDP client setup completed");
 
     // Test socket connection before starting
     try {

@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'dart:convert'; // Add for base64Encode
 import 'package:flutter/material.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 import 'package:path/path.dart' as path;
+import 'package:finalltmcb/Model/VideoFileMessage.dart'; // Import VideoFileMessage
+import 'package:mime/mime.dart'; // Import for lookupMimeType
 
 typedef MessageCallback = void Function(ChatMessage message);
 typedef ProcessingCallback = void Function();
@@ -51,13 +55,33 @@ class MediaHandlerWidget {
       final file = result.files.first;
       print("Selected file: ${file.name}, size: ${file.size} bytes");
 
+      // Ensure we have bytes
+       Uint8List? fileBytes = file.bytes;
+        if (fileBytes == null && file.path != null && !kIsWeb) {
+            try {
+                fileBytes = await File(file.path!).readAsBytes();
+            } catch (e) {
+                print("Error reading file bytes from path: $e");
+                onError('Error reading file data', isError: true);
+                onProcessingEnd();
+                return;
+            }
+        }
+
+       if (fileBytes == null) {
+            print("File bytes are null.");
+             onError('Could not load file data', isError: true);
+             onProcessingEnd();
+             return;
+        }
+
       // Create file message from result
       final fileMessage = FileMessage(
         fileName: file.name,
-        mimeType: FilePickerUtil.getMimeType(file.name),
-        fileSize: file.size,
+        mimeType: lookupMimeType(file.name, headerBytes: fileBytes.take(1024).toList()) ?? FilePickerUtil.getMimeType(file.name),
+        fileSize: fileBytes.length,
         filePath: file.path ?? '',
-        fileBytes: file.bytes,
+        fileBytes: fileBytes,
       );
 
       // Create the chat message
@@ -70,13 +94,12 @@ class MediaHandlerWidget {
 
       // Pass the message back via callback
       onMessageCreated(message);
-      onProcessingEnd();
 
-      // Note: The callback handler should handle scrolling and adding to the message list
     } catch (e) {
       print("Error handling file: $e");
-      onProcessingEnd();
       onError('Không thể chọn file: ${e.toString().split('\n').first}');
+    } finally {
+       onProcessingEnd();
     }
   }
 
@@ -85,9 +108,7 @@ class MediaHandlerWidget {
     onProcessingStart();
 
     try {
-      // Pick video using image_picker
       final ImagePicker picker = ImagePicker();
-
       onError("Đang mở chọn video...",
           isInfo: true, duration: Duration(seconds: 1));
 
@@ -102,59 +123,53 @@ class MediaHandlerWidget {
         return;
       }
 
-      print("Selected video: ${pickedVideo.path}");
+      print("Selected video path: ${pickedVideo.path}");
 
-      // Verify video file exists and has content
-      if (!kIsWeb) {
-        try {
-          final File videoFile = File(pickedVideo.path);
-          if (!await videoFile.exists()) {
-            onError("Không thể truy cập file video", isError: true);
-            onProcessingEnd();
-            return;
-          }
+      Uint8List videoBytes;
+      String videoPath = pickedVideo.path; // Store path for local playback if needed
+      String videoName = path.basename(videoPath);
 
-          final size = await videoFile.length();
-          print("Video file size: $size bytes");
-
-          if (size == 0) {
-            onError("Không thể gửi video rỗng", isError: true);
-            onProcessingEnd();
-            return;
-          }
-
-          // Check Windows compatibility
-          if (Platform.isWindows) {
-            final extension = path.extension(pickedVideo.path).toLowerCase();
-            if (!['.mp4', '.webm'].contains(extension)) {
-              onError(
-                  "Windows chỉ hỗ trợ video định dạng MP4 và WebM, định dạng hiện tại: $extension",
-                  isError: true,
-                  duration: Duration(seconds: 5));
-              // Continue anyway to let VideoBubble handle the error display
-            }
-          }
-        } catch (e) {
-          print("Error checking video file: $e");
-        }
+      if (kIsWeb) {
+        videoBytes = await pickedVideo.readAsBytes();
+        print("Web video bytes read: ${videoBytes.length} bytes");
+      } else {
+        final File videoFile = File(videoPath);
+        videoBytes = await videoFile.readAsBytes();
+        print("Native video file bytes read: ${videoBytes.length} bytes");
       }
 
-      // Create message with direct path - no need to save to app directory
+      String mimeType = lookupMimeType(videoName, headerBytes: videoBytes.take(1024).toList()) ?? 'video/mp4';
+      print("Detected video MIME type: $mimeType");
+
+      // Create VideoFileMessage
+      final videoFileMessage = VideoFileMessage(
+        fileName: videoName,
+        mimeType: mimeType,
+        fileSize: videoBytes.length,
+        base64Data: base64Encode(videoBytes), // Encode bytes to base64
+        localPath: videoPath, // Store local path
+        // duration: // TODO: Implement video duration extraction if needed
+        // thumbnail: // TODO: Implement thumbnail generation if needed
+      );
+
+      print("VideoFileMessage created: ${videoFileMessage.fileName}, size: ${videoFileMessage.readableSize}");
+
+      // Create ChatMessage with VideoFileMessage
       final message = ChatMessage(
         text: '',
         isMe: true,
         timestamp: DateTime.now(),
-        video: pickedVideo.path,
-        isVideoLoading: false, // No loading state needed
+        video: videoFileMessage, // Use the 'video' field
+        isVideoLoading: false,
       );
 
-      // Send message
       onMessageCreated(message);
-      onProcessingEnd();
+
     } catch (e) {
       print("Error handling video: $e");
       onError("Lỗi chọn video: ${e.toString().split('\n').first}",
           isError: true);
+    } finally {
       onProcessingEnd();
     }
   }

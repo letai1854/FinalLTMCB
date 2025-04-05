@@ -5,8 +5,9 @@ import 'dart:developer' as logger;
 /// It's included here based on the initial requirements.
 class CaesarCipher {
   // Define the exact same alphabet as in the Java implementation
-  static const String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?";
-  
+  static const String ALPHABET =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/={}[]\":,.!? ";
+
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Characters not in the defined ALPHABET are passed through unchanged.
   ///
@@ -14,12 +15,16 @@ class CaesarCipher {
   /// @param keyString The key string (its length determines the shift).
   /// @return The encrypted cipher text.
   static String encrypt(String plainText, String keyString) {
-    if (plainText == null || plainText.isEmpty || keyString == null || keyString.isEmpty) {
+    if (plainText == null ||
+        plainText.isEmpty ||
+        keyString == null ||
+        keyString.isEmpty) {
       logger.log('Encryption attempt with null or empty input.');
       return plainText ?? '';
     }
-    
-    int shift = keyString.length; // Use key length as shift value - same as Java
+
+    int shift =
+        keyString.length; // Use key length as shift value - same as Java
     logger.log('Encrypting with shift: $shift');
     return processText(plainText, shift);
   }
@@ -31,12 +36,16 @@ class CaesarCipher {
   /// @param keyString The key string (its length determines the shift).
   /// @return The decrypted plain text.
   static String decrypt(String? cipherText, String? keyString) {
-    if (cipherText == null || cipherText.isEmpty || keyString == null || keyString.isEmpty) {
+    if (cipherText == null ||
+        cipherText.isEmpty ||
+        keyString == null ||
+        keyString.isEmpty) {
       logger.log('Decryption attempt with null or empty input.');
       return cipherText ?? '';
     }
-    
-    int shift = keyString.length; // Use key length as shift value - same as Java
+
+    int shift =
+        keyString.length; // Use key length as shift value - same as Java
     logger.log('Decrypting with shift: $shift');
     // Decryption is encryption with the negative shift
     return processText(cipherText, -shift);
@@ -59,7 +68,8 @@ class CaesarCipher {
       String character = text[i];
       int charIndex = ALPHABET.indexOf(character);
 
-      if (charIndex != -1) { // Character is in our defined alphabet
+      if (charIndex != -1) {
+        // Character is in our defined alphabet
         // Calculate the new index with wrap-around using modulo
         int newIndex = (charIndex + shift) % len;
         // Handle negative results from modulo correctly
@@ -85,7 +95,7 @@ class CaesarCipher {
     if (text.isEmpty) {
       return {};
     }
-    
+
     Map<String, int> frequencies = {};
     for (int i = 0; i < text.length; i++) {
       String c = text[i];
@@ -103,7 +113,7 @@ class CaesarCipher {
     if (text.isEmpty) {
       return 0;
     }
-    
+
     int count = 0;
     for (int i = 0; i < text.length; i++) {
       String c = text[i];

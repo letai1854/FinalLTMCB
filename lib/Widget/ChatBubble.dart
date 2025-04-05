@@ -51,7 +51,7 @@ class ChatBubble extends StatelessWidget {
     // Check if message has a video
     if (message.isVideoMessage) {
       return VideoBubble(
-        videoPath: message.video!,
+        videoPath: message.video!.localPath,
         isMe: message.isMe,
         isLoading: message.isVideoLoading,
       );
