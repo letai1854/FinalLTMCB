@@ -27,6 +27,7 @@ import 'dart:typed_data'; // Import typed_data
 import 'package:mime/mime.dart';
 import 'package:finalltmcb/Model/VideoFileMessage.dart'; // Add import for VideoFileMessage
 import 'package:finalltmcb/Controllers/MessageController.dart'; // Import MessageController
+import 'dart:developer' as logger; // Import logger
 
 class ChatContent extends StatefulWidget {
   final String userId;
@@ -208,78 +209,89 @@ class _ChatContentState extends State<ChatContent> {
   Future<void> _handleSubmitted(String text) async {
     if (text.isEmpty && _selectedImages.isEmpty) return;
 
-    try {
-      List<ImageMessage> processedImages = [];
-      DateTime timestamp = DateTime.now();
+    final timestamp = DateTime.now();
+    List<ImageMessage> processedImages = [];
+    List<ChatMessage> uiMessagesToAdd = []; // Messages to add to UI
 
+    // --- Prepare UI Messages ---
+    try {
+      // 1. Prepare text message for UI
+      if (text.isNotEmpty) {
+        uiMessagesToAdd.add(ChatMessage(
+          text: text,
+          isMe: true,
+          timestamp: timestamp,
+        ));
+      }
+
+      // 2. Process images and prepare image messages for UI
       if (_selectedImages.isNotEmpty) {
-        print('Processing ${_selectedImages.length} images...');
+        print('Processing ${_selectedImages.length} images for send...');
         for (var image in List<XFile>.from(_selectedImages)) {
           ImageMessage? imgMsg = await _convertImageToBase64(image);
           if (imgMsg != null) {
             processedImages.add(imgMsg);
+            // Create a ChatMessage for each image for the UI
+            uiMessagesToAdd.add(ChatMessage(
+              text: '',
+              isMe: true,
+              timestamp: timestamp,
+              image: imgMsg.base64Data, // Store base64 for UI bubble
+              mimeType: imgMsg.mimeType,
+            ));
           }
         }
-        print('Successfully processed ${processedImages.length} images');
+        print('Processed ${processedImages.length} images.');
       }
 
-      // --- Create MessageData directly ---
-      final messageData = MessageData(
-        text: text.isNotEmpty ? text : null,
-        images: processedImages.isNotEmpty ? processedImages : [],
-        audios: [],
-        files: [],
-        video: null,
-        timestamp: timestamp,
-      );
+      if (uiMessagesToAdd.isEmpty) return; // Nothing to add or send
 
-      _logMessageDataForServer(messageData);
-
-      // --- Send Message via Controller ---
-      try {
-        print("Attempting to send Text/Image message via UDP...");
-        await MessageController().SendMessage(messageData);
-        print("Text/Image message sent successfully via UDP.");
-      } catch (sendError) {
-        print("Error sending Text/Image message via UDP: $sendError");
-        _showTopNotification('Lỗi gửi tin nhắn', isError: true);
-        // Decide if you want to stop UI update on send error
-      }
-
-      // Add to UI
+      // --- Update UI Immediately ---
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
-
-        // Add text message if present
-        if (text.isNotEmpty) {
-          _userMessages[widget.userId]!.add(ChatMessage(
-            text: text,
-            isMe: true,
-            timestamp: timestamp,
-          ));
-        }
-
-        // Add image messages
-        for (var img in processedImages) {
-          // Create a ChatMessage for each image
-          _userMessages[widget.userId]!.add(ChatMessage(
-            text: '',
-            isMe: true,
-            timestamp: timestamp,
-            image: img.base64Data, // Store base64 data directly in ChatMessage
-            mimeType: img.mimeType,
-          ));
-        }
-
+        _userMessages[widget.userId]!.addAll(uiMessagesToAdd);
         _textController.clear();
         _selectedImages.clear();
       });
-
       _scrollToBottom();
-    } catch (e) {
-      print("Error in _handleSubmitted: $e");
+
+      // --- Send Message in Background ---
+      Future(() async {
+        try {
+          // Create MessageData containing only data to be sent
+          final messageDataToSend = MessageData(
+            text: text.isNotEmpty ? text : null,
+            images: processedImages, // Send processed images
+            audios: [],
+            files: [],
+            video: null,
+            timestamp: timestamp,
+          );
+
+          _logMessageDataForServer(messageDataToSend); // Log before sending
+
+          print(
+              "Attempting to send Text/Image message via Controller/CommandProcessor...");
+          // Use widget.userId as roomId, adjust if necessary
+          await MessageController().SendMessage(messageDataToSend);
+          print(
+              "Text/Image message processing initiated via Controller/CommandProcessor.");
+          // Optional: Update message status in UI to 'sent' or 'delivered' later based on ACK
+        } catch (sendError, stackTrace) {
+          logger.log(
+              "Error sending Text/Image message in background: $sendError",
+              name: "ChatContent",
+              error: sendError,
+              stackTrace: stackTrace);
+          // Optional: Update message status in UI to 'failed'
+          _showTopNotification('Lỗi gửi tin nhắn', isError: true);
+        }
+      });
+    } catch (e, stackTrace) {
+      logger.log("Error preparing submitted message: $e",
+          name: "ChatContent", error: e, stackTrace: stackTrace);
       _showTopNotification('Có lỗi xảy ra khi xử lý tin nhắn', isError: true);
     }
   }
@@ -389,79 +401,76 @@ class _ChatContentState extends State<ChatContent> {
 
 // Update the _handleAudioMessageSent method
   Future<void> _handleAudioMessageSent(ChatMessage message) async {
-    print("DEBUG: Received Audio ChatMessage in _handleAudioMessageSent: ${message.toJson()}");
+    logger.log("Handling sent audio message (UI Update): ${message.toJson()}",
+        name: "ChatContent");
 
     if (!mounted) return;
 
-    try {
-      AudioData? audioData;
-
-      if (message.isAudioPath && message.audio != null) {
-        final File audioFile = File(message.audio!);
-        final bytes = await audioFile.readAsBytes();
-        audioData = AudioData(
-          base64Data: base64Encode(bytes),
-          duration: 0, // TODO: Get actual duration if possible
-          mimeType: lookupMimeType(message.audio!) ?? 'audio/mp4',
-          size: bytes.length,
-        );
-      } else if (message.audio != null) {
-        final bytes = base64Decode(message.audio!);
-        audioData = AudioData(
-          base64Data: message.audio!,
-          duration: 0, // TODO: Get actual duration if possible
-          mimeType: 'audio/mp4', // Assume mp4 if only base64 is provided
-          size: bytes.length,
-        );
-      } else {
-        print('Warning: No valid audio data found in message.');
-        return; // Or throw an exception
+    // --- Update UI Immediately ---
+    setState(() {
+      if (!_userMessages.containsKey(widget.userId)) {
+        _userMessages[widget.userId] = [];
       }
+      // Add the ChatMessage as received from AudioHandlerWidget
+      _userMessages[widget.userId]!.add(message);
+      _isAudioHandlerActive = false; // Assume audio handler is done
+    });
+    _scrollToBottom();
 
-      if (audioData == null) {
-        print('Warning: No valid audio data created.');
-        return;
-      }
-
-      // --- Create MessageData directly ---
-      final messageData = MessageData(
-        text: null,
-        images: [],
-        audios: [audioData], // Add the single AudioData object
-        files: [],
-        video: null,
-        timestamp: message.timestamp, // Use timestamp from ChatMessage
-      );
-
-      _logMessageDataForServer(messageData); // Log before sending
-
-      // --- Send Message via Controller ---
+    // --- Process and Send in Background ---
+    Future(() async {
       try {
-        print("Attempting to send Audio message via UDP...");
-        await MessageController().SendMessage(messageData);
-        print("Audio message sent successfully via UDP.");
-      } catch (sendError) {
-        print("Error sending Audio message via UDP: $sendError");
-        _showTopNotification('Lỗi gửi âm thanh', isError: true);
-        // Decide if you want to stop UI update on send error
-      }
-
-      // Update UI
-      setState(() {
-        if (!_userMessages.containsKey(widget.userId)) {
-          _userMessages[widget.userId] = [];
+        AudioData? audioData;
+        // Re-process audio to get AudioData object for sending
+        if (message.isAudioPath && message.audio != null) {
+          final File audioFile = File(message.audio!);
+          final bytes = await audioFile.readAsBytes();
+          audioData = AudioData(
+            base64Data: base64Encode(bytes),
+            duration: 0, // TODO: Get actual duration if possible
+            mimeType: lookupMimeType(message.audio!) ?? 'audio/mp4',
+            size: bytes.length,
+          );
+        } else if (message.audio != null) {
+          final bytes = base64Decode(message.audio!);
+          audioData = AudioData(
+            base64Data: message.audio!,
+            duration: 0, // TODO: Get actual duration if possible
+            mimeType: 'audio/mp4', // Assume mp4 if only base64 is provided
+            size: bytes.length,
+          );
+        } else {
+          logger.log(
+              'Warning: No valid audio data found in ChatMessage for background sending.',
+              name: "ChatContent");
+          return; // Cannot send
         }
-        _userMessages[widget.userId]!.add(message);
-        _isAudioHandlerActive = false;
-      });
 
-      _scrollToBottom();
-    } catch (e) {
-      print("Error handling audio message: $e");
-      if (mounted) {
-        _showTopNotification('Lỗi xử lý âm thanh', isError: true);
+        final messageDataToSend = MessageData(
+          text: null,
+          images: [],
+          audios: [audioData],
+          files: [],
+          video: null,
+          timestamp: message.timestamp,
+        );
+
+        _logMessageDataForServer(messageDataToSend);
+
+        print(
+            "Attempting to send Audio message via Controller/CommandProcessor...");
+        // Use widget.userId as roomId, adjust if necessary
+        await MessageController().SendMessage(messageDataToSend);
+        print(
+            "Audio message processing initiated via Controller/CommandProcessor.");
+        // Optional: Update message status in UI
+      } catch (sendError, stackTrace) {
+        logger.log("Error sending Audio message in background: $sendError",
+            name: "ChatContent", error: sendError, stackTrace: stackTrace);
+        // Optional: Update message status in UI to 'failed'
+        _showTopNotification('Lỗi gửi âm thanh', isError: true);
       }
-    }
+    });
   }
 
   void _viewImage(String base64Image) {
@@ -562,25 +571,97 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
+  // This handles messages created by MediaHandlerWidget (File/Video)
+  // Keep async for potential background processing
+  Future<void> _handleMessageCreated(ChatMessage message) async {
+    logger.log(
+        "Handling created media message (UI Update): ${message.toJson()}",
+        name: "ChatContent");
+
+    if (mounted) {
+      // --- Update UI Immediately ---
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+        // Add the ChatMessage containing FileMessage or VideoFileMessage
+        _userMessages[widget.userId]!.add(message);
+      });
+      _scrollToBottom();
+
+      // --- Create MessageData and Send in Background ---
+      Future(() async {
+        try {
+          MessageData? messageDataToSend; // Nullable
+
+          if (message.file != null) {
+            // Ensure FileMessage has bytes if needed for sending (depends on FileMessage.toJson)
+            messageDataToSend = MessageData(
+                text: null,
+                images: [],
+                audios: [],
+                files: [message.file!],
+                video: null,
+                timestamp: message.timestamp);
+          } else if (message.video != null) {
+            messageDataToSend = MessageData(
+                text: null,
+                images: [],
+                audios: [],
+                files: [],
+                video: message.video,
+                timestamp: message.timestamp);
+          } else {
+            logger.log(
+                'Warning: _handleMessageCreated called with ChatMessage containing neither file nor video.',
+                name: "ChatContent");
+            return; // Nothing specific to send in this context
+          }
+
+          _logMessageDataForServer(messageDataToSend);
+
+          print(
+              "Attempting to send File/Video message via Controller/CommandProcessor...");
+          // Use widget.userId as roomId, adjust if necessary
+          await MessageController().SendMessage(messageDataToSend);
+          print(
+              "File/Video message processing initiated via Controller/CommandProcessor.");
+          // Optional: Update message status in UI
+        } catch (sendError, stackTrace) {
+          logger.log(
+              "Error sending File/Video message in background: $sendError",
+              name: "ChatContent",
+              error: sendError,
+              stackTrace: stackTrace);
+          // Optional: Update message status in UI to 'failed'
+          _showTopNotification('Lỗi gửi tệp đính kèm', isError: true);
+        }
+      });
+    }
+  }
+
+  // Keep async for file picking, but separate UI and sending
   Future<void> _handleFileSend() async {
-    print("\n========== FILE SEND DEBUG LOG ==========");
-    print("Time: ${DateTime.now().toString()}");
-    _toggleAddMenu();
+    print("Initiating file send...");
+    _toggleAddMenu(); // Close menu if open
 
     if (_isProcessingFile) {
       print("⚠️ Already processing a file, ignoring request");
       return;
     }
-
     setState(() => _isProcessingFile = true);
-    DateTime timestamp = DateTime.now(); // Define timestamp early
+
+    FileMessage? fileMessageForSend; // To hold data for background task
+    ChatMessage? uiChatMessage; // To hold message for UI
+    final timestamp = DateTime.now();
 
     try {
+      // --- Pick File ---
       print("\n📂 Opening file picker...");
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
-        withData: true, // Ensure bytes are included
+        withData: true, // Ensure bytes are loaded if possible
         dialogTitle: 'Select a file to share',
       );
 
@@ -589,17 +670,13 @@ class _ChatContentState extends State<ChatContent> {
         setState(() => _isProcessingFile = false);
         return;
       }
-
       final file = result.files.first;
 
-      // Ensure we have bytes for the FileMessage
+      // --- Process File Data ---
       Uint8List? fileBytes = file.bytes;
       if (fileBytes == null && file.path != null && !kIsWeb) {
-        // Read bytes manually if not provided by picker (common on mobile)
         try {
           fileBytes = await File(file.path!).readAsBytes();
-          print(
-              "Manually read ${fileBytes.length} bytes from path: ${file.path}");
         } catch (e) {
           print("❌ Error reading file bytes from path: $e");
           _showTopNotification('Error reading file data', isError: true);
@@ -607,7 +684,6 @@ class _ChatContentState extends State<ChatContent> {
           return;
         }
       }
-
       if (fileBytes == null) {
         print("❌ File bytes are null, cannot proceed.");
         _showTopNotification('Could not load file data', isError: true);
@@ -615,93 +691,88 @@ class _ChatContentState extends State<ChatContent> {
         return;
       }
 
-      print("\n📄 File Details:");
-      print("Name: ${file.name}");
-      print(
-          "Size: ${file.size} bytes (Picker) / ${fileBytes.length} bytes (Actual)");
-      print("Path: ${file.path ?? 'No path (web)'}");
-      print("Extension: ${file.extension}");
-
-      print("\n🔍 Creating FileMessage");
-      final fileMessage = FileMessage(
+      // --- Create FileMessage and ChatMessage for UI ---
+      fileMessageForSend = FileMessage(
         fileName: file.name,
         mimeType: lookupMimeType(file.name,
                 headerBytes: fileBytes.take(1024).toList()) ??
-            FilePickerUtil.getMimeType(file.name), // Better MIME detection
-        fileSize: fileBytes.length, // Use actual byte length
+            FilePickerUtil.getMimeType(file.name),
+        fileSize: fileBytes.length,
         filePath: file.path ?? '',
-        fileBytes: fileBytes, // Use the potentially manually read bytes
+        fileBytes: fileBytes, // Include bytes
       );
-
-      print("\n📦 FileMessage Created:");
-      print("Filename: ${fileMessage.fileName}");
-      print("MIME Type: ${fileMessage.mimeType}");
-      print("Size: ${fileMessage.readableSize}");
-      print("Has bytes: ${fileMessage.hasFileBytes}");
-
-      // --- Create MessageData directly ---
-      final messageData = MessageData(
-        text: null,
-        images: [],
-        audios: [],
-        files: [fileMessage],
-        video: null,
+      uiChatMessage = ChatMessage(
+        text: '',
+        isMe: true,
         timestamp: timestamp,
+        file: fileMessageForSend, // Pass the full FileMessage
       );
 
-      _logMessageDataForServer(messageData); // Log before sending
-
-      // --- Send Message via Controller ---
-      try {
-        print("Attempting to send File message via UDP...");
-        await MessageController().SendMessage(messageData);
-        print("File message sent successfully via UDP.");
-      } catch (sendError) {
-        print("Error sending File message via UDP: $sendError");
-        _showTopNotification('Lỗi gửi tệp', isError: true);
-        // Decide if you want to stop UI update on send error
-        // If sending fails, maybe don't add to UI or show an error indicator?
-        // For now, we continue to add to UI.
-      }
-
-      // Update UI
-      final fileChatMessage = ChatMessage(
-          text: '',
-          isMe: true,
-          timestamp: timestamp,
-          file: fileMessage,
-      );
-      print("DEBUG: File ChatMessage created: ${fileChatMessage.toJson()}");
-
+      // --- Update UI Immediately ---
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
-        _userMessages[widget.userId]!.add(fileChatMessage);
+        _userMessages[widget.userId]!
+            .add(uiChatMessage!); // Add message to list
       });
-
-      print("\n✅ File processing completed successfully (UI updated)");
       _scrollToBottom();
-    } catch (e) {
-      print("\n❌ Error handling file:");
-      print(e.toString());
+      print("\n✅ File message added to UI.");
+
+      // --- Send Message in Background ---
+      Future(() async {
+        try {
+          final messageDataToSend = MessageData(
+            text: null,
+            images: [],
+            audios: [],
+            files: [fileMessageForSend!], // Send the processed file message
+            video: null,
+            timestamp: timestamp,
+          );
+
+          _logMessageDataForServer(messageDataToSend);
+
+          print(
+              "Attempting to send File message via Controller/CommandProcessor...");
+          // Use widget.userId as roomId, adjust if necessary
+          await MessageController().SendMessage(messageDataToSend);
+          print(
+              "File message processing initiated via Controller/CommandProcessor.");
+          // Optional: Update message status in UI
+        } catch (sendError, stackTrace) {
+          logger.log("Error sending File message in background: $sendError",
+              name: "ChatContent", error: sendError, stackTrace: stackTrace);
+          // Optional: Update message status in UI to 'failed'
+          _showTopNotification('Lỗi gửi tệp', isError: true);
+        }
+      });
+    } catch (e, stackTrace) {
+      logger.log("\n❌ Error handling file selection/processing: $e",
+          name: "ChatContent", error: e, stackTrace: stackTrace);
       _showTopNotification('Lỗi xử lý tệp', isError: true);
     } finally {
-      setState(() => _isProcessingFile = false);
-      print("\n========== END FILE SEND DEBUG LOG ==========");
+      // Set processing to false after picking and UI update, background send continues independently
+      if (mounted) {
+        setState(() => _isProcessingFile = false);
+      }
+      print("\n========== END FILE SEND HANDLING (UI part) ==========");
     }
   }
 
-  // Handle video sending - delegates to MediaHandlerWidget
+  // Thêm lại hàm này để xử lý nút chọn video
   void _handleVideoSend() async {
-    print("Video send button clicked in ChatContent");
-    _toggleAddMenu(); // Close menu
+    logger.log("Video send button tapped, delegating to MediaHandler...",
+        name: "ChatContent");
+    _toggleAddMenu(); // Close the menu
 
     if (_isProcessingFile) {
-      print("⚠️ Already processing a file/video, ignoring request");
+      logger.log("⚠️ Already processing a file/video, ignoring video request",
+          name: "ChatContent");
+      _showTopNotification("Đang xử lý tệp khác...", isInfo: true);
       return;
     }
-    // Let MediaHandlerWidget pick the video and call _handleMessageCreated
+    // Let MediaHandlerWidget pick the video and call _handleMessageCreated via its callback
     await _mediaHandler.handleVideoSend();
   }
 
@@ -817,77 +888,6 @@ class _ChatContentState extends State<ChatContent> {
 
     // Use the platform-safe downloader
     await FileDownloader.downloadFile(file, context);
-  }
-
-  // This method now primarily handles UI updates when a message (potentially media) is created by MediaHandlerWidget
-  Future<void> _handleMessageCreated(ChatMessage message) async {
-    print("DEBUG: Received ChatMessage in _handleMessageCreated: ${message.toJson()}");
-    if (mounted) {
-      // Simply add the created ChatMessage (which now contains FileMessage or VideoFileMessage) to the UI
-      setState(() {
-        if (!_userMessages.containsKey(widget.userId)) {
-          _userMessages[widget.userId] = [];
-        }
-        _userMessages[widget.userId]!.add(message);
-      });
-
-      _scrollToBottom();
-
-      // --- Create MessageData directly based on the type of message ---
-      MessageData? messageData; // Make nullable initially
-      if (message.file != null) {
-        messageData = MessageData(
-          text: null,
-          images: [],
-          audios: [],
-          files: [message.file!], // Add the file
-          video: null,
-          timestamp: message.timestamp,
-        );
-      } else if (message.video != null) {
-        messageData = MessageData(
-          text: null,
-          images: [],
-          audios: [],
-          files: [],
-          video: message.video, // Add the video
-          timestamp: message.timestamp,
-        );
-      } else if (message.audio != null) {
-        // Audio might be handled by _handleAudioMessageSent, but create data here too for logging/potential resend
-        try {
-          final bytes = base64Decode(message.audio!);
-          final audioData = AudioData(base64Data: message.audio!, duration: 0, mimeType: 'audio/mp4', size: bytes.length);
-          messageData = MessageData(text: null, images: [], audios: [audioData], files: [], video: null, timestamp: message.timestamp);
-        } catch (e) { print("Error creating audio MessageData in _handleMessageCreated: $e"); }
-      } else if (message.image != null) {
-        try {
-          final bytes = base64Decode(message.image!);
-          final imageMessage = ImageMessage(base64Data: message.image!, mimeType: message.mimeType ?? 'image/jpeg', size: bytes.length);
-          messageData = MessageData(text: null, images: [imageMessage], audios: [], files: [], video: null, timestamp: message.timestamp);
-        } catch (e) { print("Error creating image MessageData in _handleMessageCreated: $e"); }
-      } else {
-        // Primarily for text messages if they ever reach here
-        if (message.text.isNotEmpty) {
-          messageData = MessageData(text: message.text, images: [], audios: [], files: [], video: null, timestamp: message.timestamp);
-        }
-      }
-
-      // --- Log and Send Message via Controller (if data was created) ---
-      if (messageData != null) {
-        _logMessageDataForServer(messageData);
-        try {
-          print("Attempting to send Media message (File/Video/etc.) via UDP...");
-          await MessageController().SendMessage(messageData);
-          print("Media message sent successfully via UDP.");
-        } catch (sendError) {
-          print("Error sending Media message via UDP: $sendError");
-          _showTopNotification('Lỗi gửi tệp đính kèm', isError: true);
-        }
-      } else {
-         print("Warning: MessageData was null in _handleMessageCreated, nothing sent.");
-      }
-    }
   }
 
   @override

@@ -3,7 +3,9 @@ import 'dart:math';
 import 'dart:async';
 import 'dart:developer' as logger;
 import 'dart:typed_data'; // Import for Uint8List
+import 'dart:io'; // Import for InternetAddress
 
+import 'package:finalltmcb/ClientUdp/command_processor.dart';
 import 'package:finalltmcb/ClientUdp/json_helper.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
@@ -17,6 +19,10 @@ import 'package:finalltmcb/Model/MessageData.dart'; // Import MessageData
 import 'package:finalltmcb/Model/ImageMessage.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/VideoFileMessage.dart';
+import 'package:universal_html/html.dart';
+
+// --- GIẢ SỬ BẠN CÓ CÁCH TRUY CẬP COMMAND PROCESSOR ---
+// Ví dụ:
 
 class MessageController {
   // Create a singleton instance of UserController
@@ -39,75 +45,52 @@ class MessageController {
   // Set the UDP client reference
   void setUdpClient(UdpChatClient client) {
     _udpClient = client;
+    // Cần truyền client cho CommandProcessor nếu nó cần
+    // commandProcessor.setUdpClient(client); // Ví dụ
     print("UDP client set in MessageController");
   }
 
   // Method to send MessageData via UDP
   Future<void> SendMessage(MessageData message) async {
-    if (_udpClient == null) {
-      print('Error: UDP Client is not initialized.');
-      throw Exception('UDP Client không được khởi tạo. Vui lòng thử lại sau.');
+    String roomId = "room1";
+    if (roomId.isEmpty) {
+      logger.log("Error: Room ID is empty.", name: "MessageController");
+      throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
     }
 
-    const String separator = '%%%'; // Define the separator
-    final List<String> payloadParts = [];
-
     try {
-      // 1. Add Text if exists
-      if (message.text != null && message.text!.isNotEmpty) {
-        payloadParts.add('Text:${message.text}');
-      }
+      // 1. Chuyển MessageData thành Map -> JSON String
+      //    (Giả định các hàm toJson() của Image/Audio/Video/File đã tự Base64 dữ liệu media)
+      final Map<String, dynamic> messageJsonMap = message.toJson();
+      final String messageJsonString = jsonEncode(messageJsonMap);
+      logger.log(
+          "MessageData JSON (Payload): ${messageJsonString.substring(0, min(messageJsonString.length, 150))}...",
+          name: "MessageController");
 
-      // 2. Add Images if exist
-      if (message.images.isNotEmpty) {
-        final imagesJson =
-            jsonEncode(message.images.map((e) => e.toJson()).toList());
-        final imagesBase64 = base64Encode(utf8.encode(imagesJson));
-        payloadParts.add('Images:$imagesBase64');
-      }
+      // 2. --- LOẠI BỎ BƯỚC BASE64 TOÀN BỘ JSON ---
+      // final String messagePayloadBase64 = base64Encode(utf8.encode(messageJsonString));
+      // logger.log("Message Payload Base64: ${messagePayloadBase64.substring(0, min(messagePayloadBase64.length, 100))}...", name: "MessageController");
 
-      // 3. Add Audios if exist
-      if (message.audios.isNotEmpty) {
-        final audiosJson =
-            jsonEncode(message.audios.map((e) => e.toJson()).toList());
-        final audiosBase64 = base64Encode(utf8.encode(audiosJson));
-        payloadParts.add('Audios:$audiosBase64');
-      }
+      // 3. Tạo chuỗi lệnh: /send <roomId> <rawJsonStringPayload>
+      //    Payload bây giờ là chuỗi JSON trực tiếp
+      final String commandString = "/send $roomId $messageJsonString";
+      // Log cẩn thận vì payload có thể rất dài
+      logger.log("Formatted command string using Raw JSON Payload",
+          name: "MessageController");
+      print(
+          "Formatted command string (preview): ${commandString.substring(0, min(commandString.length, 200))}..."); // Log preview dài hơn
 
-      // 4. Add Files if exist
-      if (message.files.isNotEmpty) {
-        final filesJson =
-            jsonEncode(message.files.map((e) => e.toJson()).toList());
-        final filesBase64 = base64Encode(utf8.encode(filesJson));
-        payloadParts.add('Files:$filesBase64');
-      }
-
-      // 5. Add Video if exists
-      if (message.video != null) {
-        final videoJson = jsonEncode(message.video!.toJson());
-        final videoBase64 = base64Encode(utf8.encode(videoJson));
-        payloadParts.add('Video:$videoBase64');
-      }
-
-      // 6. Add Timestamp (always present)
-      payloadParts.add('Time:${message.timestamp.toIso8601String()}');
-
-      // 7. Join parts and convert to bytes
-      final payloadString = payloadParts.join(separator);
-      final payloadBytes = utf8.encode(payloadString);
-      print("Payload: $payloadString");
-      print("Payload bytes: ${payloadBytes} bytes");
-
-      // 8. Send data via UDP client
-      // !!! IMPORTANT: Replace 'sendData' with the actual method name in your UdpChatClient class !!!
-      // print(
-      //     "Sending UDP data (${payloadBytes.length} bytes)... Payload preview: ${payloadString.substring(0, min(payloadString.length, 100))}...");
-      // await _udpClient!.sendData(
-      //     payloadBytes); // Assuming sendData exists and returns Future<void> or void
-      // print("UDP data sent.");
-    } catch (e) {
-      print("Error sending message via UDP: $e");
-      // Optional: Re-throw or handle the error appropriately
+      // 4. Gửi lệnh đến CommandProcessor để xử lý tiếp
+      logger.log("Passing command to CommandProcessor...",
+          name: "MessageController");
+      // !!! Đảm bảo CommandProcessor/Handler biết cách trích xuất payload JSON này !!!
+      await _udpClient?.commandProcessor.processCommand(commandString);
+      logger.log(
+          "Command '/send' with Raw JSON Payload passed to CommandProcessor.",
+          name: "MessageController");
+    } catch (e, stackTrace) {
+      logger.log("Error formatting/processing send command with Raw JSON: $e",
+          name: "MessageController", error: e, stackTrace: stackTrace);
       throw Exception('Gửi tin nhắn thất bại: $e');
     }
   }
