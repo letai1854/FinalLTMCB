@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:developer' as logger;
 import 'package:finalltmcb/ClientUdp/constants.dart';
+import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Controllers/UserController.dart';
 import 'package:finalltmcb/Screen/Chat/ChatMobile.dart';
@@ -40,12 +41,17 @@ Future<void> initApp() async {
 }
 
 // Function to start UDP service in Flutter environment
+// Global instance of GroupController
+late final GroupController globalGroupController;
+
 Future<void> startUdpService() async {
   print("Starting UDP client for Flutter environment...");
   logger.log("Initializing UDP client for Flutter environment");
 
   // Get the singleton instance of UserController
   final userController = UserController();
+  // Initialize global GroupController
+  globalGroupController = GroupController();
 
   try {
     // Choose the right host based on platform
@@ -66,18 +72,19 @@ Future<void> startUdpService() async {
 
     // Set the client instance in UserController
     userController.setUdpClient(client);
-    logger.log("UdpClient set in UserController");
-    print("UDP client setup completed");
+    globalGroupController.setUdpClient(client);
+    // logger.log("UdpClient set in UserController");
+    // print("UDP client setup completed");
 
     // Test socket connection before starting
     try {
-      logger.log("Testing socket connection...");
+      // logger.log("Testing socket connection...");
       var socket = client.clientState.socket;
-      logger.log(
-          "Local socket info - Port: ${socket.port}, Address: ${socket.address}");
-      logger.log(
-          "Target server: ${client.clientState.serverAddress}:${client.clientState.serverPort}");
-      print("UDP socket ready for communication");
+      // logger.log(
+      //     "Local socket info - Port: ${socket.port}, Address: ${socket.address}");
+      // logger.log(
+      //     "Target server: ${client.clientState.serverAddress}:${client.clientState.serverPort}");
+      // print("UDP socket ready for communication");
     } catch (e) {
       logger.log("Socket connection test failed: $e");
       print("WARNING: Socket connection test failed: $e");
@@ -85,8 +92,8 @@ Future<void> startUdpService() async {
 
     // Start the client in Flutter mode (just start the listener, not the input loop)
     await client.startForFlutter();
-    logger.log("Message listener started for Flutter environment.");
-    print("UDP message listener started");
+    // logger.log("Message listener started for Flutter environment.");
+    // print("UDP message listener started");
   } catch (e, stackTrace) {
     logger.log("Failed to start UDP client: $e");
     logger.log("Stack trace: $stackTrace");

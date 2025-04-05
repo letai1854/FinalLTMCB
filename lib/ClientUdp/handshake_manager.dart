@@ -39,6 +39,9 @@ class HandshakeManager {
   // Add a callback mechanism for error responses
   final Map<String, Function(Map<String, dynamic>)> _errorCallbacks = {};
 
+  // Add a callback mechanism for register responses
+  final Map<String, Function(Map<String, dynamic>)> _registerCallbacks = {};
+
   HandshakeManager(this.clientState, this.messageProcessor);
 
   // Register a callback for a specific user's login response
@@ -63,6 +66,18 @@ class HandshakeManager {
   void removeErrorCallback(String chatId) {
     _errorCallbacks.remove(chatId);
     logger.log('Removed error callback for user: $chatId');
+  }
+
+  // Register a callback for a specific user's register response
+  void registerRegisterCallback(String chatId, Function(Map<String, dynamic>) callback) {
+    _registerCallbacks[chatId] = callback;
+    logger.log('Registered register callback for user: $chatId');
+  }
+
+  // Remove a register callback when no longer needed
+  void removeRegisterCallback(String chatId) {
+    _registerCallbacks.remove(chatId);
+    logger.log('Removed register callback for user: $chatId');
   }
 
   // --- Handling Incoming Handshake Messages ---
@@ -235,16 +250,17 @@ class HandshakeManager {
             logger.log('Login ACK successful but missing session_key or chatid in data! Data: $data');
             print("\nLogin successful, but server response was incomplete. Please try again.");
           }
-        } else {
-          String message = responseJson.containsKey(Constants.KEY_MESSAGE) 
-              ? responseJson[Constants.KEY_MESSAGE] 
+        } else { // Login Failed via ACK
+          String message = responseJson.containsKey(Constants.KEY_MESSAGE)
+              ? responseJson[Constants.KEY_MESSAGE]
               : "Unknown reason";
           logger.log('Login failed via ACK. Status: $status, Message: $message');
           print("\nLogin failed: $message (Status: $status)");
-          
+
           // Notify callback about failed login if we can identify the user
           if (data.containsKey(Constants.KEY_CHAT_ID)) {
             String chatId = data[Constants.KEY_CHAT_ID];
+            // Use the correct callback map (_loginCallbacks)
             if (_loginCallbacks.containsKey(chatId)) {
               logger.log('Invoking login failure callback for user: $chatId');
               _loginCallbacks[chatId]!({
@@ -258,11 +274,40 @@ class HandshakeManager {
           } else {
             logger.log('Login failed but no chatId found in data to invoke callback. Data: $data');
           }
+          // Complete the completer even on failure
+          pendingReq.completer.complete(true);
+          logger.log('Signaled completion (failure) for pending login request associated with transaction $transactionId');
+
+        } // End Login Failed via ACK
+
+      } else if (Constants.ACTION_REGISTER == originalAction) {
+        // Handle ACK for REGISTER action
+        String chatId = data.containsKey(Constants.KEY_CHAT_ID) ? data[Constants.KEY_CHAT_ID] : "unknown_user";
+        if (Constants.STATUS_SUCCESS == status) {
+          logger.log('Registration successful via ACK for user \'$chatId\'.');
+          // Optionally update state or notify callback if needed based on ACK
+          if (_registerCallbacks.containsKey(chatId)) {
+             logger.log('Invoking register success callback via ACK for user: $chatId');
+             _registerCallbacks[chatId]!(responseJson); // Pass the whole ACK
+             _registerCallbacks.remove(chatId);
+          }
+        } else { // Registration Failed via ACK
+          String message = responseJson.containsKey(Constants.KEY_MESSAGE)
+              ? responseJson[Constants.KEY_MESSAGE]
+              : "Unknown reason";
+          logger.log('Registration failed via ACK for user \'$chatId\'. Status: $status, Message: $message');
+          print("\nRegistration failed: $message (Status: $status)");
+          // Notify register callback about failure
+          if (_registerCallbacks.containsKey(chatId)) {
+             logger.log('Invoking register failure callback via ACK for user: $chatId');
+             _registerCallbacks[chatId]!(responseJson); // Pass the whole ACK
+             _registerCallbacks.remove(chatId);
+          }
         }
         pendingReq.completer.complete(true);
-        logger.log('Signaled completion for pending login request associated with transaction $transactionId');
-      } else {
-        // Handle ACK for other actions
+        logger.log('Signaled completion for pending register request associated with transaction $transactionId');
+
+      } else { // Handle ACK for other actions
         pendingReq.completer.complete(true);
         logger.log('Signaled completion for pending request (Action: $originalAction) associated with transaction $transactionId');
       }
@@ -281,17 +326,35 @@ class HandshakeManager {
     logger.log('Received ERROR from server for action \'$originalAction\': $errorMessage');
     print("\nServer Error ($originalAction): $errorMessage");
 
-    // Handle login errors specifically by calling the error callback
-    if (originalAction == Constants.ACTION_LOGIN && responseJson.containsKey(Constants.KEY_DATA)) {
+    // Handle specific errors by calling the appropriate error callback
+    if (responseJson.containsKey(Constants.KEY_DATA)) {
       Map<String, dynamic> data = responseJson[Constants.KEY_DATA];
       if (data.containsKey(Constants.KEY_CHAT_ID)) {
         String chatId = data[Constants.KEY_CHAT_ID];
-        if (_errorCallbacks.containsKey(chatId)) {
-          logger.log('Invoking error callback for login of user: $chatId');
-          _errorCallbacks[chatId]!(responseJson);
-          _errorCallbacks.remove(chatId); // Remove after use
+        Function(Map<String, dynamic>)? errorCallback;
+
+        if (originalAction == Constants.ACTION_LOGIN) {
+          errorCallback = _errorCallbacks[chatId];
+        } else if (originalAction == Constants.ACTION_REGISTER) {
+          // Decide if register errors should also use the general error callback
+          // or a specific register error callback if you add one.
+          errorCallback = _errorCallbacks[chatId]; // Using general error callback for now
         }
+        // Add more else if for other actions if needed
+
+        if (errorCallback != null) {
+          logger.log('Invoking error callback for action \'$originalAction\' of user: $chatId');
+          errorCallback(responseJson);
+          _errorCallbacks.remove(chatId); // Remove general error callback after use
+          // If using specific error callbacks, remove the specific one here.
+        } else {
+           logger.log('No specific error callback found for action \'$originalAction\' of user: $chatId');
+        }
+      } else {
+         logger.log('Server ERROR received but no chatId found in data. Data: $data');
       }
+    } else {
+       logger.log('Server ERROR received but no data field found. Response: $responseJson');
     }
 
     ClientPendingRequest? pendingReqToFail;

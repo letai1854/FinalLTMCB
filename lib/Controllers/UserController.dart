@@ -44,160 +44,203 @@ class UserController {
   }
 
   // Login method using UDP client
-  Future<User> login(String chatId, String password) async {
-    if (_udpClient == null) {
-      throw Exception('UDP Client không được khởi tạo. Vui lòng thử lại sau.');
-    }
+Future<User> login(String chatId, String password) async {
+  if (_udpClient == null) {
+    throw Exception('UDP Client không được khởi tạo. Vui lòng thử lại sau.');
+  }
+  
+  if (chatId.isEmpty || password.isEmpty) {
+    throw Exception('Chat ID hoặc mật khẩu không được để trống');
+  }
+  
+  try {
+    // Xóa các callback cũ nếu có
+    _udpClient?.handshakeManager.removeLoginCallback(chatId);
+    _udpClient?.handshakeManager.removeRegisterCallback(chatId);
+    _udpClient?.handshakeManager.removeErrorCallback(chatId);
+    _pendingResponses.remove(chatId);
     
-    if (chatId.isEmpty || password.isEmpty) {
-      throw Exception('Chat ID hoặc mật khẩu không được để trống');
-    }
-    
-    // Create a completer to handle the async response
+    // Tạo completer mới
     final completer = Completer<Map<String, dynamic>>();
     _pendingResponses[chatId] = completer;
     
-    try {
-      logger.log("Attempting UDP login for user: $chatId");
-      
-      // Check client state before login
-      logger.log("Client state before login - Session key: ${_udpClient!.clientState.sessionKey}, Chat ID: ${_udpClient!.clientState.currentChatId}");
-      
-      // Register a callback for login response
-      _udpClient!.handshakeManager.registerLoginCallback(chatId, (response) {
-        logger.log("Received login callback response: $response");
-        
-        if (!_pendingResponses.containsKey(chatId) || 
-            _pendingResponses[chatId]!.isCompleted) {
-          logger.log("No pending request found for $chatId or already completed");
-          return;
-        }
-        
-        // Complete the future with the response
-        _pendingResponses[chatId]!.complete(response);
+    // Đăng ký callback cho phản hồi đăng nhập
+    _udpClient!.handshakeManager.registerLoginCallback(chatId, (response) {
+      if (!_pendingResponses.containsKey(chatId) || 
+          _pendingResponses[chatId]!.isCompleted) return;
+      _pendingResponses[chatId]!.complete(response);
+    });
+    
+    // Đăng ký callback cho lỗi
+    _udpClient!.handshakeManager.registerErrorCallback(chatId, (errorResponse) {
+      if (!_pendingResponses.containsKey(chatId) || 
+          _pendingResponses[chatId]!.isCompleted) return;
+      _pendingResponses[chatId]!.complete({
+        'status': 'failure',
+        'message': errorResponse['message'] ?? 'Login failed'
       });
+    });
+    
+    // Gửi lệnh đăng nhập
+    await _udpClient?.commandProcessor.processCommand("/login $chatId $password");
+    
+    // Đợi kết quả với timeout
+    Map<String, dynamic> response = await completer.future.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => {
+        'status': 'timeout',
+        'message': 'Đăng nhập thất bại.'
+      }
+    );
+    
+    // Kiểm tra lỗi
+    if (response['status'] != Constants.STATUS_SUCCESS) {
+      throw Exception(response['message'] ?? 'Đăng nhập thất bại');
+    }
+    
+    // Tạo user object khi đăng nhập thành công
+    final user = User(
+      chatId: chatId,
+      password: password,
+      createdAt: DateTime.now()
+    );
+    
+    return user;
+  } catch (e) {
+    throw Exception(e.toString().replaceAll('Exception: ', ''));
+  } finally {
+    // Luôn xóa callbacks
+    _udpClient?.handshakeManager.removeLoginCallback(chatId);
+    _udpClient?.handshakeManager.removeErrorCallback(chatId);
+    _pendingResponses.remove(chatId);
+  }
+}
+
+Future<User> register(String username, String password) async {
+  if (_udpClient == null) {
+    throw Exception('UDP Client không được khởi tạo. Vui lòng thử lại sau.');
+  }
+  
+  if (username.isEmpty || password.isEmpty) {
+    throw Exception('Chat ID hoặc mật khẩu không được để trống');
+  }
+  
+  // Create a completer to handle the async response
+  final completer = Completer<Map<String, dynamic>>();
+  _pendingResponses[username] = completer;
+  
+  try {
+    logger.log("Attempting UDP registration for user: $username");
+    
+    // Register a callback for registration response
+    _udpClient!.handshakeManager.registerRegisterCallback(username, (response) {
+      logger.log("Received register callback response: $response");
       
-      // Also register error callback to catch authentication failures quickly
-      _udpClient!.handshakeManager.registerErrorCallback(chatId, (errorResponse) {
-        logger.log("Received error callback for login: $errorResponse");
-        
-        if (!_pendingResponses.containsKey(chatId) || 
-            _pendingResponses[chatId]!.isCompleted) {
-          logger.log("No pending request found for $chatId or already completed");
-          return;
-        }
-        
-        // Complete the future with the error response
-        _pendingResponses[chatId]!.complete({
-          'status': 'failure',
-          'message': errorResponse['message'] ?? 'Login failed'
-        });
+      if (!_pendingResponses.containsKey(username) || 
+          _pendingResponses[username]!.isCompleted) {
+        logger.log("No pending request found for $username or already completed");
+        return;
+      }
+      
+      // Complete the future with the response
+      _pendingResponses[username]!.complete(response);
+    });
+    
+    // Also register error callback to catch registration failures
+    _udpClient!.handshakeManager.registerErrorCallback(username, (errorResponse) {
+      logger.log("Received error callback for registration: $errorResponse");
+      
+      if (!_pendingResponses.containsKey(username) || 
+          _pendingResponses[username]!.isCompleted) {
+        logger.log("No pending request found for $username or already completed");
+        return;
+      }
+      
+      // Complete the future with the error response
+      _pendingResponses[username]!.complete({
+        'status': 'failure',
+        'message': errorResponse['message'] ?? 'Registration failed'
       });
-      
-      // Send login request directly through HandshakeManager to get the result
-      final loginResult = await _udpClient!.handshakeManager.sendClientRequestWithAck(
-        JsonHelper.createRequest(Constants.ACTION_LOGIN, {
-          Constants.KEY_CHAT_ID: chatId,
-          Constants.KEY_PASSWORD: password
-        }),
-        Constants.ACTION_LOGIN,
-        Constants.FIXED_LOGIN_KEY_STRING
-      );
-      
-      // If we got a result directly, complete with it
-      if (loginResult != null) {
-        if (!_pendingResponses[chatId]!.isCompleted) {
-          _pendingResponses[chatId]!.complete(loginResult);
-        }
-      } else {
-        // Fallback to command processing if direct request failed
-        final loginCommand = "/login $chatId $password";
-        logger.log("Direct request failed, trying command: $loginCommand");
-        await processCommand(_udpClient!, loginCommand);
+    });
+    
+    // Send registration request through HandshakeManager
+    final registerResult = await _udpClient!.handshakeManager.sendClientRequestWithAck(
+      JsonHelper.createRequest(Constants.ACTION_REGISTER, {
+        Constants.KEY_CHAT_ID: username,
+        Constants.KEY_PASSWORD: password
+      }),
+      Constants.ACTION_REGISTER,
+      Constants.FIXED_LOGIN_KEY_STRING
+    );
+    
+    // If we got a result directly, complete with it
+    if (registerResult != null) {
+      if (!_pendingResponses[username]!.isCompleted) {
+        _pendingResponses[username]!.complete(registerResult);
       }
-      
-      // Shorter timeout because we should get responses quickly
-      Map<String, dynamic> response;
-      try {
-        response = await completer.future.timeout(
-          const Duration(seconds: 4),
-          onTimeout: () => {
-            'status': 'timeout',
-            'message': 'Đăng nhập hết thời gian chờ. Máy chủ không phản hồi.'
-          }
-        );
-      } catch (e) {
-        logger.log("Timeout or error getting login response: $e");
-        response = {
-          'status': 'error',
-          'message': 'Lỗi xử lý đăng nhập: $e'
-        };
-      }
-      
-      logger.log("Login response received: $response");
-      
-      // Check for timeout or error
-      if (response['status'] == 'timeout' || response['status'] == 'error') {
-        throw Exception(response['message']);
-      }
-      
-      // Check for failed login
-      print("--------------- respone---------------------: $response");
-      if (response['status'] != Constants.STATUS_SUCCESS) {
-        final message = response['message'] ?? 'Đăng nhập thất bại';
-        
-        // Classify authentication errors
-        if (message.toLowerCase().contains('password') || 
-            message.toLowerCase().contains('incorrect') ||
-            message.toLowerCase().contains('invalid')) {
-          throw Exception('Sai mật khẩu, vui lòng kiểm tra lại');
-        } else if (message.toLowerCase().contains('user') || 
-                  message.toLowerCase().contains('not found') ||
-                  message.toLowerCase().contains('does not exist')) {
-          throw Exception('Chat ID không tồn tại');
-        } else {
-          throw Exception('Đăng nhập thất bại: $message');
-        }
-      }
-      
-      // Create User object from response
-      final user = User(
-        chatId: chatId,
-        password: password,
-        createdAt: DateTime.now()
-      );
-      
-      logger.log("Login successful for user: $chatId");
-      return user;
-      
-    } catch (e) {
-      logger.log("Login error: $e");
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      // Always remove the callbacks and pending response
-      _udpClient?.handshakeManager.removeLoginCallback(chatId);
-      _udpClient?.handshakeManager.removeErrorCallback(chatId);
-      _pendingResponses.remove(chatId);
+    } else {
+      // Fallback to command processing if direct request failed
+      final registerCommand = "/register $username $password";
+      logger.log("Direct request failed, trying command: $registerCommand");
+      await processCommand(_udpClient!, registerCommand);
     }
-  }
-
-  // Cập nhật thông tin user (keep as is)
-  Future<User> updateUser(
-      String userId, Map<String, dynamic> updateData) async {
+    
+    // Wait for the response with timeout
+    Map<String, dynamic> response;
     try {
-      final response = await http.put(
-        Uri.parse('$_baseEndpoint/$userId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(updateData),
+      response = await completer.future.timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => {
+          'status': 'timeout',
+          'message': 'Đăng ký hết thời gian chờ. Máy chủ không phản hồi.'
+        }
       );
-
-      if (response.statusCode == 200) {
-        return User.fromJson(json.decode(response.body));
-      } else {
-        throw Exception('Cập nhật thất bại');
-      }
     } catch (e) {
-      throw Exception('Lỗi kết nối: $e');
+      logger.log("Timeout or error getting register response: $e");
+      response = {
+        'status': 'error',
+        'message': 'Lỗi xử lý đăng ký: $e'
+      };
     }
+    
+    logger.log("Registration response received: $response");
+    
+    // Check for timeout or error
+    if (response['status'] == 'timeout' || response['status'] == 'error') {
+      throw Exception(response['message']);
+    }
+    
+    // Check for failed registration
+    if (response['status'] != Constants.STATUS_SUCCESS) {
+      final message = response['message'] ?? 'Đăng ký thất bại';
+      
+      // Classify registration errors
+      if (message.toLowerCase().contains('already exists') || 
+          message.toLowerCase().contains('taken')) {
+        throw Exception('Chat ID đã tồn tại, vui lòng chọn tên khác');
+      } else {
+        throw Exception('Đăng ký thất bại: $message');
+      }
+    }
+    
+    // Create User object from response
+    final user = User(
+      chatId: username,
+      password: password,
+      createdAt: DateTime.now()
+    );
+    
+    logger.log("Registration successful for user: $username");
+    return user;
+    
+  } catch (e) {
+    logger.log("Registration error: $e");
+    throw Exception(e.toString().replaceAll('Exception: ', ''));
+  } finally {
+    // Always remove the callbacks and pending response
+    _udpClient?.handshakeManager.removeRegisterCallback(username);
+    _udpClient?.handshakeManager.removeErrorCallback(username);
+    _pendingResponses.remove(username);
   }
+}
 }

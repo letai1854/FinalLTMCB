@@ -1,20 +1,26 @@
 import 'dart:math'; // For generating random IDs
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'dart:isolate';
+import 'dart:async';
 
 class MessageList extends StatefulWidget {
   final Function(String)? onUserSelected;
   final String? selectedUserId;
   final bool isDesktopOrTablet; // Add parameter to identify view type
+  // Optional GroupController that will use global instance if not provided
+  final GroupController groupController;
 
+  // Constructor takes the instance from main.dart that already has UDP client
   const MessageList({
     Key? key,
     this.onUserSelected,
     this.selectedUserId,
-    this.isDesktopOrTablet = false, // Default to mobile
+    this.isDesktopOrTablet = false,
+    required this.groupController, // Pass the existing GroupController from main.dart
   }) : super(key: key);
 
-  @override
   @override
   State<MessageList> createState() => _MessageListState();
 
@@ -28,8 +34,8 @@ class MessageList extends StatefulWidget {
 class _MessageListState extends State<MessageList> {
   // Static variables are now moved to the MessageList class above
 
-  // Current user ID (assuming '15' as per requirement)
-  static const String currentUserId = '15';
+  // Current user ID
+  static const String currentUserId = 'user1';
 
   @override
   void initState() {
@@ -95,131 +101,51 @@ class _MessageListState extends State<MessageList> {
       // Mock data
       MessageList.cachedMessages = [ // Use class name
         {
-          'name': 'Dory Family',
-          'message': 'Tân: import java.io.*; import java.... 2 giờ',
+          'name': 'room1',  // Room name for display
+          'message': 'Group chat discussion',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
-          'id': '1',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '101', '102', '103'], // Store IDs for groups
+          'id': 'room1',  // Room ID format
+          'isGroup': true,
+          'members': ['user1', 'user2'], // All user IDs in one array
         },
+        // Individual users (non-group chats)
         {
-          'name': 'GAME 2D/3D JOBS',
-          'message': 'Anh: Em nhắn roi ạ - 2 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': false,
-          'id': '2',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '104', '105', '106', '107'], // Store IDs for groups
-        },
-        {
-          'name': 'Da banh ko???',
-          'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
+          'name': 'user2',  // User name same as ID
+          'message': 'Hi from user2',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
-          'id': '3',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '108', '109', '110'], // Store IDs for groups
-        },
-        {
-          'name': 'Mai Anh', // This is an individual chat
-          'message': 'Hẹn gặp lại bạn cuối tuần nhé! 1 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '4',
+          'id': 'user2',  // User ID format
           'isGroup': false,
-          'members': [], // Add empty members list
+          'members': [],
         },
         {
-          'name': 'User 5', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
+          'name': 'user3',
+          'message': 'Hi from user3',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
-          'id': '5',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
+          'id': 'user3',
+          'isGroup': false,
+          'members': [],
         },
         {
-          'name': 'User 6', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
+          'name': 'user4',
+          'message': 'Hi from user4',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
-          'id': '6',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
+          'id': 'user4',
+          'isGroup': false,
+          'members': [],
         },
         {
-          'name': 'User 7', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
+          'name': 'user5',
+          'message': 'Hi from user5',
           'avatar': 'assets/logoS.jpg',
           'isOnline': true,
-          'id': '7',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 8', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '8',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 9', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '9',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 10', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '10',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 11', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '11',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 12', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '12',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 13', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '13',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 14', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '14',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
+          'id': 'user5',
+          'isGroup': false,
+          'members': [],
+        }
       ];
 
       // Auto-select first user only for desktop/tablet
@@ -239,6 +165,84 @@ class _MessageListState extends State<MessageList> {
     }
   }
 
+  
+  Future<void> _createGroupChat(String groupName, List<String> memberIds) async {
+    final completer = Completer<void>();
+    final receivePort = ReceivePort();
+
+    // Spawn isolate for group creation
+    final isolate = await Isolate.spawn(
+      (List<dynamic> args) {
+        final SendPort sendPort = args[0];
+        final Map<String, dynamic> data = args[1];
+        
+        try {
+          sendPort.send({
+            'type': 'execute',
+            'groupName': data['groupName'],
+            'memberIds': data['memberIds'],
+          });
+        } catch (e) {
+          sendPort.send({
+            'type': 'error',
+            'message': e.toString()
+          });
+        }
+      },
+      [receivePort.sendPort, {
+        'groupName': groupName,
+        'memberIds': memberIds,
+      }]
+    );
+
+    // Listen for messages from isolate
+    receivePort.listen((message) async {
+      if (message['type'] == 'execute') {
+        try {
+          await widget.groupController.createGroupChat(
+            message['groupName'],
+            message['memberIds'],
+          );
+
+          // --- START: Update cache and trigger rebuild ---
+          // Assuming createGroupChat was successful, add the new group to the cache
+          // Note: You might need more robust data from the controller or re-fetch
+          final newGroup = {
+            'name': message['groupName'],
+            'message': 'New group created', // Placeholder message
+            'avatar': 'assets/logoS.jpg', // Placeholder avatar
+            'isOnline': true, // Placeholder status
+            'id': 'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}', // Generate a plausible ID
+            'isGroup': true,
+            'members': message['memberIds'],
+          };
+
+          // Ensure cache is initialized
+          MessageList.cachedMessages ??= [];
+          // Add to the beginning of the list
+          MessageList.cachedMessages!.insert(0, newGroup);
+
+          // Trigger UI rebuild
+          if (mounted) {
+            setState(() {});
+          }
+          // --- END: Update cache and trigger rebuild ---
+
+          completer.complete();
+        } catch (e) {
+          completer.completeError(e);
+        }
+      } else if (message['type'] == 'error') {
+        completer.completeError(message['message']);
+      }
+
+      isolate.kill();
+      receivePort.close(); // Close the port when done
+    });
+
+    return completer.future;
+  }
+
   void _handleCreateChat() {
     // --- Dialog State Variables ---
     String searchQuery = '';
@@ -246,9 +250,15 @@ class _MessageListState extends State<MessageList> {
     final TextEditingController searchController = TextEditingController();
     final TextEditingController groupNameController = TextEditingController();
     // Initial list calculation (potential members are individual chats excluding self)
-    final List<Map<String, dynamic>> potentialMembers = (MessageList.cachedMessages ?? []) // Use class name
+    final List<Map<String, dynamic>> potentialMembers = (MessageList.cachedMessages ?? [])
         .where((msg) => msg['isGroup'] == false && msg['id'] != currentUserId)
         .toList();
+
+    // Group counter for generating room IDs
+    int existingGroups = (MessageList.cachedMessages ?? [])
+        .where((msg) => msg['isGroup'] == true)
+        .length;
+    int nextGroupNumber = existingGroups + 1;
 
     // Show dialog to create new chat
     showDialog(
@@ -257,7 +267,7 @@ class _MessageListState extends State<MessageList> {
         // Use StatefulBuilder to manage dialog state locally
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Filter the base list based on the current searchQuery *inside* the builder
+            // Filter the base list based on the current searchQuery
             final List<Map<String, dynamic>> filteredMembers = potentialMembers
                 .where((msg) => (msg['name'] as String? ?? '')
                     .toLowerCase()
@@ -272,7 +282,7 @@ class _MessageListState extends State<MessageList> {
                   TextField(
                     controller: groupNameController,
                     decoration: InputDecoration(
-                      labelText: 'Group Name (Optional)',
+                      labelText: 'Group Name',
                       hintText: 'Enter name for group chat',
                     ),
                   ),
@@ -288,11 +298,8 @@ class _MessageListState extends State<MessageList> {
                       ),
                     ),
                     onChanged: (value) {
-                      // Use setDialogState to update the search query and trigger rebuild
                       setDialogState(() {
                         searchQuery = value;
-                        // No need to explicitly re-filter here,
-                        // potentialMembers is recalculated at the start of the builder
                       });
                     },
                   ),
@@ -300,35 +307,33 @@ class _MessageListState extends State<MessageList> {
                   Text('Select Participants:'),
                   SizedBox(height: 8),
                   Container(
-                    height: 200, // Constrained height
-                    width: double.maxFinite, // Take available width
+                    height: 200,
+                    width: double.maxFinite,
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: filteredMembers.isEmpty // Use filtered list
+                    child: filteredMembers.isEmpty
                         ? Center(child: Text('No users found or available'))
                         : ListView.builder(
                             shrinkWrap: true,
-                            itemCount: filteredMembers.length, // Use filtered list
+                            itemCount: filteredMembers.length,
                             itemBuilder: (context, index) {
-                              final user = filteredMembers[index]; // Use filtered list
+                              final user = filteredMembers[index];
                               final userId = user['id'] as String;
                               final userName = user['name'] as String? ?? 'Unknown User';
-                              final avatarPath = user['avatar'] as String? ?? 'assets/logoS.jpg'; // Default avatar if missing
+                              final avatarPath = user['avatar'] as String? ?? 'assets/logoS.jpg';
 
-                              // Check if the current user ID is in the selection set
                               final bool isSelected = selectedUserIds.contains(userId);
 
                               return CheckboxListTile(
-                                secondary: CircleAvatar( // Add avatar here
+                                secondary: CircleAvatar(
                                   backgroundImage: AssetImage(avatarPath),
-                                  radius: 18, // Smaller avatar
+                                  radius: 18,
                                 ),
                                 title: Text(userName),
                                 value: isSelected,
                                 onChanged: (bool? value) {
-                                  // Use setDialogState to update the selection
                                   setDialogState(() {
                                     if (value == true) {
                                       selectedUserIds.add(userId);
@@ -337,7 +342,7 @@ class _MessageListState extends State<MessageList> {
                                     }
                                   });
                                 },
-                                dense: true, // Makes the list item smaller
+                                dense: true,
                               );
                             },
                           ),
@@ -350,60 +355,33 @@ class _MessageListState extends State<MessageList> {
                   child: Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: selectedUserIds.isEmpty // Disable if no users selected
+                  onPressed: selectedUserIds.isEmpty
                       ? null
-                      : () {
-                          // --- Create Group Logic ---
-                          if (MessageList.cachedMessages == null) return; // Use class name
+                      : () async {
+                          if (MessageList.cachedMessages == null) return;
 
-                          // 1. Combine selected IDs with current user ID
-                          final List<String> memberIds = [currentUserId, ...selectedUserIds];
+                          // Generate room ID
+                          final String roomId = 'room$nextGroupNumber';
 
-                          // 2. Get member names from _cachedMessages for default naming
-                          // Need a helper function or map for quick lookup
-                          Map<String, String> userIdToNameMap = {
-                            for (var msg in MessageList.cachedMessages!) msg['id']: msg['name'] // Use class name
-                          };
-                          // Add current user if not already in cache (should be)
-                          userIdToNameMap.putIfAbsent(currentUserId, () => 'You');
-
-                          final List<String> memberNames = memberIds
-                              .map((id) => userIdToNameMap[id] ?? 'Unknown')
-                              .toList();
-
-                          // 3. Generate Group Name if not provided
+                          // Get group name or generate default
                           String groupName = groupNameController.text.trim();
                           if (groupName.isEmpty) {
-                             // Create a default name like "You, Mai Anh, User 5"
-                             groupName = memberNames.take(3).join(', ');
-                             if (memberNames.length > 3) {
-                               groupName += '...';
-                             }
+                            groupName = 'Group Chat $nextGroupNumber';
                           }
 
-                          // 4. Generate unique ID
-                          final String newGroupId =
-                              'group_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+                          // Create array of all users (including current user)
+                          final List<String> allUsers = [currentUserId, ...selectedUserIds];
 
-                          // 5. Create new group map
-                          final newGroup = {
-                            'id': newGroupId,
-                            'name': groupName,
-                            'message': 'Group created by You', // Initial message
-                            'avatar': 'assets/logoS.jpg', // Default group avatar
-                            'isOnline': false, // Groups aren't 'online'
-                            'isGroup': true,
-                            'members': memberIds, // STORE THE IDs
-                          };
-
-                          // 6. Close dialog FIRST
-                          Navigator.pop(context);
-
-                          // 7. Add to cache and update state OUTSIDE the dialog's builder
-                          // Use the main widget's setState
-                          setState(() {
-                            MessageList.cachedMessages!.insert(0, newGroup); // Use class name
-                          });
+                          try {
+                            // Create group using isolate
+                            await _createGroupChat(groupName, allUsers);
+                            Navigator.pop(context);
+                          } catch (e) {
+                            print('Error creating group: $e');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString()))
+                            );
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
