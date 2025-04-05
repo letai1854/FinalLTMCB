@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
 import 'package:path/path.dart' as path;
 
 typedef MessageCallback = void Function(ChatMessage message);
@@ -104,54 +105,35 @@ class MediaHandlerWidget {
 
       print("Selected video: ${pickedVideo.path}");
 
-      // Verify video file exists and has content
-      if (!kIsWeb) {
-        try {
-          final File videoFile = File(pickedVideo.path);
-          if (!await videoFile.exists()) {
-            onError("Không thể truy cập file video", isError: true);
-            onProcessingEnd();
-            return;
-          }
-
-          final size = await videoFile.length();
-          print("Video file size: $size bytes");
-
-          if (size == 0) {
-            onError("Không thể gửi video rỗng", isError: true);
-            onProcessingEnd();
-            return;
-          }
-
-          // Check Windows compatibility
-          if (Platform.isWindows) {
-            final extension = path.extension(pickedVideo.path).toLowerCase();
-            if (!['.mp4', '.webm'].contains(extension)) {
-              onError(
-                  "Windows chỉ hỗ trợ video định dạng MP4 và WebM, định dạng hiện tại: $extension",
-                  isError: true,
-                  duration: Duration(seconds: 5));
-              // Continue anyway to let VideoBubble handle the error display
-            }
-          }
-        } catch (e) {
-          print("Error checking video file: $e");
-        }
+      Uint8List? videoBytes;
+      FileMessage? videoFileMessage;
+      if (!kIsWeb && pickedVideo.path != null) {
+        final File videoFile = File(pickedVideo.path!);
+        videoBytes = await videoFile.readAsBytes();
+        print("Video file bytes read: ${videoBytes.length} bytes");
+        videoFileMessage = FileMessage(
+          fileName: path.basename(pickedVideo.path),
+          mimeType: 'video', // Corrected mimeType to 'video'
+          fileSize: videoBytes.length,
+          filePath: pickedVideo.path,
+          fileBytes: videoBytes,
+        );
       }
 
-      // Create message with direct path - no need to save to app directory
+      // Create message with video file message
       final message = ChatMessage(
         text: '',
         isMe: true,
         timestamp: DateTime.now(),
-        video: pickedVideo.path,
-        isVideoLoading: false, // No loading state needed
+        videoFile: videoFileMessage, // Use videoFileMessage here
+        isVideoLoading: false,
       );
 
       // Send message
       onMessageCreated(message);
       onProcessingEnd();
     } catch (e) {
+      // Added catch block body
       print("Error handling video: $e");
       onError("Lỗi chọn video: ${e.toString().split('\n').first}",
           isError: true);

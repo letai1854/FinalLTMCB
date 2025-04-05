@@ -1,7 +1,11 @@
 // Import UserList to access the static cache
+import 'package:finalltmcb/Model/AudioMessage.dart';
+import 'package:finalltmcb/Model/MessageData.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
+import 'package:finalltmcb/Model/AudioMessage.dart';
+import 'package:finalltmcb/Model/ImageMessage.dart';
 import 'dart:io';
 import 'package:finalltmcb/Widget/ChatBubble.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +23,7 @@ import 'package:finalltmcb/Widget/FullScreenImageViewer.dart';
 import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
 import 'package:finalltmcb/Widget/AttachmentMenuWidget.dart';
 import 'package:finalltmcb/Widget/MediaHandlerWidget.dart';
+import 'dart:typed_data'; // Import typed_data
 import 'package:mime/mime.dart';
 
 class ChatContent extends StatefulWidget {
@@ -393,29 +398,29 @@ class _ChatContentState extends State<ChatContent> {
         final File audioFile = File(message.audio!);
         final bytes = await audioFile.readAsBytes();
         audioData = AudioData(
-          audioBase64: base64Encode(bytes),
+          base64Data: base64Encode(bytes),
           duration: 0, // You might want to get actual duration
           mimeType: 'audio/mp4',
-          fileSize: bytes.length,
+          size: bytes.length,
         );
       } else if (message.audio != null) {
         // If audio is already in base64
         audioData = AudioData(
-          audioBase64: message.audio!,
+          base64Data: message.audio!,
           duration: 0,
           mimeType: 'audio/mp4',
-          fileSize: base64Decode(message.audio!).length,
+          size: base64Decode(message.audio!).length,
         );
       } else {
         throw Exception('No audio data found in message');
       }
 
       // Create AudioMessage with the processed data
-      final audioMessage = AudioMessage(
-        base64Data: audioData.audioBase64,
+      final audioMessage = AudioData(
+        base64Data: audioData.base64Data,
         duration: audioData.duration,
         mimeType: audioData.mimeType,
-        size: audioData.fileSize,
+        size: audioData.size,
       );
 
       // Create message data
@@ -770,6 +775,37 @@ class _ChatContentState extends State<ChatContent> {
         }
       });
       print("Message added to chat: ${message.timestamp}");
+
+      // Prepare message data for server (including videoBytes if available)
+      final messageData = MessageData(
+        text: message.text.isNotEmpty ? message.text : null,
+        images: message.image != null
+            ? [
+                ImageMessage(
+                    base64Data: message.image!,
+                    mimeType: message.mimeType ?? 'image/jpeg',
+                    size: message.image!.length)
+              ]
+            : [],
+        audios: message.audio != null
+            ? [
+                AudioData(
+                    base64Data: message.audio!,
+                    duration: 0,
+                    mimeType: 'audio/mp4',
+                    size: message.audio!.length)
+              ]
+            : [],
+        files: message.file != null ? [message.file!] : [],
+        videoBytes: message.videoBytes,
+        timestamp: message.timestamp,
+      );
+
+      // Convert messageData to JSON (for demonstration - in real app, send to server)
+      final jsonData = messageData.toJson();
+      print("\n----- Message Data to be sent to server -----");
+      print(JsonEncoder.withIndent('  ').convert(jsonData));
+      print("----- End Message Data -----\n");
     }
   }
 
@@ -1031,83 +1067,67 @@ class _ChatContentState extends State<ChatContent> {
   }
 }
 
-class AudioMessage {
-  final String base64Data;
-  final int duration;
-  final String mimeType;
-  final int size;
+// // Add this class to handle image data
+// class ImageMessage {
+//   final String base64Data;
+//   final String mimeType;
+//   final int size;
 
-  AudioMessage({
-    required this.base64Data,
-    required this.duration,
-    required this.mimeType,
-    required this.size,
-  });
+//   ImageMessage({
+//     required this.base64Data,
+//     required this.mimeType,
+//     required this.size,
+//   });
 
-  Map<String, dynamic> toJson() => {
-        'base64Data': base64Data,
-        'duration': duration,
-        'mimeType': mimeType,
-        'size': size,
-      };
-}
+//   Map<String, dynamic> toJson() => {
+//         'base64Data': base64Data,
+//         'mimeType': mimeType,
+//         'size': size,
+//       };
+// }
 
-// Add this class to handle image data
-class ImageMessage {
-  final String base64Data;
-  final String mimeType;
-  final int size;
+// class AudioData {
+//   final String audioBase64;
+//   final int duration;
+//   final String mimeType;
+//   final int fileSize;
 
-  ImageMessage({
-    required this.base64Data,
-    required this.mimeType,
-    required this.size,
-  });
+//   AudioData({
+//     required this.audioBase64,
+//     required this.duration,
+//     required this.mimeType,
+//     required this.fileSize,
+//   });
+// }
 
-  Map<String, dynamic> toJson() => {
-        'base64Data': base64Data,
-        'mimeType': mimeType,
-        'size': size,
-      };
-}
+// // Modify MessageData class
+// class MessageData {
+//   final String? text;
+//   final List<ImageMessage> images;
+//   final List<AudioMessage> audios; // Add audio support
+//   final List<FileMessage> files; // Add file support
+//   final Uint8List? videoBytes; // Add videoBytes support
+//   final DateTime timestamp;
 
-class AudioData {
-  final String audioBase64;
-  final int duration;
-  final String mimeType;
-  final int fileSize;
+//   MessageData({
+//     this.text,
+//     List<ImageMessage>? images,
+//     List<AudioMessage>? audios,
+//     List<FileMessage>? files,
+//     this.videoBytes, // Add videoBytes to constructor
+//     required this.timestamp,
+//   })  : images = images ?? [],
+//         audios = audios ?? [],
+//         files = files ?? [];
 
-  AudioData({
-    required this.audioBase64,
-    required this.duration,
-    required this.mimeType,
-    required this.fileSize,
-  });
-}
-
-// Modify MessageData class
-class MessageData {
-  final String? text;
-  final List<ImageMessage> images;
-  final List<AudioMessage> audios; // Add audio support
-  final List<FileMessage> files; // Add file support
-  final DateTime timestamp;
-
-  MessageData({
-    this.text,
-    List<ImageMessage>? images,
-    List<AudioMessage>? audios,
-    List<FileMessage>? files,
-    required this.timestamp,
-  })  : images = images ?? [],
-        audios = audios ?? [],
-        files = files ?? [];
-
-  Map<String, dynamic> toJson() => {
-        'text': text,
-        'images': images.map((img) => img.toJson()).toList(),
-        'audios': audios.map((audio) => audio.toJson()).toList(),
-        'files': files.map((file) => file.toJson()).toList(),
-        'timestamp': timestamp.toIso8601String(),
-      };
-}
+//   Map<String, dynamic> toJson() => {
+//         'text': text,
+//         'images': images.map((img) => img.toJson()).toList(),
+//         'audios': audios.map((audio) => audio.toJson()).toList(),
+//         'files': files.map((file) => file.toJson()).toList(),
+//         'videoBytes': videoBytes != null
+//             ? base64Encode(videoBytes!.cast<int>())
+//             : null, // Encode videoBytes to base64
+//         'timestamp': timestamp.toIso8601String(),
+//       };
+// }
