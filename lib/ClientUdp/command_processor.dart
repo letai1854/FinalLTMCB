@@ -57,39 +57,35 @@ class CommandProcessor {
       return;
     }
 
-    if (!trimmedLine.startsWith("/")) {
-      logger.log('Command does not start with "/": $trimmedLine');
-      print("Invalid command. Type /help for available commands.");
-      stdout.write("> ");
-      return;
+    // Split into command and args, preserving spaces in args
+    int spaceIndex = trimmedLine.indexOf(' ');
+    List<String> parts;
+    if (spaceIndex == -1) {
+      parts = [trimmedLine];
+    } else {
+      parts = [
+        trimmedLine.substring(0, spaceIndex),
+        trimmedLine.substring(spaceIndex + 1)
+      ];
     }
-
-    // Extract command and arguments
-    List<String> allParts = trimmedLine.split(RegExp(r'\s+'));
-    List<String> parts = [];
-
-    if (allParts.isNotEmpty) {
-      parts.add(allParts[0]);
-      if (allParts.length > 1) {
-        parts.add(allParts.sublist(1).join(' '));
-      }
-    }
-
-    String command = parts[0].substring(1).toLowerCase(); // Remove the '/'
+    String command = parts[0].toLowerCase();
     String args = parts.length > 1 ? parts[1] : "";
 
     logger.log('Command: $command, Args: $args');
-    if (command == "login") {
-      CommandHandler? handler =
-          commandHandlers[Constants.CMD_LOGIN.toLowerCase()];
-      if (handler != null) {
-        logger.log('Found registered handler for command: $command');
+    CommandHandler? handler = commandHandlers[command];
+    if (handler != null) {
+      logger.log('Found registered handler for command: $command');
+      try {
         handler.handle(args, clientState, handshakeManager);
-      } else {
-        logger.log('No registered handler found for command: $command');
-        print("Invalid command. Type /help for available commands.");
-        stdout.write("> ");
+      } catch (e) {
+        logger.log('Error executing command: $e');
+        print("Error executing command. Please try again.");
       }
+      stdout.write("> ");
+    } else {
+      logger.log('No registered handler found for command: $command');
+      print("Invalid command. Type /help for available commands.");
+      stdout.write("> ");
     }
   }
 
