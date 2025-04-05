@@ -41,6 +41,7 @@ class HandshakeManager {
 
   // Add a callback mechanism for register responses
   final Map<String, Function(Map<String, dynamic>)> _registerCallbacks = {};
+  Function(Map<String, dynamic>)? _usersCallbacks;
 
   HandshakeManager(this.clientState, this.messageProcessor);
 
@@ -79,7 +80,13 @@ class HandshakeManager {
     _registerCallbacks.remove(chatId);
     logger.log('Removed register callback for user: $chatId');
   }
+void registerUsersCallback(Function(Map<String, dynamic>) callback) {
+  _usersCallbacks = callback;
+}
 
+void removeUsersCallback() {
+  _usersCallbacks = null;
+}
   // --- Handling Incoming Handshake Messages ---
 
   void handleCharacterCountResponse(Map<String, dynamic> response, 
@@ -209,14 +216,32 @@ class HandshakeManager {
       logger.log('Received ACK missing \'transaction_id\' field within \'data\'.');
       return;
     }
-    
     String transactionId = data["transaction_id"];
     String originalAction = data.containsKey(Constants.KEY_ORIGINAL_ACTION) 
         ? data[Constants.KEY_ORIGINAL_ACTION] 
         : "unknown";
     logger.log('Received Server ACK for transaction: $transactionId (Original Action: $originalAction) with status: $status');
     logger.log('Full ACK response: $responseJson');
-
+    
+    if (responseJson.containsKey(Constants.KEY_MESSAGE)) {
+      var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
+      try {
+        Map<String, dynamic> messageJson = jsonDecode(messageStr);
+        logger.log("Parsed message JSON: $messageJson");
+        
+        if (messageJson['data'] != null) {
+          Map<String, dynamic> messageData = messageJson['data'];
+          if (messageData.containsKey("all_users")) {
+            clientState.allUsers = List<String>.from(messageData["all_users"]);
+            clientState.allMessages = Map<String, List<dynamic>>.from(messageData["all_messages"] ?? {});
+            clientState.rooms = List<Map<String, dynamic>>.from(messageData["rooms"]);
+            logger.log("Data loaded - users: ${clientState.allUsers.length}, rooms: ${clientState.rooms.length}");
+          }
+        }
+      } catch (e) {
+        logger.log("Error parsing message JSON: $e\nMessage string: $messageStr");
+      }
+    }
     ClientPendingRequest? pendingReq = pendingClientRequestsByServerId.remove(transactionId);
 
     if (pendingReq != null) {
@@ -228,6 +253,7 @@ class HandshakeManager {
           if (data.containsKey(Constants.KEY_SESSION_KEY) && data.containsKey(Constants.KEY_CHAT_ID)) {
             clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
             clientState.currentChatId = data[Constants.KEY_CHAT_ID];
+
             logger.log('Login successful via ACK! Updated sessionKey for user \'${clientState.currentChatId}\'. Session: ${clientState.sessionKey}');
             print("\nLogin successful! Welcome ${clientState.currentChatId}.");
             print("Type /help");

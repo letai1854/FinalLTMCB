@@ -12,6 +12,11 @@ class ClientState {
   String? sessionKey;
   String? currentChatId;
   bool running = true;
+ List<Map<String, dynamic>> rooms = [];
+  // Danh sách tất cả người dùng
+  List<String> allUsers = [];
+  // Map lưu trữ tin nhắn theo roomId
+  Map<String, List<dynamic>> allMessages = {};
 
   /// Private constructor - use ClientState.create() factory constructor instead
   ClientState._internal(
@@ -19,7 +24,11 @@ class ClientState {
     this.serverPort,
     this.socket,
     this.serverAddress
-  );
+  ) {
+    rooms = [];
+    allUsers = [];
+    allMessages = {};
+  }
 
   /// Factory constructor that creates the socket and resolves the server address
   static Future<ClientState> create(String serverHost, int serverPort) async {

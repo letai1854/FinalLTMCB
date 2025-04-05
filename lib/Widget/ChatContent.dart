@@ -932,9 +932,9 @@ class _ChatContentState extends State<ChatContent> {
                 ],
               ),
             ),
-            IconButton(
-                onPressed: () {/* TODO: Implement call action */},
-                icon: Icon(Icons.call)),
+           IconButton(
+              onPressed: () {/* TODO: Implement info/more options menu */},
+              icon: Icon(Icons.more_vert)),
           ],
         ),
         backgroundColor: Colors.red,

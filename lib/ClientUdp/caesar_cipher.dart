@@ -5,8 +5,7 @@ import 'dart:developer' as logger;
 /// It's included here based on the initial requirements.
 class CaesarCipher {
   // Define the exact same alphabet as in the Java implementation
-  static const String ALPHABET =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/={}[]\":,.!? ";
+  static const String ALPHABET ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?";
 
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Characters not in the defined ALPHABET are passed through unchanged.
