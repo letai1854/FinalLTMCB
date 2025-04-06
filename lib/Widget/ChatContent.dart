@@ -74,6 +74,7 @@ class _ChatContentState extends State<ChatContent> {
         final newMessage = ChatMessage(
           text: messageData['content'],
           isMe: false,
+          name: messageData['name'],
           timestamp: DateTime.parse(messageData['timestamp']),
         );
         _addMessageToUI(newMessage);

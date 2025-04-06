@@ -6,8 +6,6 @@ import 'dart:developer' as logger;
 /// especially for characters outside the Basic Multilingual Plane (like emojis),
 /// as it might result in invalid code points or unintended character changes if shift != 0.
 class CaesarCipher {
-
-
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Works with all UTF-8 characters.
   ///
@@ -62,7 +60,10 @@ class CaesarCipher {
   /// @return The processed text.
   static String processText(String text, int shift) {
     logger.log('Processing text: "$text" with shift: $shift');
-
+    if (text != null) {
+      logger.log('Input text is null. Returning empty string.');
+      return text;
+    }
     if (text.isEmpty) return text;
 
     // !! IMPORTANT !!
@@ -82,7 +83,8 @@ class CaesarCipher {
           i + 1 < text.length &&
           _isLowSurrogate(text.codeUnitAt(i + 1))) {
         // Combine surrogate pair into a single code point
-        codePoint = _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
+        codePoint =
+            _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
         charCount = 2; // This code point uses two code units (chars)
       } else {
         // Regular character (BMP)
@@ -95,13 +97,14 @@ class CaesarCipher {
       // Check if the resulting code point is valid Unicode
       if (_isValidCodePoint(newCodePoint)) {
         // Append the potentially shifted character (as its string representation)
-         result.write(String.fromCharCode(newCodePoint));
+        result.write(String.fromCharCode(newCodePoint));
       } else {
         // If shifting results in an invalid code point, keep the original character
-         logger.log('Shift resulted in invalid codepoint ($newCodePoint) for original ($codePoint). Keeping original.');
-         result.write(String.fromCharCode(codePoint));
+        logger.log(
+            'Shift resulted in invalid codepoint ($newCodePoint) for original ($codePoint). Keeping original.');
+        result.write(String.fromCharCode(codePoint));
       }
-       // Move to the next code point
+      // Move to the next code point
       i += charCount;
     }
 
@@ -116,7 +119,8 @@ class CaesarCipher {
   /// @param text The string to analyze.
   /// @return A map with characters (as Strings) as keys and their frequencies as values.
   static Map<String, int> countLetterFrequencies(String? text) {
-    logger.log('Counting character frequencies (correctly) for text: ${text ?? "null"}');
+    logger.log(
+        'Counting character frequencies (correctly) for text: ${text ?? "null"}');
     if (text == null || text.isEmpty) {
       return {};
     }
@@ -137,26 +141,26 @@ class CaesarCipher {
     return frequencies;
   }
 
-
   /// Counts the number of alphabetic characters (a-z, A-Z based on basic Latin range) in a string.
   /// Iterates by runes (code points) for Unicode correctness, though the definition of "letter" here is limited.
   ///
   /// @param text The string to analyze.
   /// @return The count of alphabetic characters.
   static int countLetters(String? text) {
-     if (text == null || text.isEmpty) {
+    if (text == null || text.isEmpty) {
       return 0;
     }
 
     int count = 0;
     // Iterate using runes for potentially broader alphabet support
     for (final rune in text.runes) {
-       // Check if the code point represents a letter (basic Latin A-Z, a-z)
-       // Note: Character.isLetter in Java is more comprehensive for Unicode letters.
-       // This basic check might suffice depending on requirements.
-       if ((rune >= 65 && rune <= 90) || (rune >= 97 && rune <= 122)) { // A-Z or a-z
-         count++;
-       }
+      // Check if the code point represents a letter (basic Latin A-Z, a-z)
+      // Note: Character.isLetter in Java is more comprehensive for Unicode letters.
+      // This basic check might suffice depending on requirements.
+      if ((rune >= 65 && rune <= 90) || (rune >= 97 && rune <= 122)) {
+        // A-Z or a-z
+        count++;
+      }
     }
     return count;
   }
@@ -183,10 +187,13 @@ class CaesarCipher {
 
   // Converts a code point (especially one > 0xFFFF) into a surrogate pair record
   static ({int high, int low}) _toSurrogatePair(int codePoint) {
-     if (codePoint < 0 || codePoint > 0x10FFFF || (_isValidCodePoint(codePoint) && codePoint <= 0xFFFF)) {
-        // Not a supplementary character or invalid
-       throw ArgumentError('Input is not a supplementary code point: $codePoint');
-     }
+    if (codePoint < 0 ||
+        codePoint > 0x10FFFF ||
+        (_isValidCodePoint(codePoint) && codePoint <= 0xFFFF)) {
+      // Not a supplementary character or invalid
+      throw ArgumentError(
+          'Input is not a supplementary code point: $codePoint');
+    }
     int high = ((codePoint - 0x10000) >> 10) + 0xD800;
     int low = ((codePoint - 0x10000) & 0x3FF) + 0xDC00;
     return (high: high, low: low);
@@ -195,8 +202,9 @@ class CaesarCipher {
   // Checks if a given integer is a valid Unicode code point
   // (excludes surrogate block U+D800 to U+DFFF)
   static bool _isValidCodePoint(int codePoint) {
-    return codePoint >= 0 && codePoint <= 0x10FFFF && // Within the valid Unicode range
-           !(codePoint >= 0xD800 && codePoint <= 0xDFFF); // Not a surrogate code point
+    return codePoint >= 0 &&
+        codePoint <= 0x10FFFF && // Within the valid Unicode range
+        !(codePoint >= 0xD800 &&
+            codePoint <= 0xDFFF); // Not a surrogate code point
   }
-
 }
