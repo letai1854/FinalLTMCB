@@ -14,10 +14,10 @@ class ChatTablet extends StatefulWidget {
 }
 
 class _ChatTabletState extends State<ChatTablet> {
-  // State to hold the currently selected user
+  // State to hold the currently selected user ID
   String? selectedUserId;
 
-  // Callback to handle user selection
+  // Callback to handle user selection (receives String ID)
   void onUserSelected(String userId) {
     setState(() {
       selectedUserId = userId;
@@ -40,12 +40,12 @@ class _ChatTabletState extends State<ChatTablet> {
                   border: Border(
                       right:
                           BorderSide(width: 1, color: Colors.grey.shade300))),
-          child: MessageList(
-            onUserSelected: onUserSelected,
-            selectedUserId: selectedUserId,
-            isDesktopOrTablet: true, // Mark as tablet view
-            groupController: globalGroupController, // Pass the global instance
-          ),
+              child: MessageList(
+                onUserSelected: onUserSelected,
+                selectedUserId: selectedUserId,
+                isDesktopOrTablet: true, // Mark as tablet view
+                groupController: globalGroupController, // Pass the global instance
+              ),
             ),
           ),
           Expanded(
