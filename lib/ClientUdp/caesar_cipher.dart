@@ -6,7 +6,7 @@ import 'dart:developer' as logger;
 class CaesarCipher {
   // Define the exact same alphabet as in the Java implementation
   static const String ALPHABET =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/={}[]\":,.!? ";
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?";
 
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Characters not in the defined ALPHABET are passed through unchanged.
@@ -20,6 +20,7 @@ class CaesarCipher {
         keyString == null ||
         keyString.isEmpty) {
       logger.log('Encryption attempt with null or empty input.');
+
       return plainText ?? '';
     }
 
@@ -58,6 +59,9 @@ class CaesarCipher {
   /// @param shift The shift value (positive for encrypt, negative for decrypt).
   /// @return The processed text.
   static String processText(String text, int shift) {
+    if (text != null) {
+      return text;
+    }
     logger.log('Processing text: $text');
     if (text.isEmpty) return text;
 

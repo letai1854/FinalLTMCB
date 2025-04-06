@@ -275,7 +275,8 @@ class _ChatContentState extends State<ChatContent> {
           print(
               "Attempting to send Text/Image message via Controller/CommandProcessor...");
           // Use widget.userId as roomId, adjust if necessary
-          await MessageController().SendMessage(messageDataToSend);
+          await MessageController()
+              .SendMessage(messageDataToSend);
           print(
               "Text/Image message processing initiated via Controller/CommandProcessor.");
           // Optional: Update message status in UI to 'sent' or 'delivered' later based on ACK
