@@ -40,6 +40,11 @@ dependencies:
   record: ^6.0.0 # Using older version to avoid abstract class issues
   path_provider: ^2.1.1 # Add or update this line
   permission_handler: ^11.3.0 # Yêu cầu quyền truy cập (camera, mic, storage)
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+  convert: ^3.1.1 # Hoặc phiên bản mới hơn (cho utf8)
+  logging: ^1.2.0 # Hoặc phiên bản mới hơn
+
   uuid: ^4.3.3 # 
   file_picker: ^5.2.10
   url_launcher: ^6.2.5 # Add this for fallback video launching on Windows

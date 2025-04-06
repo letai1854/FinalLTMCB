@@ -4,6 +4,7 @@ import 'package:finalltmcb/Widget/ChatContent.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
 import 'package:flutter/material.dart';
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController and clientState
 
 class ChatDesktop extends StatefulWidget {
   const ChatDesktop({Key? key}) : super(key: key);
@@ -40,6 +41,7 @@ class _ChatDesktopState extends State<ChatDesktop> {
               onUserSelected: onUserSelected,
               selectedUserId: selectedUserId,
               isDesktopOrTablet: true, // Mark as desktop view
+              groupController: globalGroupController, // Pass the global instance
             ),
           ),
           Expanded(

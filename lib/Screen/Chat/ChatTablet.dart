@@ -4,6 +4,7 @@ import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController
 
 class ChatTablet extends StatefulWidget {
   const ChatTablet({Key? key}) : super(key: key);
@@ -39,11 +40,12 @@ class _ChatTabletState extends State<ChatTablet> {
                   border: Border(
                       right:
                           BorderSide(width: 1, color: Colors.grey.shade300))),
-              child: MessageList(
-                onUserSelected: onUserSelected,
-                selectedUserId: selectedUserId,
-                isDesktopOrTablet: true, // Mark as tablet view
-              ),
+          child: MessageList(
+            onUserSelected: onUserSelected,
+            selectedUserId: selectedUserId,
+            isDesktopOrTablet: true, // Mark as tablet view
+            groupController: globalGroupController, // Pass the global instance
+          ),
             ),
           ),
           Expanded(

@@ -15,6 +15,14 @@ class Constants {
   static const String FIXED_LOGIN_KEY_STRING =
       "LoginKey9"; // CRITICAL: Must match server exactly!
 
+  /**
+   * Fixed key string used ONLY for decrypting the initial register request.
+   * Its length (11) determines the Caesar shift (shift = 11).
+   * DO NOT use this for encrypting replies or any other communication.
+   */
+  static const String FIXED_REGISTER_KEY_STRING =
+      "LoginKey9"; // CRITICAL: Must match server exactly!
+
   // --- JSON Keys ---
   // Common
   static const String KEY_ACTION = "action";

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:developer' as logger;
+import 'package:finalltmcb/Model/User_model.dart';
+import 'package:finalltmcb/Model/ChatMessage.dart';
 
 /// Stores the current state of the UDP chat client, including
 /// connection details and session information.
@@ -12,6 +14,16 @@ class ClientState {
   String? sessionKey;
   String? currentChatId;
   bool running = true;
+ List<Map<String, dynamic>> rooms = [];
+  // Danh sách tất cả người dùng
+  List<String> allUsers = [];
+  // Map lưu trữ tin nhắn theo roomId
+  Map<String, List<dynamic>> allMessages = {};
+  
+  // Converted data structures
+  List<User> convertedUsers = [];
+  List<Map<String, dynamic>> cachedMessages = [];
+  Map<String, List<ChatMessage>> roomMessages = {};
 
   /// Private constructor - use ClientState.create() factory constructor instead
   ClientState._internal(
@@ -19,7 +31,14 @@ class ClientState {
     this.serverPort,
     this.socket,
     this.serverAddress
-  );
+  ) {
+    rooms = [];
+    allUsers = [];
+    allMessages = {};
+    convertedUsers = [];
+    cachedMessages = [];
+    roomMessages = {};
+  }
 
   /// Factory constructor that creates the socket and resolves the server address
   static Future<ClientState> create(String serverHost, int serverPort) async {

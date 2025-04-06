@@ -4,6 +4,7 @@ import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
 import 'package:finalltmcb/Screen/Chat/ChatMobile.dart';
 import 'package:flutter/material.dart';
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController
 
 class ListUserMobile extends StatefulWidget {
   const ListUserMobile({Key? key}) : super(key: key);
@@ -34,6 +35,7 @@ class _ListUserMobileState extends State<ListUserMobile> {
       body: MessageList(
         onUserSelected: onUserSelected,
         isDesktopOrTablet: false, // Explicitly mark as mobile view
+        groupController: globalGroupController, // Pass the global instance
       ),
     );
   }

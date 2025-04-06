@@ -1,7 +1,57 @@
+// No repositories should be declared here - they belong in settings.gradle
+
+// Add buildscript block for dependencies
+buildscript {
+    ext.kotlin_version = '1.8.0' // Use a version known to be compatible
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0"
+    }
+}
+
+// Remove the repositories from allprojects
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+    
+    // Fix for record plugin and other plugins that might have namespace issues
+    afterEvaluate {
+        if (project.hasProperty('android')) {
+            // Fix record plugin namespace
+            if (!project.android.hasProperty('namespace') && 
+                (project.name == 'record' || project.path.contains('record'))) {
+                project.android {
+                    namespace "com.llfbandit.record"
+                }
+            }
+            
+            // Fix permission_handler namespace if needed
+            if (!project.android.hasProperty('namespace') && 
+                (project.name == 'permission_handler' || project.path.contains('permission_handler'))) {
+                project.android {
+                    namespace "com.baseflow.permissionhandler"
+                }
+            }
+            
+            // Fix path_provider namespace if needed
+            if (!project.android.hasProperty('namespace') && 
+                (project.name == 'path_provider' || project.path.contains('path_provider'))) {
+                project.android {
+                    namespace "io.flutter.plugins.pathprovider"
+                }
+            }
+            
+            // Ensure Java 17 compatibility consistently across all projects
+          
+        }
     }
 }
 

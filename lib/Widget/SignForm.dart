@@ -10,20 +10,15 @@ class SignForm extends StatefulWidget {
 }
 
 class _SignFormState extends State<SignForm> {
-  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _emailFocusNode = FocusNode(); // Keep as username field
   final FocusNode _passwordFocusNode = FocusNode();
-  final FocusNode _nameFocusNode = FocusNode();
-  final FocusNode _addressFocusNode = FocusNode();
-  final FocusNode _rePasswordFocusNode = FocusNode();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(); // Keep as username field
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _rePasswordController = TextEditingController();
   bool _isPasswordVisible = false;
-  bool _isRePasswordVisible = false;
+  // Removed name, address, re-password controllers and focus nodes
+  // Removed _isRePasswordVisible
 
-  final UserController _userController = UserController();
+  final UserController _userController = UserController(); // Assuming this is still needed for signup logic
   bool _isLoading = false;
   String? _errorMessage;
   @override
@@ -32,30 +27,18 @@ class _SignFormState extends State<SignForm> {
   }
 
   Future<void> _handleSignup() async {
-    print(_emailController.text);
-    print(_nameController.text);
-    print(_passwordController.text);
-    print(_addressController.text);
-    print(_rePasswordController.text);
+    print('Username (Email): ${_emailController.text}');
+    print('Password: ${_passwordController.text}');
+
     // Validate fields
-    if (_emailController.text.isEmpty ||
-        _nameController.text.isEmpty ||
-        _passwordController.text.isEmpty ||
-        _rePasswordController.text.isEmpty ||
-        _addressController.text.isEmpty) {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Vui lòng điền đầy đủ thông tin';
+        _errorMessage = 'Vui lòng điền đầy đủ Username và Mật khẩu';
       });
       return;
     }
 
-    // Validate passwords match
-    if (_passwordController.text != _rePasswordController.text) {
-      setState(() {
-        _errorMessage = 'mật khẩu không trùng khớp';
-      });
-      return;
-    }
+    // Removed password matching validation
 
     setState(() {
       _isLoading = true;
@@ -63,34 +46,20 @@ class _SignFormState extends State<SignForm> {
     });
 
     try {
-      // Prepare user data
-      final userData = {
-        'email': _emailController.text,
-        'full_name': _nameController.text, // Changed from fullName to full_name
-        'password': _passwordController.text,
-        'address': _addressController.text,
-        'role': 'customer',
-        'status': true,
-        'customer_points': 0,
-        'avatar': null,
-        'created_date': DateTime.now().toIso8601String(),
-        'chat_id': null // Will be set by controller
-      };
-      print('Sending user data: $userData');
+      // Removed userData map creation
 
-      // Call register method
-      // await _userController.register(userData);
+      // Call register method with email (as chatId) and password
+      await _userController.register(
+          _emailController.text, _passwordController.text);
 
       // Show success message and navigate
-// In your _handleSignup method, replace the existing SnackBar with:
+      // Assuming successful registration if no exception is thrown
 
       if (mounted) {
-        // Clear all input fields
+        // Clear input fields
         _emailController.clear();
         _passwordController.clear();
-        _nameController.clear();
-        _addressController.clear();
-        _rePasswordController.clear();
+        // Removed clearing for name, address, re-password
 
         SuccessMessage.show(
           context,
@@ -129,14 +98,9 @@ class _SignFormState extends State<SignForm> {
   void dispose() {
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
-    _nameFocusNode.dispose();
-    _addressFocusNode.dispose();
-    _rePasswordFocusNode.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _nameController.dispose();
-    _addressController.dispose();
-    _rePasswordController.dispose();
+    // Removed disposal for name, address, re-password
     super.dispose();
   }
 
@@ -173,10 +137,11 @@ class _SignFormState extends State<SignForm> {
                 }
               },
               onFieldSubmitted: (_) {
-                FocusScope.of(context).requestFocus(_nameFocusNode);
+                // Move focus to password field on submit
+                FocusScope.of(context).requestFocus(_passwordFocusNode);
               },
               decoration: InputDecoration(
-                hintText: 'Email',
+                hintText: 'Username (Email)', // Updated hint text
                 prefixIcon: Icon(
                   Icons.email_outlined,
                   color: Colors.grey[600],
@@ -184,62 +149,14 @@ class _SignFormState extends State<SignForm> {
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(width: double.infinity, height: 10),
-            TextFormField(
-              controller: _nameController,
-              focusNode: _nameFocusNode,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-              onChanged: (value) {
-                if (_errorMessage != null) {
-                  setState(() {
-                    _errorMessage = null;
-                  });
-                }
-              },
-              onFieldSubmitted: (_) {
-                FocusScope.of(context).requestFocus(_addressFocusNode);
-              },
-              decoration: InputDecoration(
-                hintText: 'Nhập tên người dùng',
-                prefixIcon: Icon(
-                  Icons.person,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(width: double.infinity, height: 10),
-            TextFormField(
-              controller: _addressController,
-              focusNode: _addressFocusNode,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-              onChanged: (value) {
-                if (_errorMessage != null) {
-                  setState(() {
-                    _errorMessage = null;
-                  });
-                }
-              },
-              onFieldSubmitted: (_) {
-                FocusScope.of(context).requestFocus(_passwordFocusNode);
-              },
-              decoration: InputDecoration(
-                hintText: 'Nhập địa chỉ giao hàng',
-                prefixIcon: Icon(
-                  Icons.location_city,
-                  color: Colors.grey[600],
-                ),
-                border: OutlineInputBorder(),
-              ),
-            ),
+            // Removed Name and Address TextFormFields and SizedBoxes
             SizedBox(width: double.infinity, height: 10),
             TextFormField(
               controller: _passwordController,
               focusNode: _passwordFocusNode,
               keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
+              // Change textInputAction to done or send the form
+              textInputAction: TextInputAction.done,
               obscureText: !_isPasswordVisible,
               onChanged: (value) {
                 if (_errorMessage != null) {
@@ -248,6 +165,8 @@ class _SignFormState extends State<SignForm> {
                   });
                 }
               },
+              // Trigger signup when submitted from password field
+              onFieldSubmitted: (_) => _isLoading ? null : _handleSignup(),
               decoration: InputDecoration(
                 hintText: 'Mật khẩu',
                 prefixIcon: Icon(
@@ -269,42 +188,8 @@ class _SignFormState extends State<SignForm> {
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(width: double.infinity, height: 10),
-            TextFormField(
-              controller: _rePasswordController,
-              focusNode: _rePasswordFocusNode,
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-              obscureText: !_isRePasswordVisible,
-              onChanged: (value) {
-                if (_errorMessage != null) {
-                  setState(() {
-                    _errorMessage = null;
-                  });
-                }
-              },
-              decoration: InputDecoration(
-                hintText: 'Nhập lại Mật khẩu',
-                prefixIcon: Icon(
-                  Icons.lock_outline,
-                  color: Colors.grey[600],
-                ),
-                suffixIcon: IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _isRePasswordVisible = !_isRePasswordVisible;
-                      });
-                    },
-                    icon: Icon(
-                      _isRePasswordVisible
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: Colors.grey[600],
-                    )),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(width: double.infinity, height: 10),
+            // Removed Re-enter Password TextFormField and SizedBox
+            SizedBox(width: double.infinity, height: 10), // Keep one SizedBox before error message
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
