@@ -74,17 +74,20 @@ class _ChatContentState extends State<ChatContent> {
             [];
         setState(() {
           listhistorymessage = history;
-          // Clear existing messages before initializing
           _userMessages.clear();
           _userMessages[widget.userId] = List.from(history);
           _isLoading = false;
         });
 
-        // Scroll to bottom without animation for initial load
+        // Use jumpTo for immediate scroll to bottom
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
-            _scrollController
-                .jumpTo(_scrollController.position.maxScrollExtent);
+            Future.delayed(Duration(milliseconds: 100), () {
+              if (mounted && _scrollController.hasClients) {
+                _scrollController
+                    .jumpTo(_scrollController.position.maxScrollExtent);
+              }
+            });
           }
         });
 

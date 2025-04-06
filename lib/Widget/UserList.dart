@@ -6,6 +6,7 @@ import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'dart:isolate';
 import 'dart:async';
+import 'package:finalltmcb/Service/MessageNotifier.dart'; // Add this import
 
 class MessageList extends StatefulWidget {
   final Function(String)? onUserSelected;
@@ -31,11 +32,14 @@ class MessageList extends StatefulWidget {
   // Keep loading state and future static but potentially private to the class scope
   static bool _isLoading = false;
   static Future<List<Map<String, dynamic>>>? _dataFuture;
+  // Add new static field to track unread messages
+  static Set<String> unreadMessages = {};
 }
 
 class _MessageListState extends State<MessageList> {
   String get currentUserId =>
       widget.groupController.client?.clientState.currentChatId ?? 'user1';
+
   @override
   void initState() {
     super.initState();
@@ -44,11 +48,50 @@ class _MessageListState extends State<MessageList> {
     if (clientState != null) {
       MessageList.cachedMessages = clientState.cachedMessages;
 
-      // Listen for auto-selection
+      // Add message listener
+      MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+
       if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
         _autoSelectFirstUser();
       }
     }
+  }
+
+  // Add new method to handle messages
+  void _handleNewMessage() {
+    final messageData = MessageNotifier.messageNotifier.value;
+    if (messageData != null && mounted && MessageList.cachedMessages != null) {
+      final roomId = messageData['roomId'];
+      final content = messageData['content'];
+
+      // Find the chat in cached messages
+      final chatIndex = MessageList.cachedMessages!
+          .indexWhere((chat) => chat['id'] == roomId);
+
+      if (chatIndex != -1) {
+        setState(() {
+          // Update message content
+          MessageList.cachedMessages![chatIndex]['message'] = content;
+
+          // Mark message as unread if it's not the currently selected chat
+          if (roomId != widget.selectedUserId) {
+            MessageList.unreadMessages.add(roomId);
+          }
+
+          // Move chat to top if not already there
+          if (chatIndex > 0) {
+            final chat = MessageList.cachedMessages!.removeAt(chatIndex);
+            MessageList.cachedMessages!.insert(0, chat);
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+    super.dispose();
   }
 
   @override
@@ -88,6 +131,9 @@ class _MessageListState extends State<MessageList> {
 
   void _handleUserTap(String userId) {
     if (widget.onUserSelected != null) {
+      // Mark messages as read when chat is selected
+      MessageList.unreadMessages.remove(userId);
+
       // Ensure message history container exists before switching
       final clientState = widget.groupController.clientState;
       if (clientState != null &&
@@ -95,6 +141,9 @@ class _MessageListState extends State<MessageList> {
         clientState.allMessagesConverted[userId] = [];
       }
       widget.onUserSelected!(userId);
+
+      // Trigger rebuild to update message styling
+      setState(() {});
     }
   }
 
@@ -456,6 +505,8 @@ class _MessageListState extends State<MessageList> {
                 final message = messages[index];
                 final isSelected = message['id'] ==
                     widget.selectedUserId; // Sửa lại check theo ID và tên biến
+                final isUnread =
+                    MessageList.unreadMessages.contains(message['id']);
                 return ListTile(
                   selected: isSelected,
                   selectedTileColor: Colors.red.withOpacity(0.1),
@@ -505,7 +556,14 @@ class _MessageListState extends State<MessageList> {
                         ),
                     ],
                   ),
-                  subtitle: Text(message['message']!),
+                  subtitle: Text(
+                    message['message']!,
+                    style: TextStyle(
+                      color: isUnread ? Colors.black87 : Colors.grey[600],
+                      fontWeight:
+                          isUnread ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
                   tileColor: Colors.white,
                 );
               },
