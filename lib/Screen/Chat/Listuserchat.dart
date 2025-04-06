@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController
 
 class Listuserchat extends StatefulWidget {
   const Listuserchat({Key? key}) : super(key: key);
@@ -29,6 +30,7 @@ class _ListuserchatState extends State<Listuserchat> {
               onUserSelected: onUserSelected,
               selectedUserId: selectedUserId,
               isDesktopOrTablet: true, // Mark as desktop/tablet view
+              groupController: globalGroupController, // Pass the global instance
             ),
           ),
           Expanded(

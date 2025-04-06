@@ -50,7 +50,7 @@ class CommandProcessor {
 
   Future<void> processCommand(String line) async {
     logger.log('Processing command: $line');
-
+    print(line);
     String trimmedLine = line.trim();
     if (trimmedLine.isEmpty) {
       stdout.write("> ");
@@ -72,6 +72,7 @@ class CommandProcessor {
     String args = parts.length > 1 ? parts[1] : "";
 
     logger.log('Command: $command, Args: $args');
+
     CommandHandler? handler = commandHandlers[command];
     if (handler != null) {
       logger.log('Found registered handler for command: $command');

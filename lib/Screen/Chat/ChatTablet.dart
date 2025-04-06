@@ -4,6 +4,7 @@ import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController
 
 class ChatTablet extends StatefulWidget {
   const ChatTablet({Key? key}) : super(key: key);
@@ -13,10 +14,10 @@ class ChatTablet extends StatefulWidget {
 }
 
 class _ChatTabletState extends State<ChatTablet> {
-  // State to hold the currently selected user
+  // State to hold the currently selected user ID
   String? selectedUserId;
 
-  // Callback to handle user selection
+  // Callback to handle user selection (receives String ID)
   void onUserSelected(String userId) {
     setState(() {
       selectedUserId = userId;
@@ -43,6 +44,7 @@ class _ChatTabletState extends State<ChatTablet> {
                 onUserSelected: onUserSelected,
                 selectedUserId: selectedUserId,
                 isDesktopOrTablet: true, // Mark as tablet view
+                groupController: globalGroupController, // Pass the global instance
               ),
             ),
           ),

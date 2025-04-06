@@ -94,4 +94,44 @@ class MessageController {
       throw Exception('Gửi tin nhắn thất bại: $e');
     }
   }
+
+  // *** HÀM GỬI TIN NHẮN VĂN BẢN ***
+  Future<void> SendTextMessage(
+      String roomId, List<String> members, String messageContent) async {
+    logger.log(
+        'MessageController: Preparing to send text message to room $roomId');
+
+    // Lấy instance UdpClient (điều chỉnh cách lấy cho phù hợp với cấu trúc của bạn)
+    try {
+      // !!! THAY THẾ BẰNG CÁCH LẤY INSTANCE UDPCLIENT/CLIENTSTATE ĐÚNG !!!
+      // Ví dụ truy cập qua một singleton hoặc GetIt
+      // Giả sử UdpClient có một getter static hoặc tương tự để lấy instance đang chạy
+
+      // Cần đảm bảo client đã login và có session key
+    } catch (e) {
+      logger.log('Error getting UdpClient instance: $e',
+          name: 'MessageController');
+      throw Exception('Failed to get UDP client instance: $e');
+    }
+
+    // Tạo payload dữ liệu theo định dạng yêu cầu của server
+
+    try {
+      // Gửi dữ liệu qua UdpClient
+      // Hàm sendData của UdpClient sẽ tự động mã hóa và gửi
+      // Nó cũng nên xử lý việc chờ ACK hoặc timeout nếu cần
+      final String commandString = "/send $roomId $messageContent";
+      await _udpClient?.commandProcessor.processCommand(commandString);
+      logger.log(
+          'MessageController: Text message sent successfully to room $roomId.');
+    } catch (e) {
+      logger.log('Error sending text message via UdpClient: $e',
+          name: 'MessageController');
+      // Ném lại lỗi để ChatContent có thể hiển thị thông báo
+      throw Exception('Failed to send message: $e');
+    }
+  }
+  // **********************************
+
+  // Các hàm khác của contr
 }

@@ -1,20 +1,28 @@
 import 'dart:math'; // For generating random IDs
+import 'package:finalltmcb/Model/User_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'package:finalltmcb/ClientUdp/client_state.dart';
+import 'dart:isolate';
+import 'dart:async';
 
 class MessageList extends StatefulWidget {
   final Function(String)? onUserSelected;
   final String? selectedUserId;
   final bool isDesktopOrTablet; // Add parameter to identify view type
+  // Optional GroupController that will use global instance if not provided
+  final GroupController groupController;
 
+  // Constructor takes the instance from main.dart that already has UDP client
   const MessageList({
     Key? key,
     this.onUserSelected,
     this.selectedUserId,
-    this.isDesktopOrTablet = false, // Default to mobile
+    this.isDesktopOrTablet = false,
+    required this.groupController,
   }) : super(key: key);
 
-  @override
   @override
   State<MessageList> createState() => _MessageListState();
 
@@ -26,22 +34,20 @@ class MessageList extends StatefulWidget {
 }
 
 class _MessageListState extends State<MessageList> {
-  // Static variables are now moved to the MessageList class above
-
-  // Current user ID (assuming '15' as per requirement)
-  static const String currentUserId = '15';
-
+  String get currentUserId =>
+      widget.groupController.client?.clientState.currentChatId ?? 'user1';
   @override
   void initState() {
     super.initState();
-    // Initialize the future if not already created
-    if (MessageList._dataFuture == null) { // Use class name
-      MessageList._dataFuture = _loadData(); // Use class name
-    }
+    // Initialize data from clientState
+    final clientState = widget.groupController.client?.clientState;
+    if (clientState != null) {
+      MessageList.cachedMessages = clientState.cachedMessages;
 
-    // Listen for auto-selection only once after initial data load
-    if (widget.isDesktopOrTablet && MessageList.cachedMessages != null && !MessageList._isLoading) { // Use class name
-      _autoSelectFirstUser();
+      // Listen for auto-selection
+      if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
+        _autoSelectFirstUser();
+      }
     }
   }
 
@@ -49,7 +55,10 @@ class _MessageListState extends State<MessageList> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Check if we should auto-select the first user after data is cached
-    if (widget.isDesktopOrTablet && MessageList.cachedMessages != null && !MessageList._isLoading) { // Use class name
+    if (widget.isDesktopOrTablet &&
+        MessageList.cachedMessages != null &&
+        !MessageList._isLoading) {
+      // Use class name
       _autoSelectFirstUser();
     }
   }
@@ -65,22 +74,34 @@ class _MessageListState extends State<MessageList> {
       // Use post-frame callback to avoid setState during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && widget.selectedUserId == null) {
-          widget.onUserSelected!(MessageList.cachedMessages![0]['id']); // Use class name
+          widget.onUserSelected!(
+              MessageList.cachedMessages![0]['id']); // Truyền String ID
         }
       });
     }
   }
+
+  // Hàm xử lý khi người dùng nhấn vào một item
+  void _handleUserTap(String userId) {
+    if (widget.onUserSelected != null) {
+      widget.onUserSelected!(userId); // Truyền String ID
+    }
+  }
+
 //
   Future<List<Map<String, dynamic>>> _loadData() async {
     // Return cached data if available
-    if (MessageList.cachedMessages != null) { // Use class name
+    if (MessageList.cachedMessages != null) {
+      // Use class name
       return MessageList.cachedMessages!; // Use class name
     }
 
     // Prevent concurrent loading
-    if (MessageList._isLoading) { // Use class name
+    if (MessageList._isLoading) {
+      // Use class name
       // Wait until loading completes
-      while (MessageList._isLoading) { // Use class name
+      while (MessageList._isLoading) {
+        // Use class name
         await Future.delayed(const Duration(milliseconds: 100));
       }
       return MessageList.cachedMessages!; // Use class name
@@ -93,135 +114,55 @@ class _MessageListState extends State<MessageList> {
       await Future.delayed(const Duration(seconds: 1));
 
       // Mock data
-      MessageList.cachedMessages = [ // Use class name
-        {
-          'name': 'Dory Family',
-          'message': 'Tân: import java.io.*; import java.... 2 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '1',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '101', '102', '103'], // Store IDs for groups
-        },
-        {
-          'name': 'GAME 2D/3D JOBS',
-          'message': 'Anh: Em nhắn roi ạ - 2 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': false,
-          'id': '2',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '104', '105', '106', '107'], // Store IDs for groups
-        },
-        {
-          'name': 'Da banh ko???',
-          'message': 'Nguyễn Minh Trường đã thêm G... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '3',
-          'isGroup': true, // Mark as group chat
-          'members': [currentUserId, '108', '109', '110'], // Store IDs for groups
-        },
-        {
-          'name': 'Mai Anh', // This is an individual chat
-          'message': 'Hẹn gặp lại bạn cuối tuần nhé! 1 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '4',
-          'isGroup': false,
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 5', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '5',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 6', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '6',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 7', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '7',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 8', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '8',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 9', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '9',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 10', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '10',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 11', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '11',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 12', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '12',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 13', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '13',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-        {
-          'name': 'User 14', // Placeholder name
-          'message': 'Placeholder message... 6 giờ',
-          'avatar': 'assets/logoS.jpg',
-          'isOnline': true,
-          'id': '14',
-          'isGroup': false, // Add isGroup
-          'members': [], // Add empty members list
-        },
-      ];
-
+      // MessageList.cachedMessages = [ // Use class name
+      //   {
+      //     'name': 'room1',  // Room name for display
+      //     'message': 'Group chat discussion',
+      //     'avatar': 'assets/logoS.jpg',
+      //     'isOnline': true,
+      //     'id': 'room1',  // Room ID format
+      //     'isGroup': true,
+      //     'members': ['user1', 'user2'], // All user IDs in one array
+      //   },
+      //   // Individual users (non-group chats)
+      //   {
+      //     'name': 'user2',  // User name same as ID
+      //     'message': 'Hi from user2',
+      //     'avatar': 'assets/logoS.jpg',
+      //     'isOnline': true,
+      //     'id': 'user2',  // User ID format
+      //     'isGroup': false,
+      //     'members': [],
+      //   },
+      //   {
+      //     'name': 'user3',
+      //     'message': 'Hi from user3',
+      //     'avatar': 'assets/logoS.jpg',
+      //     'isOnline': true,
+      //     'id': 'user3',
+      //     'isGroup': false,
+      //     'members': [],
+      //   },
+      //   {
+      //     'name': 'user4',
+      //     'message': 'Hi from user4',
+      //     'avatar': 'assets/logoS.jpg',
+      //     'isOnline': true,
+      //     'id': 'user4',
+      //     'isGroup': false,
+      //     'members': [],
+      //   },
+      //   {
+      //     'name': 'user5',
+      //     'message': 'Hi from user5',
+      //     'avatar': 'assets/logoS.jpg',
+      //     'isOnline': true,
+      //     'id': 'user5',
+      //     'isGroup': false,
+      //     'members': [],
+      //   }
+      // ];
+      MessageList.cachedMessages = [];
       // Auto-select first user only for desktop/tablet
       if (widget.isDesktopOrTablet && mounted) {
         _autoSelectFirstUser();
@@ -233,11 +174,86 @@ class _MessageListState extends State<MessageList> {
     }
   }
 
-  void _handleUserTap(String userId) {
-    if (widget.onUserSelected != null) {
-      widget.onUserSelected!(userId);
-    }
+  // *** Định nghĩa lại hàm _createGroupChat ***
+  Future<void> _createGroupChat(String groupName, List<String> memberIds) async {
+    final completer = Completer<void>();
+    final receivePort = ReceivePort();
+
+    // Spawn isolate for group creation
+    final isolate = await Isolate.spawn(
+      (List<dynamic> args) {
+        final SendPort sendPort = args[0];
+        final Map<String, dynamic> data = args[1];
+
+        try {
+          sendPort.send({
+            'type': 'execute',
+            'groupName': data['groupName'],
+            'memberIds': data['memberIds'],
+          });
+        } catch (e) {
+          sendPort.send({'type': 'error', 'message': e.toString()});
+        }
+      },
+      [receivePort.sendPort, {'groupName': groupName, 'memberIds': memberIds}]
+    );
+
+    // Listen for messages from isolate
+    receivePort.listen((message) async {
+      if (message['type'] == 'execute') {
+        try {
+          await widget.groupController.createGroupChat(
+            message['groupName'],
+            message['memberIds'],
+          );
+
+          // --- START: Update cache and trigger rebuild ---
+          // Tạo group mới để thêm vào cache
+          final newGroupId = 'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
+          final newGroup = {
+            'name': message['groupName'],
+            'message': 'New group created', // Placeholder message
+            'avatar': 'assets/logoS.jpg', // Placeholder avatar
+            'isOnline': true, // Placeholder status
+            'id': newGroupId, // Lưu ID để sử dụng sau
+            'isGroup': true,
+            'members': message['memberIds'],
+          };
+
+          // Ensure cache is initialized
+          MessageList.cachedMessages ??= [];
+          // Add to the beginning of the list
+          MessageList.cachedMessages!.insert(0, newGroup);
+
+          // Trigger UI rebuild
+          if (mounted) {
+            setState(() {});
+
+            // Tự động chọn group mới sau khi UI đã được cập nhật
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && widget.onUserSelected != null) {
+                // Chọn group mới bằng cách gọi callback với ID của group
+                widget.onUserSelected!(newGroupId); // Truyền String ID
+              }
+            });
+          }
+          // --- END: Update cache and trigger rebuild ---
+
+          completer.complete();
+        } catch (e) {
+          completer.completeError(e);
+        }
+      } else if (message['type'] == 'error') {
+        completer.completeError(message['message']);
+      }
+
+      isolate.kill();
+      receivePort.close(); // Close the port when done
+    });
+
+    return completer.future;
   }
+  // ******************************************
 
   void _handleCreateChat() {
     // --- Dialog State Variables ---
@@ -245,10 +261,17 @@ class _MessageListState extends State<MessageList> {
     final Set<String> selectedUserIds = {};
     final TextEditingController searchController = TextEditingController();
     final TextEditingController groupNameController = TextEditingController();
-    // Initial list calculation (potential members are individual chats excluding self)
-    final List<Map<String, dynamic>> potentialMembers = (MessageList.cachedMessages ?? []) // Use class name
-        .where((msg) => msg['isGroup'] == false && msg['id'] != currentUserId)
-        .toList();
+
+    // Sử dụng listUsers thay vì potentialMembers
+    // final List<Map<String, dynamic>> potentialMembers = (MessageList.cachedMessages ?? [])
+    //     .where((msg) => msg['isGroup'] == false && msg['id'] != currentUserId)
+    //     .toList();
+
+    // Group counter for generating room IDs
+    int existingGroups = (MessageList.cachedMessages ?? [])
+        .where((msg) => msg['isGroup'] == true)
+        .length;
+    int nextGroupNumber = existingGroups + 1;
 
     // Show dialog to create new chat
     showDialog(
@@ -257,12 +280,13 @@ class _MessageListState extends State<MessageList> {
         // Use StatefulBuilder to manage dialog state locally
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Filter the base list based on the current searchQuery *inside* the builder
-            final List<Map<String, dynamic>> filteredMembers = potentialMembers
-                .where((msg) => (msg['name'] as String? ?? '')
-                    .toLowerCase()
-                    .contains(searchQuery.toLowerCase()))
-                .toList();
+            // Filter users based on search query
+            var filteredUsers =
+                (widget.groupController.client?.clientState.convertedUsers ?? [])
+                    .where((user) => user.chatId
+                        .toLowerCase()
+                        .contains(searchQuery.toLowerCase()))
+                    .toList();
 
             return AlertDialog(
               title: Text('Create New Group Chat'),
@@ -272,7 +296,7 @@ class _MessageListState extends State<MessageList> {
                   TextField(
                     controller: groupNameController,
                     decoration: InputDecoration(
-                      labelText: 'Group Name (Optional)',
+                      labelText: 'Group Name',
                       hintText: 'Enter name for group chat',
                     ),
                   ),
@@ -288,11 +312,8 @@ class _MessageListState extends State<MessageList> {
                       ),
                     ),
                     onChanged: (value) {
-                      // Use setDialogState to update the search query and trigger rebuild
                       setDialogState(() {
                         searchQuery = value;
-                        // No need to explicitly re-filter here,
-                        // potentialMembers is recalculated at the start of the builder
                       });
                     },
                   ),
@@ -300,35 +321,36 @@ class _MessageListState extends State<MessageList> {
                   Text('Select Participants:'),
                   SizedBox(height: 8),
                   Container(
-                    height: 200, // Constrained height
-                    width: double.maxFinite, // Take available width
+                    height: 200,
+                    width: double.maxFinite,
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: filteredMembers.isEmpty // Use filtered list
+                    child: filteredUsers.isEmpty
                         ? Center(child: Text('No users found or available'))
                         : ListView.builder(
                             shrinkWrap: true,
-                            itemCount: filteredMembers.length, // Use filtered list
+                            itemCount: filteredUsers.length,
                             itemBuilder: (context, index) {
-                              final user = filteredMembers[index]; // Use filtered list
-                              final userId = user['id'] as String;
-                              final userName = user['name'] as String? ?? 'Unknown User';
-                              final avatarPath = user['avatar'] as String? ?? 'assets/logoS.jpg'; // Default avatar if missing
+                              final user = filteredUsers[index];
+                              final userId = user.chatId;
+                              // Sử dụng chatId làm tên hiển thị
+                              final userName = user.chatId;
+                              // Sử dụng avatar mặc định
+                              final avatarPath = 'assets/logoS.jpg';
 
-                              // Check if the current user ID is in the selection set
-                              final bool isSelected = selectedUserIds.contains(userId);
+                              final bool isSelected =
+                                  selectedUserIds.contains(userId);
 
                               return CheckboxListTile(
-                                secondary: CircleAvatar( // Add avatar here
+                                secondary: CircleAvatar(
                                   backgroundImage: AssetImage(avatarPath),
-                                  radius: 18, // Smaller avatar
+                                  radius: 18,
                                 ),
                                 title: Text(userName),
                                 value: isSelected,
                                 onChanged: (bool? value) {
-                                  // Use setDialogState to update the selection
                                   setDialogState(() {
                                     if (value == true) {
                                       selectedUserIds.add(userId);
@@ -337,7 +359,7 @@ class _MessageListState extends State<MessageList> {
                                     }
                                   });
                                 },
-                                dense: true, // Makes the list item smaller
+                                dense: true,
                               );
                             },
                           ),
@@ -350,60 +372,35 @@ class _MessageListState extends State<MessageList> {
                   child: Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: selectedUserIds.isEmpty // Disable if no users selected
+                  onPressed: selectedUserIds.isEmpty
                       ? null
-                      : () {
-                          // --- Create Group Logic ---
-                          if (MessageList.cachedMessages == null) return; // Use class name
+                      : () async {
+                          if (MessageList.cachedMessages == null) return;
 
-                          // 1. Combine selected IDs with current user ID
-                          final List<String> memberIds = [currentUserId, ...selectedUserIds];
+                          // Generate room ID
+                          final String roomId = 'room$nextGroupNumber';
 
-                          // 2. Get member names from _cachedMessages for default naming
-                          // Need a helper function or map for quick lookup
-                          Map<String, String> userIdToNameMap = {
-                            for (var msg in MessageList.cachedMessages!) msg['id']: msg['name'] // Use class name
-                          };
-                          // Add current user if not already in cache (should be)
-                          userIdToNameMap.putIfAbsent(currentUserId, () => 'You');
-
-                          final List<String> memberNames = memberIds
-                              .map((id) => userIdToNameMap[id] ?? 'Unknown')
-                              .toList();
-
-                          // 3. Generate Group Name if not provided
+                          // Get group name or generate default
                           String groupName = groupNameController.text.trim();
                           if (groupName.isEmpty) {
-                             // Create a default name like "You, Mai Anh, User 5"
-                             groupName = memberNames.take(3).join(', ');
-                             if (memberNames.length > 3) {
-                               groupName += '...';
-                             }
+                            groupName = 'Group Chat $nextGroupNumber';
                           }
 
-                          // 4. Generate unique ID
-                          final String newGroupId =
-                              'group_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+                          // Create array of all users (including current user)
+                          final List<String> allUsers = [
+                            currentUserId,
+                            ...selectedUserIds
+                          ];
 
-                          // 5. Create new group map
-                          final newGroup = {
-                            'id': newGroupId,
-                            'name': groupName,
-                            'message': 'Group created by You', // Initial message
-                            'avatar': 'assets/logoS.jpg', // Default group avatar
-                            'isOnline': false, // Groups aren't 'online'
-                            'isGroup': true,
-                            'members': memberIds, // STORE THE IDs
-                          };
-
-                          // 6. Close dialog FIRST
-                          Navigator.pop(context);
-
-                          // 7. Add to cache and update state OUTSIDE the dialog's builder
-                          // Use the main widget's setState
-                          setState(() {
-                            MessageList.cachedMessages!.insert(0, newGroup); // Use class name
-                          });
+                          try {
+                            // Create group using isolate
+                            await _createGroupChat(groupName, allUsers); // Gọi hàm đã định nghĩa lại
+                            Navigator.pop(context);
+                          } catch (e) {
+                            print('Error creating group: $e');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())));
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
@@ -480,20 +477,23 @@ class _MessageListState extends State<MessageList> {
           if (snapshot.hasError) {
             return Center(child: Text('Lỗi: ${snapshot.error}'));
           } else if (snapshot.connectionState == ConnectionState.waiting &&
-              MessageList.cachedMessages == null) { // Use class name
+              MessageList.cachedMessages == null) {
+            // Use class name
             return const Center(child: CircularProgressIndicator());
           } else if ((snapshot.hasData && snapshot.data != null) ||
-              MessageList.cachedMessages != null) { // Use class name
-            final messages = MessageList.cachedMessages ?? snapshot.data!; // Use class name
+              MessageList.cachedMessages != null) {
+            // Use class name
+            final messages =
+                MessageList.cachedMessages ?? snapshot.data!; // Use class name
             return ListView.builder(
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-                final isSelected = message['id'] == widget.selectedUserId;
+                final isSelected = message['id'] == widget.selectedUserId; // Sửa lại check theo ID và tên biến
                 return ListTile(
                   selected: isSelected,
                   selectedTileColor: Colors.red.withOpacity(0.1),
-                  onTap: () => _handleUserTap(message['id']),
+                  onTap: () => _handleUserTap(message['id']), // Gọi hàm xử lý tap với String ID
                   leading: Stack(
                     children: [
                       CircleAvatar(
@@ -509,7 +509,8 @@ class _MessageListState extends State<MessageList> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
+                              border:
+                                  Border.all(color: Colors.white, width: 1.5),
                             ),
                             child: Icon(
                               Icons.people,
