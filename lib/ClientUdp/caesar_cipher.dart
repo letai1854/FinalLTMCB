@@ -7,6 +7,7 @@ import 'dart:developer' as logger;
 /// as it might result in invalid code points or unintended character changes if shift != 0.
 class CaesarCipher {
 
+
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Works with all UTF-8 characters.
   ///
@@ -19,6 +20,7 @@ class CaesarCipher {
         keyString == null ||
         keyString.isEmpty) {
       logger.log('Encryption attempt with null or empty input.');
+
       return plainText ?? '';
     }
 
@@ -60,6 +62,7 @@ class CaesarCipher {
   /// @return The processed text.
   static String processText(String text, int shift) {
     logger.log('Processing text: "$text" with shift: $shift');
+
     if (text.isEmpty) return text;
 
     // !! IMPORTANT !!
