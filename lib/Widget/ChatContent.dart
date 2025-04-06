@@ -2,6 +2,7 @@
 import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
+import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
@@ -61,6 +62,23 @@ class _ChatContentState extends State<ChatContent> {
   void initState() {
     super.initState();
     _loadUserMessages();
+    MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+  }
+
+  void _handleNewMessage() {
+    final messageData = MessageNotifier.messageNotifier.value;
+    if (messageData != null && mounted) {
+      final roomId = messageData['roomId'];
+      // Only process if message is for current room
+      if (roomId == widget.userId) {
+        final newMessage = ChatMessage(
+          text: messageData['content'],
+          isMe: false,
+          timestamp: DateTime.parse(messageData['timestamp']),
+        );
+        _addMessageToUI(newMessage);
+      }
+    }
   }
 
   @override
@@ -100,6 +118,7 @@ class _ChatContentState extends State<ChatContent> {
       for (var chat in MessageList.cachedMessages!) {
         if (chat['id'] == widget.userId) {
           chatData = chat;
+
           break;
         }
       }
@@ -141,8 +160,10 @@ class _ChatContentState extends State<ChatContent> {
     try {
       // Giả sử MessageController có thể truy cập được instance client cần thiết
       // hoặc bạn truyền clientState/udpClient vào đây nếu cần.
-      await MessageController().SendTextMessage(widget.userId, _groupMembers, text);
-      logger.log('ChatContent: Called SendTextMessage for room ${widget.userId}');
+      await MessageController()
+          .SendTextMessage(widget.userId, _groupMembers, text);
+      logger
+          .log('ChatContent: Called SendTextMessage for room ${widget.userId}');
     } catch (e, s) {
       logger.log("Error initiating text message send: $e",
           name: "ChatContent", error: e, stackTrace: s);
@@ -467,6 +488,8 @@ class _ChatContentState extends State<ChatContent> {
 
   @override
   void dispose() {
+    MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+
     _scrollController.dispose(); // Dispose the scroll controller
     super.dispose();
   }

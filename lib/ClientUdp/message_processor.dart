@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert'; // Add this import for JSON decoding
 import 'dart:developer' as logger;
+import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:intl/intl.dart';
 
 import 'client_state.dart';
@@ -62,10 +63,18 @@ class MessageProcessor {
             String timestampStr = data[Constants.KEY_TIMESTAMP];
             String formattedTime = formatTimestamp(timestampStr, "HH:mm:ss");
             print("\n[$roomId] $sender @ $formattedTime: $content");
+            MessageNotifier.updateMessage({
+              'roomId': roomId,
+              'sender': sender,
+              'content': content,
+              'timestamp': timestampStr,
+              'formattedTime': formattedTime
+            });
           } else {
             logger.log('Received invalid RECEIVE_MESSAGE data: $jsonString');
             print("\nReceived incomplete message data from server.");
           }
+
           break;
 
         case Constants.ACTION_ROOMS_LIST:
