@@ -1,3 +1,4 @@
+import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
@@ -6,10 +7,11 @@ import 'package:flutter/material.dart';
 
 class ChatMobile extends StatefulWidget {
   final String userId;
-
-  const ChatMobile({
+  GroupController groupController; // Access the global instance
+  ChatMobile({
     Key? key,
     required this.userId,
+    required this.groupController, // Pass the global instance
   }) : super(key: key);
 
   @override
@@ -24,7 +26,10 @@ class _ChatMobileState extends State<ChatMobile> {
         preferredSize: const Size.fromHeight(80),
         child: const NavbarAdmin(),
       ),
-      body: ChatContent(userId: widget.userId),
+      body: ChatContent(
+        userId: widget.userId,
+        groupController: widget.groupController, // Pass the global instance
+      ),
     );
   }
 }
