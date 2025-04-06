@@ -14,10 +14,10 @@ class ChatDesktop extends StatefulWidget {
 }
 
 class _ChatDesktopState extends State<ChatDesktop> {
-  // State to hold the currently selected user
+  // State to hold the currently selected user ID
   String? selectedUserId;
 
-  // Callback to handle user selection
+  // Callback to handle user selection (receives String ID)
   void onUserSelected(String userId) {
     setState(() {
       selectedUserId = userId;

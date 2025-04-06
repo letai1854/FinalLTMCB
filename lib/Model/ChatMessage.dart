@@ -19,7 +19,7 @@ class ChatMessage {
   final bool isVideoLoading; // Flag for video loading state
   final bool isVideoUploading; // Flag for video uploading state
   final MessageData? messageData;
-
+  final String? name;
   const ChatMessage({
     required this.text,
     required this.isMe,
@@ -33,6 +33,7 @@ class ChatMessage {
     this.isVideoLoading = false,
     this.isVideoUploading = false,
     this.messageData,
+    this.name,
   });
 
   // Helper method to determine if this is an audio message

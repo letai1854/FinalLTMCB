@@ -16,15 +16,21 @@ class DataConverter {
           clientState.allMessages = Map<String, List<dynamic>>.from(messageData["all_messages"] ?? {});
           clientState.rooms = List<Map<String, dynamic>>.from(messageData["rooms"]);
           
+          // Get the current user ID (use the first user from allUsers if currentChatId is null)
+          String userIdToUse = clientState.currentChatId ?? 
+              (clientState.allUsers.isNotEmpty ? clientState.allUsers[0] : '');
+          
           // Convert data to required formats
-          final users = convertToUsers(clientState.allUsers);
+          final users = convertToUsers(clientState.allUsers, userIdToUse);
           final cachedMessages = convertToCachedMessages(clientState.allMessages, clientState.rooms);
-          final roomMessages = convertToRoomMessages(clientState.allMessages, clientState.allUsers[0]); // Assuming first user is current user
+          final roomMessages = convertToRoomMessages(clientState.allMessages, userIdToUse);
+          final allMessagesConverted = convertAllMessagesToChatFormat(clientState.allMessages, userIdToUse);
           
           // Store converted data directly in client state
           clientState.convertedUsers = users;
           clientState.cachedMessages = cachedMessages;
           clientState.roomMessages = roomMessages;
+          clientState.allMessagesConverted = allMessagesConverted;
           
           return {
             'success': true,
@@ -32,27 +38,29 @@ class DataConverter {
           };
         }
       }
+      return null; // Return null if data wasn't handled
     } catch (e) {
       print("Error processing handshake data: $e");
       return null;
     }
   }
 
-  // Convert list of user IDs to list of User objects
-  static List<User> convertToUsers(List<String> userIds) {
-    return userIds.map((userId) => User(
-      chatId: userId,
-      createdAt: DateTime.now(),
-    )).toList();
+  // Convert list of user IDs to list of User objects, excluding the current user ID
+  static List<User> convertToUsers(List<String> userIds, String currentUserId) {
+    return userIds
+      .where((userId) => userId != currentUserId) // Filter out the current user ID
+      .map((userId) => User(
+        chatId: userId,
+        createdAt: DateTime.now(),
+      ))
+      .toList();
   }
 
   // Convert raw messages and rooms data to cached message format
-  static List<Map<String, dynamic>> convertToCachedMessages(
-    Map<String, List<dynamic>> allMessages,
-    List<Map<String, dynamic>> rooms
-  ) {
+  
+  static List<Map<String, dynamic>> convertToCachedMessages(Map<String, List<dynamic>> allMessages,List<Map<String, dynamic>> rooms) {
     List<Map<String, dynamic>> cachedMessages = [];
-    
+    print(allMessages);
     // Add room messages
     for (var room in rooms) {
       cachedMessages.add({
@@ -67,6 +75,56 @@ class DataConverter {
     }
 
     return cachedMessages;
+  }
+  
+  // Convert messages to the format {roomid: [ChatMessage], roomid: [ChatMessage]}
+  static Map<String, List<ChatMessage>> convertAllMessagesToChatFormat(
+    Map<String, List<dynamic>> allMessages,
+    String currentUserId
+  ) {
+    Map<String, List<ChatMessage>> result = {};
+    
+    allMessages.forEach((roomId, messages) {
+      if (messages.isEmpty) {
+        // For empty rooms, add an empty list
+        result[roomId] = [];
+      } else {
+        // Process messages for the room
+        result[roomId] = messages.map((msg) {
+          String content = msg['content'] ?? '';
+          String text = content;
+          String? image;
+          
+          // Check if content is a JSON string
+          if (content.startsWith('{') && content.contains('text')) {
+            try {
+              Map<String, dynamic> jsonContent = jsonDecode(content);
+              text = jsonContent['text'] ?? '';
+              
+              // Check if there are images in the JSON
+              if (jsonContent['images'] != null && 
+                  jsonContent['images'] is List && 
+                  (jsonContent['images'] as List).isNotEmpty) {
+                image = (jsonContent['images'] as List).first.toString();
+              }
+            } catch (e) {
+              print("Error parsing JSON content: $e");
+              // Keep the original content if parsing fails
+            }
+          }
+          
+          return ChatMessage(
+            text: text,
+            isMe: msg['sender_chatid'] == currentUserId,
+            timestamp: DateTime.parse(msg['timestamp']),
+            image: image,
+            name: msg['sender_chatid'],
+          );
+        }).toList();
+      }
+    });
+    
+    return result;
   }
 
   // Get last message text for display
