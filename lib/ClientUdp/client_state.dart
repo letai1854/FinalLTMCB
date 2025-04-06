@@ -24,6 +24,7 @@ class ClientState {
   List<User> convertedUsers = [];
   List<Map<String, dynamic>> cachedMessages = [];
   Map<String, List<ChatMessage>> roomMessages = {};
+  Map<String, List<ChatMessage>> allMessagesConverted = {};
 
   /// Private constructor - use ClientState.create() factory constructor instead
   ClientState._internal(
