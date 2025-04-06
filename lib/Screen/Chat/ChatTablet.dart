@@ -40,12 +40,12 @@ class _ChatTabletState extends State<ChatTablet> {
                   border: Border(
                       right:
                           BorderSide(width: 1, color: Colors.grey.shade300))),
-              child: MessageList(
-                onUserSelected: onUserSelected,
-                selectedUserId: selectedUserId,
-                isDesktopOrTablet: true, // Mark as tablet view
-                groupController: globalGroupController, // Pass the global instance
-              ),
+          child: MessageList(
+            onUserSelected: onUserSelected,
+            selectedUserId: selectedUserId,
+            isDesktopOrTablet: true, // Mark as tablet view
+            groupController: globalGroupController, // Pass the global instance
+          ),
             ),
           ),
           Expanded(

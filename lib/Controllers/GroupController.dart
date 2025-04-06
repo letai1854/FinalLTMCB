@@ -7,6 +7,9 @@ class GroupController {
   // Current user ID (should be obtained from a user service in a real app)
   static const String currentUserId = 'user1';  // Match with UserList.dart's currentUserId
   UdpChatClient? _udpClient;
+  
+  // Getter for the UDP client
+  UdpChatClient? get client => _udpClient;
   // Create a new group with a name and members, then add it to the cache
   static GroupModel createGroup({
     required String name,

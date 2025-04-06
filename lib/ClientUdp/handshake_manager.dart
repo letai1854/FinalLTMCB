@@ -4,13 +4,13 @@ import 'dart:io';
 import 'dart:developer' as logger;
 
 import 'package:uuid/uuid.dart';
+import 'package:finalltmcb/Utils/data_converter.dart';
 
 import 'caesar_cipher.dart';
 import 'client_state.dart';
 import 'constants.dart';
 import 'json_helper.dart';
 import 'message_processor.dart';
-
 class ClientPendingRequest {
   final String originalAction;
   final String originalSentJson;
@@ -226,16 +226,18 @@ void removeUsersCallback() {
     if (responseJson.containsKey(Constants.KEY_MESSAGE)) {
       var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
       try {
-        Map<String, dynamic> messageJson = jsonDecode(messageStr);
-        logger.log("Parsed message JSON: $messageJson");
-        
-        if (messageJson['data'] != null) {
-          Map<String, dynamic> messageData = messageJson['data'];
-          if (messageData.containsKey("all_users")) {
-            clientState.allUsers = List<String>.from(messageData["all_users"]);
-            clientState.allMessages = Map<String, List<dynamic>>.from(messageData["all_messages"] ?? {});
-            clientState.rooms = List<Map<String, dynamic>>.from(messageData["rooms"]);
-            logger.log("Data loaded - users: ${clientState.allUsers.length}, rooms: ${clientState.rooms.length}");
+        // Use DataConverter to process the handshake data
+        var result = DataConverter.processHandshakeData(clientState, messageStr);
+        if (result != null && result['success'] == true) {
+          logger.log("Data converted and stored successfully");
+          // Notify any registered callbacks about the updated data
+          if (_usersCallbacks != null) {
+            _usersCallbacks!({
+              'status': Constants.STATUS_SUCCESS,
+              'users': clientState.convertedUsers,
+              'cachedMessages': clientState.cachedMessages,
+              'roomMessages': clientState.roomMessages
+            });
           }
         }
       } catch (e) {

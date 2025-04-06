@@ -3,6 +3,7 @@ import 'package:finalltmcb/Model/User_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'dart:isolate';
 import 'dart:async';
 
@@ -19,7 +20,7 @@ class MessageList extends StatefulWidget {
     this.onUserSelected,
     this.selectedUserId,
     this.isDesktopOrTablet = false,
-    required this.groupController, // Pass the existing GroupController from main.dart
+    required this.groupController,
   }) : super(key: key);
 
   @override
@@ -33,29 +34,19 @@ class MessageList extends StatefulWidget {
 }
 
 class _MessageListState extends State<MessageList> {
-  // Static variables are now moved to the MessageList class above
-
-  // Current user ID
-  static const String currentUserId = 'user1';
-  List<User> listUsers = [
-    User(chatId: "user2", createdAt: DateTime.now()),
-    User(chatId: "user3", createdAt: DateTime.now()),
-    User(chatId: "user4", createdAt: DateTime.now()),
-    User(chatId: "user5", createdAt: DateTime.now()),
-    User(chatId: "user6", createdAt: DateTime.now()),
-    User(chatId: "user7", createdAt: DateTime.now()),
-  ];
+  String get currentUserId => widget.groupController.client?.clientState.currentChatId ?? 'user1';
   @override
   void initState() {
     super.initState();
-    // Initialize the future if not already created
-    if (MessageList._dataFuture == null) { // Use class name
-      MessageList._dataFuture = _loadData(); // Use class name
-    }
-
-    // Listen for auto-selection only once after initial data load
-    if (widget.isDesktopOrTablet && MessageList.cachedMessages != null && !MessageList._isLoading) { // Use class name
-      _autoSelectFirstUser();
+    // Initialize data from clientState
+    final clientState = widget.groupController.client?.clientState;
+    if (clientState != null) {
+      MessageList.cachedMessages = clientState.cachedMessages;
+      
+      // Listen for auto-selection
+      if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
+        _autoSelectFirstUser();
+      }
     }
   }
 
@@ -285,7 +276,7 @@ MessageList.cachedMessages = [ ];
       return StatefulBuilder(
         builder: (context, setDialogState) {
           // Filter users based on search query
-          final List<User> filteredMembers = listUsers
+  var filteredUsers = (widget.groupController.client?.clientState.convertedUsers ?? [])
               .where((user) => user.chatId.toLowerCase()
                   .contains(searchQuery.toLowerCase()))
               .toList();
@@ -329,13 +320,13 @@ MessageList.cachedMessages = [ ];
                     border: Border.all(color: Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: filteredMembers.isEmpty
+                  child: filteredUsers.isEmpty
                       ? Center(child: Text('No users found or available'))
                       : ListView.builder(
                           shrinkWrap: true,
-                          itemCount: filteredMembers.length,
+                          itemCount: filteredUsers.length,
                           itemBuilder: (context, index) {
-                            final user = filteredMembers[index];
+                            final user = filteredUsers[index];
                             final userId = user.chatId;
                             // Sử dụng chatId làm tên hiển thị
                             final userName = user.chatId;

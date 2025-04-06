@@ -4,7 +4,7 @@ import 'package:finalltmcb/Widget/ChatContent.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 import 'package:finalltmcb/Widget/NavbarAdmin.dart';
 import 'package:flutter/material.dart';
-import 'package:finalltmcb/main.dart';  // Import to access globalGroupController
+import 'package:finalltmcb/main.dart';  // Import to access globalGroupController and clientState
 
 class ChatDesktop extends StatefulWidget {
   const ChatDesktop({Key? key}) : super(key: key);

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:developer' as logger;
 import 'package:finalltmcb/ClientUdp/constants.dart';
-
+import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
 
 import 'package:finalltmcb/Controllers/MessageController.dart';
@@ -45,8 +45,9 @@ Future<void> initApp() async {
 }
 
 // Function to start UDP service in Flutter environment
-// Global instance of GroupController
+// Global instances
 late final GroupController globalGroupController;
+late final ClientState globalClientState;
 
 Future<void> startUdpService() async {
   print("Starting UDP client for Flutter environment...");
@@ -75,11 +76,10 @@ Future<void> startUdpService() async {
     UdpChatClient client =
         await UdpChatClient.create(host, Constants.DEFAULT_SERVER_PORT);
 
-    // Set the client instance in UserController
+    // Set global instances
+    globalClientState = client.clientState;
     userController.setUdpClient(client);
     globalGroupController.setUdpClient(client);
-    // logger.log("UdpClient set in UserController");
-    // print("UDP client setup completed");
     messageController.setUdpClient(client);
     logger.log("UdpClient set in UserController");
     print("UDP client setup completed");
