@@ -8,8 +8,8 @@ import 'dart:isolate';
 import 'dart:async';
 
 class MessageList extends StatefulWidget {
-  final Function(String)? onUserSelected;
-  final String? selectedUserId;
+  final Function(Map<String, dynamic>)? onUserSelected;
+  final String? selectedChatId;
   final bool isDesktopOrTablet; // Add parameter to identify view type
   // Optional GroupController that will use global instance if not provided
   final GroupController groupController;
@@ -18,7 +18,7 @@ class MessageList extends StatefulWidget {
   const MessageList({
     Key? key,
     this.onUserSelected,
-    this.selectedUserId,
+    this.selectedChatId,
     this.isDesktopOrTablet = false,
     required this.groupController,
   }) : super(key: key);
@@ -63,14 +63,14 @@ class _MessageListState extends State<MessageList> {
     // Only select first user if we're in desktop/tablet mode, have data,
     // no user is selected yet, and we have a callback
     if (widget.isDesktopOrTablet &&
-        widget.selectedUserId == null &&
+        widget.selectedChatId == null &&
         widget.onUserSelected != null &&
         MessageList.cachedMessages != null && // Use class name
         MessageList.cachedMessages!.isNotEmpty) {
       // Use post-frame callback to avoid setState during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.selectedUserId == null) {
-          widget.onUserSelected!(MessageList.cachedMessages![0]['id']); // Use class name
+        if (mounted && widget.selectedChatId == null) {
+          widget.onUserSelected!(MessageList.cachedMessages![0]); // Use class name
         }
       });
     }
@@ -160,7 +160,13 @@ MessageList.cachedMessages = [ ];
 
   void _handleUserTap(String userId) {
     if (widget.onUserSelected != null) {
-      widget.onUserSelected!(userId);
+      final selectedItem = MessageList.cachedMessages?.firstWhere(
+        (item) => item['id'] == userId,
+        orElse: () => <String, dynamic>{}, // Trả về Map rỗng nếu không tìm thấy
+      );
+      if (selectedItem != null && selectedItem.isNotEmpty) {
+        widget.onUserSelected!(selectedItem);
+      }
     }
   }
 
@@ -229,7 +235,7 @@ MessageList.cachedMessages = [ ];
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && widget.onUserSelected != null) {
               // Chọn group mới bằng cách gọi callback với ID của group
-              widget.onUserSelected!(newGroupId);
+              widget.onUserSelected!(newGroup);
             }
           });
         }
@@ -476,7 +482,7 @@ MessageList.cachedMessages = [ ];
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-                final isSelected = message['id'] == widget.selectedUserId;
+                final isSelected = message['id'] == widget.selectedChatId;
                 return ListTile(
                   selected: isSelected,
                   selectedTileColor: Colors.red.withOpacity(0.1),

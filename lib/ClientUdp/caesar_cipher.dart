@@ -60,9 +60,9 @@ class CaesarCipher {
   /// @param shift The shift value (positive for encrypt, negative for decrypt).
   /// @return The processed text.
   static String processText(String text, int shift) {
-    if (text != null) {
-      return text;
-    }
+    // if (text != null) {
+    //   return text;
+    // }
     logger.log('Processing text: $text');
     if (text.isEmpty) return text;
 
