@@ -137,25 +137,19 @@ class _ChatContentState extends State<ChatContent> {
     final uiMessage = ChatMessage(text: text, isMe: true, timestamp: timestamp);
     _addMessageToUI(uiMessage);
 
-    // 2. Send in Background
-    Future(() async {
-      try {
-        final messageDataToSend = MessageData(
-            text: text,
-            images: [],
-            audios: [],
-            files: [],
-            video: null,
-            timestamp: timestamp);
-        _logMessageDataForServer(messageDataToSend);
-        await MessageController().SendMessage(messageDataToSend);
-      } catch (e, s) {
-        logger.log("Error sending text message: $e",
-            name: "ChatContent", error: e, stackTrace: s);
-        _showTopNotification('Lỗi gửi tin nhắn văn bản', isError: true);
-        // Optionally update message status in UI to failed
-      }
-    });
+    // *** 2. Restore: Send in Background using MessageController ***
+    try {
+      // Giả sử MessageController có thể truy cập được instance client cần thiết
+      // hoặc bạn truyền clientState/udpClient vào đây nếu cần.
+      await MessageController().SendTextMessage(widget.userId, _groupMembers, text);
+      logger.log('ChatContent: Called SendTextMessage for room ${widget.userId}');
+    } catch (e, s) {
+      logger.log("Error initiating text message send: $e",
+          name: "ChatContent", error: e, stackTrace: s);
+      _showTopNotification('Lỗi gửi tin nhắn văn bản', isError: true);
+      // Optionally update message status in UI to failed
+    }
+    // **********************************************************
   }
 
   Future<void> _handleMediaInputSubmitted(
