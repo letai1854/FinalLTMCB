@@ -55,7 +55,7 @@ class CaesarCipher {
   static String processText(String text, int shift) {
     logger.log('Processing text: $text');
     if (text.isEmpty) return text;
-   shift = 0;
+    // shift = 0;
     StringBuffer result = StringBuffer();
     int i = 0;
 
@@ -68,6 +68,8 @@ class CaesarCipher {
         // Kết hợp surrogate pair thành một code point
         codePoint = _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
         i += 2; // Bỏ qua cả hai đơn vị mã
+        // logger.log()
+        logger.log('Surrogate pair found: $codePoint');
       } else {
         // Ký tự thông thường
         codePoint = text.codeUnitAt(i);
@@ -137,27 +139,32 @@ class CaesarCipher {
   ///
   /// @param text The string to analyze.
   /// @return A map with characters as keys and their frequencies as values.
-  static Map<String, int> countLetterFrequencies(String? text) {
+  static Map<String, int> countLetterFrequencies(String? text, {bool needProcessSpecialChar = true}) {
     logger.log('Counting letter frequencies in text: ${text ?? "null"}');
     if (text == null || text.isEmpty) {
       return {};
     }
 
-    // Convert emoji and special characters to their escaped representation
-    // to match Java's behavior
-    String processedText = _escapeSpecialCharacters(text);
-    logger.log('Text after processing for counting: $processedText');
-
     Map<String, int> frequencies = {};
 
-    // Count each character in the processed text
-    for (int i = 0; i < processedText.length; i++) {
-      String character = processedText[i];
+    // Iterate through the text to count characters, skipping emojis and special multi-character symbols
+    for (int i = 0; i < text.length; i++) {
+      // Check if this is part of a surrogate pair (likely emoji or other special char)
+      if (_isHighSurrogate(text.codeUnitAt(i)) &&
+          i + 1 < text.length &&
+          _isLowSurrogate(text.codeUnitAt(i + 1))) {
+        // Skip this surrogate pair (emoji)
+        i++; // Skip the second part of the surrogate pair
+        continue;
+      }
+      
+      // Regular character or Vietnamese letter
+      String character = text[i];
       frequencies[character] = (frequencies[character] ?? 0) + 1;
     }
 
     // Log the character counts for debugging
-    logger.log('Character frequencies: $frequencies');
+    logger.log('Character frequencies (excluding emojis): $frequencies');
 
     return frequencies;
   }

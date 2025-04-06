@@ -135,7 +135,7 @@ void removeUsersCallback() {
     pendingClientRequestsByServerId[transactionId] = pendingReq!;
     logger.log('Associated server tx ID $transactionId with pending action $originalAction (TempID: $tempIdToRemove)');
 
-    Map<String, int> clientCalculatedFrequencies = CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson);
+    Map<String, int> clientCalculatedFrequencies = CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson, needProcessSpecialChar: false);
     Map<String, int> serverFrequencies = parseFrequencyJson(serverFrequenciesJson);
     bool isValid = areFrequenciesEqual(clientCalculatedFrequencies, serverFrequencies);
 
