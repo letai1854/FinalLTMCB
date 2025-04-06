@@ -97,55 +97,6 @@ class _MessageListState extends State<MessageList> {
       // Simulate API call
       await Future.delayed(const Duration(seconds: 1));
       
-      // Mock data
-      // MessageList.cachedMessages = [ // Use class name
-      //   {
-      //     'name': 'room1',  // Room name for display
-      //     'message': 'Group chat discussion',
-      //     'avatar': 'assets/logoS.jpg',
-      //     'isOnline': true,
-      //     'id': 'room1',  // Room ID format
-      //     'isGroup': true,
-      //     'members': ['user1', 'user2'], // All user IDs in one array
-      //   },
-      //   // Individual users (non-group chats)
-      //   {
-      //     'name': 'user2',  // User name same as ID
-      //     'message': 'Hi from user2',
-      //     'avatar': 'assets/logoS.jpg',
-      //     'isOnline': true,
-      //     'id': 'user2',  // User ID format
-      //     'isGroup': false,
-      //     'members': [],
-      //   },
-      //   {
-      //     'name': 'user3',
-      //     'message': 'Hi from user3',
-      //     'avatar': 'assets/logoS.jpg',
-      //     'isOnline': true,
-      //     'id': 'user3',
-      //     'isGroup': false,
-      //     'members': [],
-      //   },
-      //   {
-      //     'name': 'user4',
-      //     'message': 'Hi from user4',
-      //     'avatar': 'assets/logoS.jpg',
-      //     'isOnline': true,
-      //     'id': 'user4',
-      //     'isGroup': false,
-      //     'members': [],
-      //   },
-      //   {
-      //     'name': 'user5',
-      //     'message': 'Hi from user5',
-      //     'avatar': 'assets/logoS.jpg',
-      //     'isOnline': true,
-      //     'id': 'user5',
-      //     'isGroup': false,
-      //     'members': [],
-      //   }
-      // ];
 MessageList.cachedMessages = [ ];
       // Auto-select first user only for desktop/tablet
       if (widget.isDesktopOrTablet && mounted) {

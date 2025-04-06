@@ -226,6 +226,7 @@ void removeUsersCallback() {
     if (responseJson.containsKey(Constants.KEY_MESSAGE)) {
       var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
       try {
+        clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
         // Use DataConverter to process the handshake data
         var result = DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {

@@ -2,8 +2,10 @@ import 'dart:developer' as logger;
 
 /// Implements the Caesar Cipher algorithm for basic encryption/decryption.
 /// This implementation works with all UTF-8 characters.
+/// Note: Applying Caesar shift directly to Unicode code points can be problematic,
+/// especially for characters outside the Basic Multilingual Plane (like emojis),
+/// as it might result in invalid code points or unintended character changes if shift != 0.
 class CaesarCipher {
-  // We'll use the full UTF-8 range instead of a predefined alphabet
 
   /// Encrypts plain text using the Caesar cipher with a given key (shift value).
   /// Works with all UTF-8 characters.
@@ -22,6 +24,8 @@ class CaesarCipher {
 
     int shift = keyString.length; // Use key length as shift value
     logger.log('Encrypting with shift: $shift');
+    // WARNING: If shift is non-zero, this might corrupt multi-byte characters/emojis
+    // Consider if shift = 0 is intended.
     return processText(plainText, shift);
   }
 
@@ -43,179 +47,153 @@ class CaesarCipher {
     int shift = keyString.length;
     logger.log('Decrypting with shift: $shift');
     // Decryption is encryption with the negative shift
+    // WARNING: If shift is non-zero, this might corrupt multi-byte characters/emojis
+    // Consider if shift = 0 is intended.
     return processText(cipherText, -shift);
   }
 
-  /// Helper method to process text for encryption or decryption.
+  /// Helper method to process text for encryption or decryption by shifting code points.
   /// Works with all UTF-8 characters including surrogate pairs.
   ///
   /// @param text The input text.
   /// @param shift The shift value (positive for encrypt, negative for decrypt).
   /// @return The processed text.
   static String processText(String text, int shift) {
-    logger.log('Processing text: $text');
+    logger.log('Processing text: "$text" with shift: $shift');
     if (text.isEmpty) return text;
-   shift = 0;
+
+    // !! IMPORTANT !!
+    // If you uncomment the line below (shift = 0;), Caesar cipher is effectively disabled.
+    // If you keep the actual shift, be aware of the risks with Unicode code points.
+    // shift = 0; // Uncomment this if you DON'T want actual encryption/decryption
+
     StringBuffer result = StringBuffer();
     int i = 0;
 
     while (i < text.length) {
-      // Xử lý surrogate pairs
+      // Handle potential surrogate pairs correctly to get the full code point
       int codePoint;
-      if (i + 1 < text.length &&
-          _isHighSurrogate(text.codeUnitAt(i)) &&
+      int charCount = 1; // How many code units this code point takes
+
+      if (_isHighSurrogate(text.codeUnitAt(i)) &&
+          i + 1 < text.length &&
           _isLowSurrogate(text.codeUnitAt(i + 1))) {
-        // Kết hợp surrogate pair thành một code point
+        // Combine surrogate pair into a single code point
         codePoint = _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
-        i += 2; // Bỏ qua cả hai đơn vị mã
+        charCount = 2; // This code point uses two code units (chars)
       } else {
-        // Ký tự thông thường
+        // Regular character (BMP)
         codePoint = text.codeUnitAt(i);
-        i++;
       }
 
-      // Áp dụng phép dịch
+      // Apply the shift
       int newCodePoint = codePoint + shift;
 
-      // Kiểm tra tính hợp lệ
+      // Check if the resulting code point is valid Unicode
       if (_isValidCodePoint(newCodePoint)) {
-        // Thêm code point mới vào kết quả
-        if (newCodePoint > 0xFFFF) {
-          // Chuyển đổi lại thành surrogate pair
-          final surrogatePair = _toSurrogatePair(newCodePoint);
-          result.writeCharCode(surrogatePair.high);
-          result.writeCharCode(surrogatePair.low);
-        } else {
-          result.writeCharCode(newCodePoint);
-        }
+        // Append the potentially shifted character (as its string representation)
+         result.write(String.fromCharCode(newCodePoint));
       } else {
-        // Nếu không hợp lệ, giữ nguyên ký tự gốc
-        if (codePoint > 0xFFFF) {
-          final surrogatePair = _toSurrogatePair(codePoint);
-          result.writeCharCode(surrogatePair.high);
-          result.writeCharCode(surrogatePair.low);
-        } else {
-          result.writeCharCode(codePoint);
-        }
+        // If shifting results in an invalid code point, keep the original character
+         logger.log('Shift resulted in invalid codepoint ($newCodePoint) for original ($codePoint). Keeping original.');
+         result.write(String.fromCharCode(codePoint));
       }
+       // Move to the next code point
+      i += charCount;
     }
 
+    logger.log('Processed text result: "${result.toString()}"');
     return result.toString();
   }
 
-  // Hàm hỗ trợ kiểm tra high surrogate
-  static bool _isHighSurrogate(int code) {
-    return code >= 0xD800 && code <= 0xDBFF;
+  /// Counts the frequency of each character (as a String) in a text,
+  /// correctly handling Unicode characters including emojis by iterating through code points (runes).
+  /// This method provides counts consistent with the corrected Java version.
+  ///
+  /// @param text The string to analyze.
+  /// @return A map with characters (as Strings) as keys and their frequencies as values.
+  static Map<String, int> countLetterFrequencies(String? text) {
+    logger.log('Counting character frequencies (correctly) for text: ${text ?? "null"}');
+    if (text == null || text.isEmpty) {
+      return {};
+    }
+
+    Map<String, int> frequencies = {};
+
+    // Iterate through the string using runes (code points)
+    for (final rune in text.runes) {
+      // Convert the code point (rune) back to its String representation
+      // This correctly handles single-code-unit and multi-code-unit (emoji) characters
+      final character = String.fromCharCode(rune);
+
+      // Increment the frequency count for this character String
+      frequencies[character] = (frequencies[character] ?? 0) + 1;
+    }
+
+    logger.log('Calculated frequencies: $frequencies');
+    return frequencies;
   }
 
-  // Hàm hỗ trợ kiểm tra low surrogate
-  static bool _isLowSurrogate(int code) {
-    return code >= 0xDC00 && code <= 0xDFFF;
+
+  /// Counts the number of alphabetic characters (a-z, A-Z based on basic Latin range) in a string.
+  /// Iterates by runes (code points) for Unicode correctness, though the definition of "letter" here is limited.
+  ///
+  /// @param text The string to analyze.
+  /// @return The count of alphabetic characters.
+  static int countLetters(String? text) {
+     if (text == null || text.isEmpty) {
+      return 0;
+    }
+
+    int count = 0;
+    // Iterate using runes for potentially broader alphabet support
+    for (final rune in text.runes) {
+       // Check if the code point represents a letter (basic Latin A-Z, a-z)
+       // Note: Character.isLetter in Java is more comprehensive for Unicode letters.
+       // This basic check might suffice depending on requirements.
+       if ((rune >= 65 && rune <= 90) || (rune >= 97 && rune <= 122)) { // A-Z or a-z
+         count++;
+       }
+    }
+    return count;
   }
 
-  // Hàm hỗ trợ kết hợp surrogate pair thành code point
+  // --- Helper functions for Unicode code point manipulation (used by processText) ---
+
+  // Checks if a code unit is a high surrogate
+  static bool _isHighSurrogate(int codeUnit) {
+    return codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+  }
+
+  // Checks if a code unit is a low surrogate
+  static bool _isLowSurrogate(int codeUnit) {
+    return codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
+  }
+
+  // Combines a high and low surrogate pair into a single code point
   static int _combineSurrogatePair(int high, int low) {
-    return 0x10000 + ((high & 0x3FF) << 10) + (low & 0x3FF);
+    // Formula from Unicode standard
+    return 0x10000 + ((high - 0xD800) * 0x400) + (low - 0xDC00);
+    // Alternative bitwise calculation:
+    // return 0x10000 + ((high & 0x3FF) << 10) + (low & 0x3FF);
   }
 
-  // Hàm hỗ trợ chuyển code point thành surrogate pair
+  // Converts a code point (especially one > 0xFFFF) into a surrogate pair record
   static ({int high, int low}) _toSurrogatePair(int codePoint) {
+     if (codePoint < 0 || codePoint > 0x10FFFF || (_isValidCodePoint(codePoint) && codePoint <= 0xFFFF)) {
+        // Not a supplementary character or invalid
+       throw ArgumentError('Input is not a supplementary code point: $codePoint');
+     }
     int high = ((codePoint - 0x10000) >> 10) + 0xD800;
     int low = ((codePoint - 0x10000) & 0x3FF) + 0xDC00;
     return (high: high, low: low);
   }
 
-  // Hàm hỗ trợ kiểm tra code point hợp lệ
+  // Checks if a given integer is a valid Unicode code point
+  // (excludes surrogate block U+D800 to U+DFFF)
   static bool _isValidCodePoint(int codePoint) {
-    return codePoint >= 0 && codePoint <= 0x10FFFF &&
-           !(codePoint >= 0xD800 && codePoint <= 0xDFFF);
+    return codePoint >= 0 && codePoint <= 0x10FFFF && // Within the valid Unicode range
+           !(codePoint >= 0xD800 && codePoint <= 0xDFFF); // Not a surrogate code point
   }
 
-  /// Counts the frequency of each character in a string.
-  /// Handles all UTF-8 characters including emojis and special characters.
-  /// Ensures compatibility with Java server by converting emoji to escaped Unicode sequences.
-  ///
-  /// @param text The string to analyze.
-  /// @return A map with characters as keys and their frequencies as values.
-  static Map<String, int> countLetterFrequencies(String? text) {
-    logger.log('Counting letter frequencies in text: ${text ?? "null"}');
-    if (text == null || text.isEmpty) {
-      return {};
-    }
-
-    // Convert emoji and special characters to their escaped representation
-    // to match Java's behavior
-    String processedText = _escapeSpecialCharacters(text);
-    logger.log('Text after processing for counting: $processedText');
-
-    Map<String, int> frequencies = {};
-
-    // Count each character in the processed text
-    for (int i = 0; i < processedText.length; i++) {
-      String character = processedText[i];
-      frequencies[character] = (frequencies[character] ?? 0) + 1;
-    }
-
-    // Log the character counts for debugging
-    logger.log('Character frequencies: $frequencies');
-
-    return frequencies;
-  }
-
-  /// Converts special characters and emoji to their escaped Unicode representation
-  /// to match Java's behavior for character frequency counting.
-  static String _escapeSpecialCharacters(String text) {
-    StringBuffer result = StringBuffer();
-
-    for (int i = 0; i < text.length; i++) {
-      int codePoint = text.codeUnitAt(i);
-
-      // Check if this is part of a surrogate pair (emoji or other special char)
-      if (_isHighSurrogate(codePoint) &&
-          i + 1 < text.length &&
-          _isLowSurrogate(text.codeUnitAt(i + 1))) {
-
-        // Combine the surrogate pair into a code point
-        int combinedCodePoint = _combineSurrogatePair(
-          text.codeUnitAt(i),
-          text.codeUnitAt(i + 1)
-        );
-
-        // Convert to \uXXXX escape sequence
-        result.write('\\u${combinedCodePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
-        i++; // Skip the second part of the surrogate pair
-      }
-      // Check if this is a character that might be handled differently in Java
-      else if (codePoint > 127) {
-        // Convert to \uXXXX escape sequence for non-ASCII characters
-        result.write('\\u${codePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
-      }
-      else {
-        // Regular ASCII character
-        result.writeCharCode(codePoint);
-      }
-    }
-
-    return result.toString();
-  }
-
-  /// Counts the number of alphabetic characters (a-z, A-Z) in a string.
-  /// Used for the confirmation step after decryption.
-  ///
-  /// @param text The string to analyze.
-  /// @return The count of alphabetic characters.
-  static int countLetters(String text) {
-    if (text.isEmpty) {
-      return 0;
-    }
-
-    int count = 0;
-    for (int i = 0; i < text.length; i++) {
-      String c = text[i];
-      if (RegExp(r'[a-zA-Z]').hasMatch(c)) {
-        count++;
-      }
-    }
-    return count;
-  }
 }
