@@ -1,24 +1,33 @@
 import 'dart:math';
+import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/ClientUdp/udpmain.dart';
 import 'package:finalltmcb/Model/GroupModel.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
 
 class GroupController {
   // Current user ID (should be obtained from a user service in a real app)
-  static const String currentUserId = 'user1';  // Match with UserList.dart's currentUserId
+  static GroupController? _instance;
+  String currentUserId = ''; // Match with UserList.dart's currentUserId
   UdpChatClient? _udpClient;
-  
+  static GroupController get instance {
+    _instance ??= GroupController._internal();
+    return _instance!;
+  }
+
+  GroupController._internal();
+
   // Getter for the UDP client
   UdpChatClient? get client => _udpClient;
+  ClientState? get clientState => _udpClient?.clientState;
   // Create a new group with a name and members, then add it to the cache
   static GroupModel createGroup({
     required String name,
     required List<String> memberIds,
   }) {
     // Ensure current user is included in the group
-    if (!memberIds.contains(currentUserId)) {
-      memberIds.insert(0, currentUserId);
-    }
+    // if (!memberIds.contains(currentUserId)) {
+    //   memberIds.insert(0, currentUserId);
+    // }
 
     // Generate a unique ID
     final id = _generateUniqueId();
@@ -44,9 +53,26 @@ class GroupController {
   static String _generateUniqueId() {
     return 'group_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
   }
-    void setUdpClient(UdpChatClient client) {
-    _udpClient = client;
+
+  void setUdpClient(UdpChatClient client) {
+    try {
+      _udpClient = client;
+
+      // Safe null checks
+      final state = client.clientState;
+      final chatId = state.currentChatId;
+
+      if (state != null && chatId != null) {
+        currentUserId = chatId;
+      } else {
+        currentUserId = '';
+      }
+    } catch (e) {
+      currentUserId = '';
+      rethrow;
+    }
   }
+
   Future<void> createGroupChat(String groupName, List<String> memberIds) async {
     if (_udpClient == null) {
       throw Exception('UDP Client is not initialized. Please try again later.');
@@ -57,16 +83,19 @@ class GroupController {
 
     // Validate group name format (no spaces, special characters)
     if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(groupName)) {
-      throw Exception('Group name can only contain letters, numbers, and underscores');
+      throw Exception(
+          'Group name can only contain letters, numbers, and underscores');
     }
 
     // Remove current user and get other members
-    final List<String> otherMembers = memberIds.where((id) => 
-      id != currentUserId && // Remove current user
-      id != groupName &&     // Remove group name if it's in the list
-      RegExp(r'^user\d+$').hasMatch(id) // Only allow userX format
-    ).toList();
-    
+    final List<String> otherMembers = memberIds
+        .where((id) =>
+                id != currentUserId && // Remove current user
+                id != groupName && // Remove group name if it's in the list
+                RegExp(r'^user\d+$').hasMatch(id) // Only allow userX format
+            )
+        .toList();
+
     if (otherMembers.isEmpty) {
       throw Exception('Must have at least one other valid member');
     }
