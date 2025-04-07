@@ -145,13 +145,13 @@ class HandshakeManager {
           'Could not find tempIdToRemove while processing CHARACTER_COUNT for tx $transactionId');
     }
 
-    pendingClientRequestsByServerId[transactionId] = pendingReq!;
-    logger.log(
-        'Associated server tx ID $transactionId with pending action $originalAction (TempID: $tempIdToRemove)');
 
+    pendingClientRequestsByServerId[transactionId] = pendingReq!; // them moi
     Map<String, int> clientCalculatedFrequencies = CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson, needProcessSpecialChar: false);
     Map<String, int> serverFrequencies = parseFrequencyJson(serverFrequenciesJson);
     bool isValid = areFrequenciesEqual(clientCalculatedFrequencies, serverFrequencies);
+
+
 
     if (!isValid) {
       logger.log(
