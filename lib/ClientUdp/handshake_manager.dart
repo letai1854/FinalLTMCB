@@ -226,10 +226,16 @@ void removeUsersCallback() {
     if (responseJson.containsKey(Constants.KEY_MESSAGE)) {
       var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
       try {
-        clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
-        clientState.currentChatId = data[Constants.KEY_CHAT_ID];
+
         // Use DataConverter to process the handshake data
-        var result = DataConverter.processHandshakeData(clientState, messageStr);
+        if(data[Constants.KEY_SESSION_KEY] != null){
+          clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
+          logger.log(
+              'Session key from ACK: ${clientState.sessionKey} (Transaction ID: $transactionId)');
+          clientState.currentChatId = data[Constants.KEY_CHAT_ID];
+        }
+        var result =
+            DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {
           logger.log("Data converted and stored successfully");
           // Notify any registered callbacks about the updated data
