@@ -56,7 +56,7 @@ Future<void> startUdpService() async {
   // Get the singleton instance of UserController
   final userController = UserController();
   // Initialize global GroupController
-  globalGroupController = GroupController();
+  globalGroupController = GroupController.instance;
   final messageController = MessageController();
 
   try {
@@ -149,20 +149,20 @@ class MyApp extends StatelessWidget {
                 settings: const RouteSettings(name: '/chat'),
               );
             }
-          case '/chatMobile':
-            // Check if we have user ID in arguments
-            if (args is Map<String, dynamic> && args.containsKey('userId')) {
-              return PageRouteBuilder(
-                pageBuilder: (context, _, __) =>
-                    ChatMobile(userId: args['userId']),
-                settings: settings,
-              );
-            }
-            // Fallback to user list if no user ID provided
-            return PageRouteBuilder(
-              pageBuilder: (context, _, __) => const ListUserMobile(),
-              settings: settings,
-            );
+          // case '/chatMobile':
+          //   // Check if we have user ID in arguments
+          //   if (args is Map<String, dynamic> && args.containsKey('userId')) {
+          //     return PageRouteBuilder(
+          //       pageBuilder: (context, _, __) =>
+          //           ChatMobile(userId: args['userId']),
+          //       settings: settings,
+          //     );
+          //   }
+          //   // Fallback to user list if no user ID provided
+          //   return PageRouteBuilder(
+          //     pageBuilder: (context, _, __) => const ListUserMobile(),
+          //     settings: settings,
+          //   );
           case '/chat':
             return PageRouteBuilder(
               pageBuilder: (context, _, __) => const Responsivechat(),
