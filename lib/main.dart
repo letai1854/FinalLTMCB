@@ -2,9 +2,11 @@ import 'dart:io';
 import 'dart:developer' as logger;
 import 'package:finalltmcb/ClientUdp/constants.dart';
 import 'package:finalltmcb/ClientUdp/client_state.dart';
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
 
 import 'package:finalltmcb/Controllers/MessageController.dart';
+import 'package:finalltmcb/File/UdpChatClientFile.dart';
 
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Controllers/UserController.dart';
@@ -71,10 +73,16 @@ Future<void> startUdpService() async {
       logger.log("Using host: $host");
     }
 
-    logger.log(
-        "Creating UdpChatClient for $host:${Constants.DEFAULT_SERVER_PORT}...");
-    UdpChatClient client =
-        await UdpChatClient.create(host, Constants.DEFAULT_SERVER_PORT);
+    // logger.log(
+    //     "Creating UdpChatClient for $host:${Constants.DEFAULT_SERVER_PORT}...");
+    // UdpChatClient client =
+    //     await UdpChatClient.create(host, Constants.DEFAULT_SERVER_PORT);
+    final udpClientSingleton = UdpClientSingleton();
+    await udpClientSingleton.initialize(host, Constants.DEFAULT_SERVER_PORT);
+    final client =
+        udpClientSingleton.client!; // Use the singleton's client instance
+
+// Create the file client
 
     // Set global instances
     globalClientState = client.clientState;

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'package:mime/mime.dart';
 
 // Conditional import for web
 // This will be ignored on non-web platforms
@@ -64,6 +65,8 @@ class FileMessage {
   final int fileSize;
   final String filePath; // Local path for native platforms
   final Uint8List? fileBytes; // File bytes for web platform
+  final int totalPackages; // New property
+  final String fileType; // New property
 
   const FileMessage({
     required this.fileName,
@@ -71,7 +74,28 @@ class FileMessage {
     required this.fileSize,
     required this.filePath,
     this.fileBytes,
+    required this.totalPackages,
+    required this.fileType,
   });
+
+  // Calculate total packages based on file size
+  static int calculateTotalPackages(int fileSize) {
+    const int PACKAGE_SIZE = 512 * 1024; // 512KB per package
+    return (fileSize / PACKAGE_SIZE).ceil();
+  }
+
+  // Determine file type from mime type
+  static String getFileType(String mimeType) {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    if (mimeType.contains('pdf')) return 'pdf';
+    if (mimeType.contains('word') || mimeType.contains('document'))
+      return 'document';
+    if (mimeType.contains('excel') || mimeType.contains('sheet'))
+      return 'spreadsheet';
+    return 'file';
+  }
 
   // Convert to JSON for server
   Map<String, dynamic> toJson() => {
@@ -79,6 +103,8 @@ class FileMessage {
         'mimeType': mimeType,
         'fileSize': fileSize,
         'fileData': fileBytes != null ? base64Encode(fileBytes!) : null,
+        'totalPackages': totalPackages,
+        'fileType': fileType,
       };
 
   // Create from server response
@@ -94,6 +120,8 @@ class FileMessage {
       fileSize: json['fileSize'],
       filePath: '',
       fileBytes: bytes,
+      totalPackages: json['totalPackages'] ?? 0,
+      fileType: json['fileType'] ?? 'file',
     );
   }
 
@@ -131,19 +159,12 @@ class FilePickerUtil {
   // Pick a file and return FileMessage
   static Future<FileMessage?> pickFile(BuildContext context) async {
     try {
-      // Show loading indicator (optional)
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-      // Set options for file picker
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
-        withData: kIsWeb, // Only load file data on web
+        withData: kIsWeb,
         dialogTitle: 'Select a file to share',
       );
-
-      // Hide any snackbar after selection
-      scaffoldMessenger.hideCurrentSnackBar();
 
       if (result == null || result.files.isEmpty) {
         print('📁 No file selected');
@@ -151,15 +172,46 @@ class FilePickerUtil {
       }
 
       final file = result.files.first;
-      print('📁 File selected: ${file.name}, size: ${file.size} bytes');
+      int fileSize;
+      Uint8List fileBytes;
 
-      // Create file message from result
+      // Get file size and bytes properly
+      if (kIsWeb) {
+        fileBytes = file.bytes ?? Uint8List(0);
+        fileSize = fileBytes.length;
+      } else {
+        if (file.path != null) {
+          final fileObj = File(file.path!);
+          fileBytes = await fileObj.readAsBytes();
+          fileSize = await fileObj.length();
+        } else {
+          fileBytes = file.bytes ?? Uint8List(0);
+          fileSize = file.size;
+        }
+      }
+
+      final mimeType = lookupMimeType(file.name,
+              headerBytes: fileBytes.take(1024).toList()) ??
+          FilePickerUtil.getMimeType(file.name);
+
+      // Calculate total packages based on actual file size
+      final totalPackages = FileMessage.calculateTotalPackages(fileSize);
+      final fileType = FileMessage.getFileType(mimeType);
+
+      print('📁 File details:');
+      print('   - Name: ${file.name}');
+      print('   - Size: $fileSize bytes');
+      print('   - Packages: $totalPackages');
+      print('   - Type: $fileType');
+
       return FileMessage(
         fileName: file.name,
-        mimeType: getMimeType(file.name),
-        fileSize: file.size,
+        mimeType: mimeType,
+        fileSize: fileSize,
         filePath: file.path ?? '',
-        fileBytes: file.bytes,
+        fileBytes: fileBytes,
+        totalPackages: totalPackages,
+        fileType: fileType,
       );
     } catch (e) {
       print('📁 Error picking file: $e');

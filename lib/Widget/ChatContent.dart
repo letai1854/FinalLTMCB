@@ -1,5 +1,6 @@
 // Import UserList to access the static cache
 import 'package:finalltmcb/ClientUdp/client_state.dart';
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
@@ -303,30 +304,64 @@ class _ChatContentState extends State<ChatContent> {
   }
 
   void _handleFileCreated(ChatMessage fileMessage) {
-    _addMessageToUI(fileMessage);
-
-    Future(() async {
-      try {
-        if (fileMessage.file == null) {
-          logger.log('Warning: FileMessage in callback is null.',
-              name: "ChatContent");
-          return;
-        }
-
-        final messageDataToSend = MessageData(
-            text: null,
-            images: [],
-            audios: [],
-            files: [fileMessage.file!],
-            video: null,
-            timestamp: fileMessage.timestamp);
-        _logMessageDataForServer(messageDataToSend);
-      } catch (e, s) {
-        logger.log("Error sending file message: $e",
-            name: "ChatContent", error: e, stackTrace: s);
-        _showTopNotification('Lỗi gửi tệp', isError: true);
+    try {
+      if (fileMessage.file == null) {
+        logger.log('Warning: FileMessage in callback is null.',
+            name: "ChatContent");
+        return;
       }
-    });
+
+      final currentChatId = UdpClientSingleton().clientState?.currentChatId;
+      if (currentChatId == null) {
+        logger.log('Warning: No current chat ID available.',
+            name: "ChatContent");
+        _showTopNotification('Lỗi: Chưa đăng nhập', isError: true);
+        return;
+      }
+
+      final fileInfo = fileMessage.file!;
+
+      // Verify file exists and is readable
+      final file = File(fileInfo.filePath);
+      if (!file.existsSync()) {
+        logger.log('Warning: File does not exist: ${fileInfo.filePath}',
+            name: "ChatContent");
+        _showTopNotification('Lỗi: File không tồn tại', isError: true);
+        return;
+      }
+
+      // Get actual file size
+      final actualFileSize = file.lengthSync();
+      final actualTotalPackages = (actualFileSize / (512 * 1024)).ceil();
+
+      logger.log('File details:', name: "ChatContent");
+      logger.log('Path: ${fileInfo.filePath}', name: "ChatContent");
+      logger.log('Size: $actualFileSize bytes', name: "ChatContent");
+      logger.log('Packages: $actualTotalPackages', name: "ChatContent");
+      logger.log('Type: ${fileInfo.fileType}', name: "ChatContent");
+
+      // Add message to UI before sending
+      _addMessageToUI(fileMessage);
+
+      Future(() async {
+        try {
+          await MessageController().SendFileMessage(
+              currentChatId,
+              widget.userId,
+              fileInfo.filePath,
+              actualFileSize,
+              fileInfo.fileType,
+              actualTotalPackages);
+        } catch (e, s) {
+          logger.log("Error sending file message: $e",
+              name: "ChatContent", error: e, stackTrace: s);
+          _showTopNotification('Lỗi gửi tệp', isError: true);
+        }
+      });
+    } catch (e) {
+      logger.log('Error handling file creation: $e', name: "ChatContent");
+      _showTopNotification('Lỗi xử lý file', isError: true);
+    }
   }
 
   void _handleVideoCreated(ChatMessage videoMessage) {

@@ -3,10 +3,12 @@ import 'dart:math';
 import 'dart:async';
 import 'dart:developer' as logger;
 import 'dart:typed_data'; // Import for Uint8List
-import 'dart:io'; // Import for InternetAddress
+import 'dart:io' as io; // Import for InternetAddress
+import 'dart:isolate'; // Import for Isolate
 
 import 'package:finalltmcb/ClientUdp/command_processor.dart';
 import 'package:finalltmcb/ClientUdp/json_helper.dart';
+import 'package:finalltmcb/File/UdpChatClientFile.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
@@ -50,49 +52,79 @@ class MessageController {
     print("UDP client set in MessageController");
   }
 
+  // Add new properties for file transfer isolate
+  Isolate? _fileTransferIsolate;
+  ReceivePort? _receivePort;
+
   // Method to send MessageData via UDP
-  Future<void> SendMessage(MessageData message) async {
-    String roomId = "room1";
-    if (roomId.isEmpty) {
-      logger.log("Error: Room ID is empty.", name: "MessageController");
-      throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
-    }
+  Future<void> SendFileMessage(String chat_id, String room_id, String file_path,
+      int file_Size, String file_type, int totalPackage) async {
+    String host = "localhost";
 
     try {
-      // 1. Chuyển MessageData thành Map -> JSON String
-      //    (Giả định các hàm toJson() của Image/Audio/Video/File đã tự Base64 dữ liệu media)
-      final Map<String, dynamic> messageJsonMap = message.toJson();
-      final String messageJsonString = jsonEncode(messageJsonMap);
-      logger.log(
-          "MessageData JSON (Payload): ${messageJsonString.substring(0, min(messageJsonString.length, 150))}...",
-          name: "MessageController");
+      // Extract file extension from path
+      String fileExtension = file_path.split('.').last;
+      if (fileExtension.isEmpty) {
+        throw Exception("File has no extension: $file_path");
+      }
 
-      // 2. --- LOẠI BỎ BƯỚC BASE64 TOÀN BỘ JSON ---
-      // final String messagePayloadBase64 = base64Encode(utf8.encode(messageJsonString));
-      // logger.log("Message Payload Base64: ${messagePayloadBase64.substring(0, min(messagePayloadBase64.length, 100))}...", name: "MessageController");
+      // Get full file path and verify file
+      final file = io.File(file_path);
+      if (!await file.exists()) {
+        throw Exception("File not found: $file_path");
+      }
 
-      // 3. Tạo chuỗi lệnh: /send <roomId> <rawJsonStringPayload>
-      //    Payload bây giờ là chuỗi JSON trực tiếp
-      final String commandString = "/send $roomId $messageJsonString";
-      // Log cẩn thận vì payload có thể rất dài
-      logger.log("Formatted command string using Raw JSON Payload",
-          name: "MessageController");
-      print(
-          "Formatted command string (preview): ${commandString.substring(0, min(commandString.length, 200))}..."); // Log preview dài hơn
+      final actualFileSize = await file.length();
+      final actualTotalPackages = (actualFileSize / (512 * 1024)).ceil();
 
-      // 4. Gửi lệnh đến CommandProcessor để xử lý tiếp
-      logger.log("Passing command to CommandProcessor...",
-          name: "MessageController");
-      // !!! Đảm bảo CommandProcessor/Handler biết cách trích xuất payload JSON này !!!
-      await _udpClient?.commandProcessor.processCommand(commandString);
-      logger.log(
-          "Command '/send' with Raw JSON Payload passed to CommandProcessor.",
-          name: "MessageController");
-    } catch (e, stackTrace) {
-      logger.log("Error formatting/processing send command with Raw JSON: $e",
-          name: "MessageController", error: e, stackTrace: stackTrace);
-      throw Exception('Gửi tin nhắn thất bại: $e');
+      logger.log("File details:");
+      logger.log("Path: $file_path");
+      logger.log("Extension: .$fileExtension");
+      logger.log("Actual size: $actualFileSize bytes");
+      logger.log("Calculated packages: $actualTotalPackages");
+
+      // Create a ReceivePort for communication
+      _receivePort = ReceivePort();
+
+      // Create the isolate with correct file information
+      _fileTransferIsolate = await Isolate.spawn(
+        _fileTransferHandler,
+        {
+          'sendPort': _receivePort!.sendPort,
+          'host': host,
+          'port': Constants.FILE_TRANSFER_SERVER_PORT,
+          'chatId': chat_id,
+          'roomId': room_id,
+          'filePath': file_path,
+          'fileSize': actualFileSize,
+          'fileType': '$file_type.$fileExtension', // Include extension
+          'totalPackage': actualTotalPackages,
+        },
+      );
+
+      // Listen for responses from the file transfer isolate
+      _receivePort!.listen((dynamic message) {
+        if (message is Map) {
+          if (message['status'] == 'completed') {
+            logger.log('File transfer completed successfully');
+            _cleanupFileTransfer();
+          } else if (message['status'] == 'error') {
+            logger.log('File transfer error: ${message['error']}');
+            _cleanupFileTransfer();
+          }
+        }
+      });
+    } catch (e) {
+      logger.log("Error in SendFileMessage: $e");
+      throw Exception("Failed to process file: $e");
     }
+  }
+
+  void _cleanupFileTransfer() {
+    _fileTransferIsolate?.kill();
+    _receivePort?.close();
+    _fileTransferIsolate = null;
+    _receivePort = null;
   }
 
   // *** HÀM GỬI TIN NHẮN VĂN BẢN ***
@@ -132,6 +164,44 @@ class MessageController {
     }
   }
   // **********************************
+}
 
-  // Các hàm khác của contr
+// Isolate handler function - runs in separate thread
+void _fileTransferHandler(Map<String, dynamic> params) async {
+  final SendPort sendPort = params['sendPort'];
+  final String host = params['host'];
+  final int port = params['port'];
+  final String roomId = params['roomId'];
+  final String chat_id = params['chatId'];
+  final String file_path = params['filePath'];
+  final int file_Size = params['fileSize'];
+  final String file_type = params['fileType'];
+  final int totalPackage = params['totalPackage'];
+
+  try {
+    // Create UDP client in the new isolate
+    final clientFile = await UdpChatClientFile.create(host, port);
+    final String commandString =
+        "/file $roomId $chat_id $file_path $file_Size $file_type $totalPackage";
+    if (clientFile != null) {
+      clientFile.commandProcessor
+          .processCommand(commandString, clientFile.handshakeManager);
+    }
+    // Start the client and check result
+    final bool started = await clientFile.start();
+    if (!started) {
+      throw Exception('Failed to start file client');
+    }
+
+    // sendPort.send({'status': 'completed'});
+
+    // Cleanup
+    // clientFile.close();
+  } catch (e) {
+    // Send error message back to main isolate
+    sendPort.send({
+      'status': 'error',
+      'error': e.toString(),
+    });
+  }
 }
