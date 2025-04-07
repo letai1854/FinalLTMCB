@@ -6,6 +6,7 @@ import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'dart:isolate';
 import 'dart:async';
+import 'package:finalltmcb/Service/MessageNotifier.dart'; // Add this import
 
 class MessageList extends StatefulWidget {
   final Function(String)? onUserSelected;
@@ -31,11 +32,14 @@ class MessageList extends StatefulWidget {
   // Keep loading state and future static but potentially private to the class scope
   static bool _isLoading = false;
   static Future<List<Map<String, dynamic>>>? _dataFuture;
+  // Add new static field to track unread messages
+  static Set<String> unreadMessages = {};
 }
 
 class _MessageListState extends State<MessageList> {
   String get currentUserId =>
       widget.groupController.client?.clientState.currentChatId ?? 'user1';
+
   @override
   void initState() {
     super.initState();
@@ -44,11 +48,50 @@ class _MessageListState extends State<MessageList> {
     if (clientState != null) {
       MessageList.cachedMessages = clientState.cachedMessages;
 
-      // Listen for auto-selection
+      // Add message listener
+      MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+
       if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
         _autoSelectFirstUser();
       }
     }
+  }
+
+  // Add new method to handle messages
+  void _handleNewMessage() {
+    final messageData = MessageNotifier.messageNotifier.value;
+    if (messageData != null && mounted && MessageList.cachedMessages != null) {
+      final roomId = messageData['roomId'];
+      final content = messageData['content'];
+
+      // Find the chat in cached messages
+      final chatIndex = MessageList.cachedMessages!
+          .indexWhere((chat) => chat['id'] == roomId);
+
+      if (chatIndex != -1) {
+        setState(() {
+          // Update message content
+          MessageList.cachedMessages![chatIndex]['message'] = content;
+
+          // Mark message as unread if it's not the currently selected chat
+          if (roomId != widget.selectedUserId) {
+            MessageList.unreadMessages.add(roomId);
+          }
+
+          // Move chat to top if not already there
+          if (chatIndex > 0) {
+            final chat = MessageList.cachedMessages!.removeAt(chatIndex);
+            MessageList.cachedMessages!.insert(0, chat);
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+    super.dispose();
   }
 
   @override
@@ -64,31 +107,46 @@ class _MessageListState extends State<MessageList> {
   }
 
   void _autoSelectFirstUser() {
-    // Only select first user if we're in desktop/tablet mode, have data,
-    // no user is selected yet, and we have a callback
     if (widget.isDesktopOrTablet &&
         widget.selectedUserId == null &&
         widget.onUserSelected != null &&
-        MessageList.cachedMessages != null && // Use class name
+        MessageList.cachedMessages != null &&
         MessageList.cachedMessages!.isNotEmpty) {
-      // Use post-frame callback to avoid setState during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && widget.selectedUserId == null) {
-          widget.onUserSelected!(
-              MessageList.cachedMessages![0]['id']); // Truyền String ID
+          // Get first message ID
+          final firstMessageId = MessageList.cachedMessages![0]['id'];
+          widget.onUserSelected!(firstMessageId);
+
+          // Pre-load messages for first user
+          final clientState = widget.groupController.clientState;
+          if (clientState != null &&
+              !clientState.allMessagesConverted.containsKey(firstMessageId)) {
+            clientState.allMessagesConverted[firstMessageId] = [];
+          }
         }
       });
     }
   }
 
-  // Hàm xử lý khi người dùng nhấn vào một item
   void _handleUserTap(String userId) {
     if (widget.onUserSelected != null) {
-      widget.onUserSelected!(userId); // Truyền String ID
+      // Mark messages as read when chat is selected
+      MessageList.unreadMessages.remove(userId);
+
+      // Ensure message history container exists before switching
+      final clientState = widget.groupController.clientState;
+      if (clientState != null &&
+          !clientState.allMessagesConverted.containsKey(userId)) {
+        clientState.allMessagesConverted[userId] = [];
+      }
+      widget.onUserSelected!(userId);
+
+      // Trigger rebuild to update message styling
+      setState(() {});
     }
   }
 
-//
   Future<List<Map<String, dynamic>>> _loadData() async {
     // Return cached data if available
     if (MessageList.cachedMessages != null) {
@@ -113,9 +171,7 @@ class _MessageListState extends State<MessageList> {
       // Simulate API call
       await Future.delayed(const Duration(seconds: 1));
 
-      
-MessageList.cachedMessages = [ ];
-
+      MessageList.cachedMessages = [];
 
       // Auto-select first user only for desktop/tablet
       if (widget.isDesktopOrTablet && mounted) {
@@ -129,28 +185,29 @@ MessageList.cachedMessages = [ ];
   }
 
   // *** Định nghĩa lại hàm _createGroupChat ***
-  Future<void> _createGroupChat(String groupName, List<String> memberIds) async {
+  Future<void> _createGroupChat(
+      String groupName, List<String> memberIds) async {
     final completer = Completer<void>();
     final receivePort = ReceivePort();
 
     // Spawn isolate for group creation
-    final isolate = await Isolate.spawn(
-      (List<dynamic> args) {
-        final SendPort sendPort = args[0];
-        final Map<String, dynamic> data = args[1];
+    final isolate = await Isolate.spawn((List<dynamic> args) {
+      final SendPort sendPort = args[0];
+      final Map<String, dynamic> data = args[1];
 
-        try {
-          sendPort.send({
-            'type': 'execute',
-            'groupName': data['groupName'],
-            'memberIds': data['memberIds'],
-          });
-        } catch (e) {
-          sendPort.send({'type': 'error', 'message': e.toString()});
-        }
-      },
-      [receivePort.sendPort, {'groupName': groupName, 'memberIds': memberIds}]
-    );
+      try {
+        sendPort.send({
+          'type': 'execute',
+          'groupName': data['groupName'],
+          'memberIds': data['memberIds'],
+        });
+      } catch (e) {
+        sendPort.send({'type': 'error', 'message': e.toString()});
+      }
+    }, [
+      receivePort.sendPort,
+      {'groupName': groupName, 'memberIds': memberIds}
+    ]);
 
     // Listen for messages from isolate
     receivePort.listen((message) async {
@@ -163,7 +220,8 @@ MessageList.cachedMessages = [ ];
 
           // --- START: Update cache and trigger rebuild ---
           // Tạo group mới để thêm vào cache
-          final newGroupId = 'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
+          final newGroupId =
+              'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
           final newGroup = {
             'name': message['groupName'],
             'message': 'New group created', // Placeholder message
@@ -236,7 +294,8 @@ MessageList.cachedMessages = [ ];
           builder: (context, setDialogState) {
             // Filter users based on search query
             var filteredUsers =
-                (widget.groupController.client?.clientState.convertedUsers ?? [])
+                (widget.groupController.client?.clientState.convertedUsers ??
+                        [])
                     .where((user) => user.chatId
                         .toLowerCase()
                         .contains(searchQuery.toLowerCase()))
@@ -348,7 +407,8 @@ MessageList.cachedMessages = [ ];
 
                           try {
                             // Create group using isolate
-                            await _createGroupChat(groupName, allUsers); // Gọi hàm đã định nghĩa lại
+                            await _createGroupChat(groupName,
+                                allUsers); // Gọi hàm đã định nghĩa lại
                             Navigator.pop(context);
                           } catch (e) {
                             print('Error creating group: $e');
@@ -443,11 +503,15 @@ MessageList.cachedMessages = [ ];
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-                final isSelected = message['id'] == widget.selectedUserId; // Sửa lại check theo ID và tên biến
+                final isSelected = message['id'] ==
+                    widget.selectedUserId; // Sửa lại check theo ID và tên biến
+                final isUnread =
+                    MessageList.unreadMessages.contains(message['id']);
                 return ListTile(
                   selected: isSelected,
                   selectedTileColor: Colors.red.withOpacity(0.1),
-                  onTap: () => _handleUserTap(message['id']), // Gọi hàm xử lý tap với String ID
+                  onTap: () => _handleUserTap(
+                      message['id']), // Gọi hàm xử lý tap với String ID
                   leading: Stack(
                     children: [
                       CircleAvatar(
@@ -492,7 +556,14 @@ MessageList.cachedMessages = [ ];
                         ),
                     ],
                   ),
-                  subtitle: Text(message['message']!),
+                  subtitle: Text(
+                    message['message']!,
+                    style: TextStyle(
+                      color: isUnread ? Colors.black87 : Colors.grey[600],
+                      fontWeight:
+                          isUnread ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
                   tileColor: Colors.white,
                 );
               },

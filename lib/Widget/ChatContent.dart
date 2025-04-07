@@ -1,5 +1,6 @@
 // Import UserList to access the static cache
 import 'package:finalltmcb/ClientUdp/client_state.dart';
+import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
 import 'package:finalltmcb/Service/MessageNotifier.dart';
@@ -33,10 +34,11 @@ import 'package:finalltmcb/Widget/ChatInputWidget.dart'; // Import the new widge
 
 class ChatContent extends StatefulWidget {
   final String userId;
-
-  const ChatContent({
+  GroupController groupController; // Access the global instance
+  ChatContent({
     Key? key,
     required this.userId,
+    required this.groupController,
   }) : super(key: key);
 
   @override
@@ -44,40 +46,97 @@ class ChatContent extends StatefulWidget {
 }
 
 class _ChatContentState extends State<ChatContent> {
-  // Mock data for demonstration
-  // In a real app, you would fetch messages for the specific user from a database or API
   final Map<String, List<ChatMessage>> _userMessages = {};
   late String _currentUserName;
   late String _currentUserAvatar;
   bool _isGroupChat = false;
+  late List<ChatMessage> listhistorymessage;
   List<String> _groupMembers = [];
-
-  // ScrollController for ListView
   final ScrollController _scrollController = ScrollController();
-
-  // Add a flag to track if a file is being processed
   bool _isProcessingFile = false;
+  bool _isLoading = true; // Add loading state
 
   @override
   void initState() {
     super.initState();
     _loadUserMessages();
+    _initializeHistoryMessages();
     MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+  }
+
+  void _initializeHistoryMessages() async {
+    setState(() => _isLoading = true);
+
+    try {
+      if (widget.groupController.clientState != null) {
+        final history = widget.groupController.clientState
+                ?.allMessagesConverted[widget.userId] ??
+            [];
+        setState(() {
+          listhistorymessage = history;
+          _userMessages.clear();
+          _userMessages[widget.userId] = List.from(history);
+          _isLoading = false;
+        });
+
+        // Use jumpTo for immediate scroll to bottom
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            Future.delayed(Duration(milliseconds: 100), () {
+              if (mounted && _scrollController.hasClients) {
+                _scrollController
+                    .jumpTo(_scrollController.position.maxScrollExtent);
+              }
+            });
+          }
+        });
+
+        logger.log(
+            'Successfully loaded ${history.length} history messages for userId: ${widget.userId}');
+      }
+    } catch (e) {
+      logger.log('Error loading history messages: $e');
+      setState(() {
+        listhistorymessage = [];
+        _userMessages[widget.userId] = [];
+        _isLoading = false;
+      });
+    }
   }
 
   void _handleNewMessage() {
     final messageData = MessageNotifier.messageNotifier.value;
     if (messageData != null && mounted) {
       final roomId = messageData['roomId'];
-      // Only process if message is for current room
-      if (roomId == widget.userId) {
+
+      // Store message in global state regardless of current room
+      if (widget.groupController.clientState != null) {
         final newMessage = ChatMessage(
           text: messageData['content'],
           isMe: false,
           name: messageData['name'],
           timestamp: DateTime.parse(messageData['timestamp']),
         );
-        _addMessageToUI(newMessage);
+
+        // Add to global state
+        if (!widget.groupController.clientState!.allMessagesConverted
+            .containsKey(roomId)) {
+          widget.groupController.clientState!.allMessagesConverted[roomId] = [];
+        }
+        widget.groupController.clientState!.allMessagesConverted[roomId]!
+            .add(newMessage);
+
+        // Only update UI if message is for current room
+        if (roomId == widget.userId) {
+          setState(() {
+            if (!_userMessages.containsKey(widget.userId)) {
+              _userMessages[widget.userId] = [];
+            }
+            _userMessages[widget.userId]!.add(newMessage);
+            listhistorymessage = _userMessages[widget.userId]!;
+          });
+          _scrollToBottom();
+        }
       }
     }
   }
@@ -87,21 +146,15 @@ class _ChatContentState extends State<ChatContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userId != widget.userId) {
       _loadUserMessages();
+      _initializeHistoryMessages();
     }
   }
 
-  // Load messages for the current user
   void _loadUserMessages() {
-    // In a real app, you would fetch these from a database
-    // For now, we'll create some mock data if it doesn't exist
     if (!_userMessages.containsKey(widget.userId)) {
       _userMessages[widget.userId] = [];
     }
-
-    // Get user profile information
     _fetchUserProfile();
-
-    // Scroll to the bottom after loading messages
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -119,7 +172,6 @@ class _ChatContentState extends State<ChatContent> {
       for (var chat in MessageList.cachedMessages!) {
         if (chat['id'] == widget.userId) {
           chatData = chat;
-
           break;
         }
       }
@@ -128,8 +180,7 @@ class _ChatContentState extends State<ChatContent> {
     if (chatData != null) {
       setState(() {
         _currentUserName = chatData!['name'] ?? 'Unknown Chat';
-        _currentUserAvatar =
-            chatData!['avatar'] ?? 'assets/logoS.jpg'; // Default avatar
+        _currentUserAvatar = chatData!['avatar'] ?? 'assets/logoS.jpg';
         _isGroupChat = chatData!['isGroup'] ?? false;
         if (_isGroupChat) {
           _groupMembers = List<String>.from(chatData!['members'] ?? []);
@@ -147,20 +198,13 @@ class _ChatContentState extends State<ChatContent> {
     }
   }
 
-  // --- New Handler Methods for Callbacks from ChatInputWidget ---
-
   Future<void> _handleTextInputSubmitted(String text) async {
     if (text.isEmpty) return;
     final timestamp = DateTime.now();
-
-    // 1. Update UI
     final uiMessage = ChatMessage(text: text, isMe: true, timestamp: timestamp);
     _addMessageToUI(uiMessage);
 
-    // *** 2. Restore: Send in Background using MessageController ***
     try {
-      // Giả sử MessageController có thể truy cập được instance client cần thiết
-      // hoặc bạn truyền clientState/udpClient vào đây nếu cần.
       await MessageController()
           .SendTextMessage(widget.userId, _groupMembers, text);
       logger
@@ -169,9 +213,7 @@ class _ChatContentState extends State<ChatContent> {
       logger.log("Error initiating text message send: $e",
           name: "ChatContent", error: e, stackTrace: s);
       _showTopNotification('Lỗi gửi tin nhắn văn bản', isError: true);
-      // Optionally update message status in UI to failed
     }
-    // **********************************************************
   }
 
   Future<void> _handleMediaInputSubmitted(
@@ -180,25 +222,22 @@ class _ChatContentState extends State<ChatContent> {
     final timestamp = DateTime.now();
     List<ChatMessage> uiMessagesToAdd = [];
 
-    // 1. Prepare UI Messages
     if (text != null && text.isNotEmpty) {
       uiMessagesToAdd
           .add(ChatMessage(text: text, isMe: true, timestamp: timestamp));
     }
     for (var img in images) {
       uiMessagesToAdd.add(ChatMessage(
-        text: '', // No text for image bubbles
+        text: '',
         isMe: true,
         timestamp: timestamp,
-        image: img.base64Data, // For UI bubble
+        image: img.base64Data,
         mimeType: img.mimeType,
       ));
     }
 
-    // 2. Update UI
     _addMultipleMessagesToUI(uiMessagesToAdd);
 
-    // 3. Send in Background
     Future(() async {
       try {
         final messageDataToSend = MessageData(
@@ -209,7 +248,6 @@ class _ChatContentState extends State<ChatContent> {
             video: null,
             timestamp: timestamp);
         _logMessageDataForServer(messageDataToSend);
-        // await MessageController().SendMessage(messageDataToSend);
       } catch (e, s) {
         logger.log("Error sending media message: $e",
             name: "ChatContent", error: e, stackTrace: s);
@@ -218,31 +256,27 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Handles audio message created by ChatInputWidget (via AudioHandler)
   void _handleAudioCreated(ChatMessage audioMessage) {
-    // 1. Update UI
     _addMessageToUI(audioMessage);
 
-    // 2. Process and Send in Background
     Future(() async {
       try {
-        AudioData? audioData; // Re-process if needed
+        AudioData? audioData;
         if (audioMessage.isAudioPath && audioMessage.audio != null) {
           final File audioFile = File(audioMessage.audio!);
           final bytes = await audioFile.readAsBytes();
           audioData = AudioData(
             base64Data: base64Encode(bytes),
-            duration: 0, // TODO: Get duration
+            duration: 0,
             mimeType: lookupMimeType(audioMessage.audio!) ?? 'audio/mp4',
             size: bytes.length,
           );
         } else if (audioMessage.audio != null) {
-          // Assume base64
           final bytes = base64Decode(audioMessage.audio!);
           audioData = AudioData(
             base64Data: audioMessage.audio!,
             duration: 0,
-            mimeType: 'audio/mp4', // Default
+            mimeType: 'audio/mp4',
             size: bytes.length,
           );
         } else {
@@ -260,7 +294,6 @@ class _ChatContentState extends State<ChatContent> {
             video: null,
             timestamp: audioMessage.timestamp);
         _logMessageDataForServer(messageDataToSend);
-        // await MessageController().SendMessage(messageDataToSend);
       } catch (e, s) {
         logger.log("Error sending audio message: $e",
             name: "ChatContent", error: e, stackTrace: s);
@@ -269,12 +302,9 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Handles file message created by ChatInputWidget (via MediaHandler)
   void _handleFileCreated(ChatMessage fileMessage) {
-    // 1. Update UI
     _addMessageToUI(fileMessage);
 
-    // 2. Send in Background
     Future(() async {
       try {
         if (fileMessage.file == null) {
@@ -282,9 +312,6 @@ class _ChatContentState extends State<ChatContent> {
               name: "ChatContent");
           return;
         }
-        // Ensure bytes are included for sending if needed by the model/controller
-        // If FileMessage.toJson handles this, it might be okay.
-        // If not, ensure _handleFileSend in ChatInput includes bytes.
 
         final messageDataToSend = MessageData(
             text: null,
@@ -294,7 +321,6 @@ class _ChatContentState extends State<ChatContent> {
             video: null,
             timestamp: fileMessage.timestamp);
         _logMessageDataForServer(messageDataToSend);
-        // await MessageController().SendMessage(messageDataToSend);
       } catch (e, s) {
         logger.log("Error sending file message: $e",
             name: "ChatContent", error: e, stackTrace: s);
@@ -303,12 +329,9 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Handles video message created by ChatInputWidget (via MediaHandler)
   void _handleVideoCreated(ChatMessage videoMessage) {
-    // 1. Update UI
     _addMessageToUI(videoMessage);
 
-    // 2. Send in Background
     Future(() async {
       try {
         if (videoMessage.video == null) {
@@ -324,7 +347,6 @@ class _ChatContentState extends State<ChatContent> {
             video: videoMessage.video,
             timestamp: videoMessage.timestamp);
         _logMessageDataForServer(messageDataToSend);
-        // await MessageController().SendMessage(messageDataToSend);
       } catch (e, s) {
         logger.log("Error sending video message: $e",
             name: "ChatContent", error: e, stackTrace: s);
@@ -333,19 +355,39 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  // Helper to add a single message to UI
   void _addMessageToUI(ChatMessage message) {
     if (!mounted) return;
+
     setState(() {
       if (!_userMessages.containsKey(widget.userId)) {
         _userMessages[widget.userId] = [];
       }
-      _userMessages[widget.userId]!.add(message);
+
+      // Check for duplicates before adding
+      bool isDuplicate = _userMessages[widget.userId]!.any((m) =>
+          m.text == message.text &&
+          m.timestamp.difference(message.timestamp).inSeconds.abs() < 1);
+
+      if (!isDuplicate) {
+        _userMessages[widget.userId]!.add(message);
+        listhistorymessage = _userMessages[widget.userId]!;
+
+        // Update global state
+        if (widget.groupController.clientState != null) {
+          if (!widget.groupController.clientState!.allMessagesConverted
+              .containsKey(widget.userId)) {
+            widget.groupController.clientState!
+                .allMessagesConverted[widget.userId] = [];
+          }
+          widget
+              .groupController.clientState!.allMessagesConverted[widget.userId]!
+              .add(message);
+        }
+      }
     });
     _scrollToBottom();
   }
 
-  // Helper to add multiple messages to UI
   void _addMultipleMessagesToUI(List<ChatMessage> messages) {
     if (!mounted) return;
     setState(() {
@@ -384,7 +426,7 @@ class _ChatContentState extends State<ChatContent> {
   void _logMessageDataForServer(MessageData messageData) {
     try {
       final jsonData = messageData.toJson();
-      final loggableJson = json.decode(json.encode(jsonData)); // Deep copy
+      final loggableJson = json.decode(json.encode(jsonData));
 
       if (loggableJson['images'] != null) {
         for (var img in loggableJson['images']) {
@@ -432,10 +474,7 @@ class _ChatContentState extends State<ChatContent> {
       bool isSuccess = false,
       bool isInfo = false,
       Duration? duration}) {
-    // Sử dụng overlay để hiển thị thông báo ở phía trên
     final overlay = Overlay.of(context);
-
-    // Determine background color based on message type
     final Color backgroundColor = isError
         ? Colors.red.shade700
         : isSuccess
@@ -474,7 +513,6 @@ class _ChatContentState extends State<ChatContent> {
 
     overlay.insert(overlayEntry);
 
-    // Tự động đóng sau một khoảng thời gian
     Future.delayed(duration ?? Duration(seconds: 3), () {
       overlayEntry.remove();
     });
@@ -482,16 +520,13 @@ class _ChatContentState extends State<ChatContent> {
 
   void _handleFileDownload(FileMessage file) async {
     print("Attempting to download/open file: ${file.fileName}");
-
-    // Use the platform-safe downloader
     await FileDownloader.downloadFile(file, context);
   }
 
   @override
   void dispose() {
     MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
-
-    _scrollController.dispose(); // Dispose the scroll controller
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -510,12 +545,12 @@ class _ChatContentState extends State<ChatContent> {
             ),
             SizedBox(width: 10),
             Expanded(
-              key: ValueKey(widget.userId), // Force rebuild on ID change
+              key: ValueKey(widget.userId),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _currentUserName, // This should now be correct
+                    _currentUserName,
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -538,46 +573,52 @@ class _ChatContentState extends State<ChatContent> {
       body: Column(
         children: [
           Expanded(
-            child: messages.isEmpty
-                ? Center(child: Text('No messages yet. Start a conversation!'))
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: messages.length,
-                    padding: EdgeInsets.only(bottom: 16),
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      if (message.isMe) {
-                        return ChatBubble(
-                          message: message,
-                          onFileDownload: _handleFileDownload,
-                        );
-                      } else {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 8.0, right: 4.0),
-                                child: CircleAvatar(
-                                  backgroundImage:
-                                      AssetImage(_currentUserAvatar),
-                                  radius: 16,
-                                ),
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : messages.isEmpty
+                    ? Center(
+                        child: Text('No messages yet. Start a conversation!'))
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: messages.length,
+                        padding: EdgeInsets.only(bottom: 16),
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          if (message.isMe) {
+                            return ChatBubble(
+                              message: message,
+                              onFileDownload: _handleFileDownload,
+                            );
+                          } else {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 4.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 8.0, right: 4.0),
+                                    child: CircleAvatar(
+                                      backgroundImage:
+                                          AssetImage(_currentUserAvatar),
+                                      radius: 16,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ChatBubble(
+                                      message: message,
+                                      onFileDownload: _handleFileDownload,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Expanded(
-                                child: ChatBubble(
-                                  message: message,
-                                  onFileDownload: _handleFileDownload,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    },
-                  ),
+                            );
+                          }
+                        },
+                      ),
           ),
           ChatInputWidget(
             userId: widget.userId,
@@ -588,7 +629,6 @@ class _ChatContentState extends State<ChatContent> {
             onVideoMessageCreated: _handleVideoCreated,
             onProcessingStateChanged: (isProcessing) {
               if (mounted) {
-                // Check if widget is still in the tree
                 setState(() => _isProcessingFile = isProcessing);
               }
             },
