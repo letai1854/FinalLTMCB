@@ -235,8 +235,7 @@ void removeUsersCallback() {
           clientState.currentChatId = data[Constants.KEY_CHAT_ID];
         }
 
-        var result =
-            DataConverter.processHandshakeData(clientState, messageStr);
+        var result =DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {
           logger.log("Data converted and stored successfully");
           // Notify any registered callbacks about the updated data
