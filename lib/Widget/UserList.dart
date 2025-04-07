@@ -301,8 +301,7 @@ class _MessageListState extends State<MessageList> {
             currentUserId, // Use the state's getter for the current user ID
           );
 
-          // // --- START: Update cache and trigger rebuild ---
-          // // Tạo group mới để thêm vào cache
+
           // final newGroupId =
           //     'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
           // final newGroup = {
