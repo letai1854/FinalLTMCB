@@ -14,6 +14,7 @@ import 'package:finalltmcb/Model/VideoFileMessage.dart';
 import 'package:finalltmcb/Widget/AttachmentMenuWidget.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
+import 'package:finalltmcb/Widget/IConHandler.dart';
 import 'package:finalltmcb/Widget/ImagePickerButtonWidget.dart';
 import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
 import 'package:finalltmcb/Widget/MediaHandlerWidget.dart';
@@ -341,6 +342,24 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                     _handleAudioRecordingStart, // Callback to switch UI state
                 onRecordingEnd:
                     _handleAudioRecordingEnd, // Callback to switch UI state
+              ),
+              // Emoji picker button
+              Iconhandler(
+                onEmojiSelected: (String emoji) {
+                  // Insert emoji at current cursor position
+                  final currentText = _textController.text;
+                  final selection = _textController.selection;
+                  final newText = currentText.replaceRange(
+                    selection.start,
+                    selection.end,
+                    emoji,
+                  );
+                  _textController.text = newText;
+                  // Move cursor after the inserted emoji
+                  _textController.selection = TextSelection.collapsed(
+                    offset: selection.start + emoji.length,
+                  );
+                },
               ),
               // Send Button (for text/images)
               IconButton(

@@ -7,13 +7,14 @@ import 'package:finalltmcb/Widget/VideoBubble.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
-  // Add a callback for file download handling
   final Function(FileMessage)? onFileDownload;
+  final bool showSenderName; // Add this
 
   const ChatBubble({
     Key? key,
     required this.message,
     this.onFileDownload,
+    this.showSenderName = true, // Default to true
   }) : super(key: key);
 
   @override
@@ -27,6 +28,20 @@ class ChatBubble extends StatelessWidget {
           crossAxisAlignment:
               message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
+            // Sender name
+            if (showSenderName && !message.isMe && message.name != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 4.0, bottom: 2.0),
+                child: Text(
+                  message.name!,
+                  style: TextStyle(
+                    fontSize: 12.0,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
             // Content
             _buildMessageContent(context),
 

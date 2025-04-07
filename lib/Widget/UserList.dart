@@ -38,7 +38,7 @@ class MessageList extends StatefulWidget {
 
 class _MessageListState extends State<MessageList> {
   String get currentUserId =>
-      widget.groupController.client?.clientState.currentChatId ?? 'user1';
+      widget.groupController.client?.clientState.currentChatId ?? '';
 
   @override
   void initState() {
@@ -130,6 +130,8 @@ class _MessageListState extends State<MessageList> {
         final roomName = roomData['room_name'];
         final List<String> members = roomData['participants'];
 
+        print("Received new room notification - ID: $roomId, Name: $roomName");
+        
         // Kiểm tra xem phòng đã tồn tại chưa
         int existingIndex =
             MessageList.cachedMessages?.indexWhere((room) => room['id'] == roomId) ?? -1;
@@ -146,9 +148,13 @@ class _MessageListState extends State<MessageList> {
             'members': members, // Sử dụng List<String> thay vì Set<String>
           });
 
-          print("Đã thêm phòng chat mới: $roomName (ID: $roomId)");
+          // Initialize message container for the new room
+          if (widget.groupController.clientState != null) {
+            widget.groupController.clientState!.allMessagesConverted[roomId] = [];
+            print("Initialized message container for new room: $roomId");
+          }
 
-          // Đã loại bỏ phần tự động chọn phòng mới
+          print("Đã thêm phòng chat mới: $roomName (ID: $roomId)");
         } else {
           // Cập nhật thông tin phòng nếu đã tồn tại
           MessageList.cachedMessages![existingIndex]['name'] = roomName;
@@ -165,15 +171,15 @@ class _MessageListState extends State<MessageList> {
     if (messageData != null && mounted && MessageList.cachedMessages != null) {
       final roomId = messageData['roomId'];
       final content = messageData['content'];
+      final sender = messageData['sender_chatid'] ?? messageData['sender'] ?? messageData['name'] ?? 'Unknown';
 
       // Find the chat in cached messages
-      final chatIndex =
-          MessageList.cachedMessages!.indexWhere((chat) => chat['id'] == roomId);
+      final chatIndex = MessageList.cachedMessages!.indexWhere((chat) => chat['id'] == roomId);
 
       if (chatIndex != -1) {
         setState(() {
-          // Update message content
-          MessageList.cachedMessages![chatIndex]['message'] = content;
+          // Update message content with sender info
+          MessageList.cachedMessages![chatIndex]['message'] = '$sender: $content';
 
           // Mark message as unread if it's not the currently selected chat
           if (roomId != widget.selectedUserId) {
@@ -186,6 +192,8 @@ class _MessageListState extends State<MessageList> {
             MessageList.cachedMessages!.insert(0, chat);
           }
         });
+      } else {
+        print("Warning: Received message for unknown room: $roomId");
       }
     }
   }
@@ -321,6 +329,7 @@ class _MessageListState extends State<MessageList> {
           await widget.groupController.createGroupChat(
             message['groupName'],
             message['memberIds'],
+            currentUserId, // Use the state's getter for the current user ID
           );
 
           // --- START: Update cache and trigger rebuild ---
