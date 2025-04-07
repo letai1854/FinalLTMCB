@@ -325,35 +325,35 @@ class _MessageListState extends State<MessageList> {
 
           // --- START: Update cache and trigger rebuild ---
           // Tạo group mới để thêm vào cache
-          final newGroupId =
-              'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
-          final newGroup = {
-            'name': message['groupName'],
-            'message': 'New group created', // Placeholder message
-            'avatar': 'assets/logoS.jpg', // Placeholder avatar
-            'isOnline': true, // Placeholder status
-            'id': newGroupId, // Lưu ID để sử dụng sau
-            'isGroup': true,
-            'members': message['memberIds'],
-          };
+          // final newGroupId =
+          //     'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
+          // final newGroup = {
+          //   'name': message['groupName'],
+          //   'message': 'New group created', // Placeholder message
+          //   'avatar': 'assets/logoS.jpg', // Placeholder avatar
+          //   'isOnline': true, // Placeholder status
+          //   'id': newGroupId, // Lưu ID để sử dụng sau
+          //   'isGroup': true,
+          //   'members': message['memberIds'],
+          // };
 
-          // Ensure cache is initialized
-          MessageList.cachedMessages ??= [];
-          // Add to the beginning of the list
-          MessageList.cachedMessages!.insert(0, newGroup);
+          // // Ensure cache is initialized
+          // MessageList.cachedMessages ??= [];
+          // // Add to the beginning of the list
+          // MessageList.cachedMessages!.insert(0, newGroup);
 
-          // Trigger UI rebuild
-          if (mounted) {
-            setState(() {});
+          // // Trigger UI rebuild
+          // if (mounted) {
+          //   setState(() {});
 
-            // Tự động chọn group mới sau khi UI đã được cập nhật
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && widget.onUserSelected != null) {
-                // Chọn group mới bằng cách gọi callback với ID của group
-                widget.onUserSelected!(newGroupId); // Truyền String ID
-              }
-            });
-          }
+          //   // Tự động chọn group mới sau khi UI đã được cập nhật
+          //   WidgetsBinding.instance.addPostFrameCallback((_) {
+          //     if (mounted && widget.onUserSelected != null) {
+          //       // Chọn group mới bằng cách gọi callback với ID của group
+          //       widget.onUserSelected!(newGroupId); // Truyền String ID
+          //     }
+          //   });
+          // }
           // --- END: Update cache and trigger rebuild ---
 
           completer.complete();
