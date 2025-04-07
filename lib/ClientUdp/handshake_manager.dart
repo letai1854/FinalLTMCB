@@ -253,8 +253,12 @@ class HandshakeManager {
       var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
       try {
         // Use DataConverter to process the handshake data
-        clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
-        clientState.currentChatId = data[Constants.KEY_CHAT_ID];
+        if(data[Constants.KEY_SESSION_KEY] != null){
+          clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
+          logger.log(
+              'Session key from ACK: ${clientState.sessionKey} (Transaction ID: $transactionId)');
+          clientState.currentChatId = data[Constants.KEY_CHAT_ID];
+        }
         var result =
             DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {
