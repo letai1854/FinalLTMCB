@@ -138,17 +138,20 @@ class MyApp extends StatelessWidget {
 
         switch (settings.name) {
           case '/login':
-            if (UserProvider().currentUser == null) {
-              return PageRouteBuilder(
+            // if (UserProvider().currentUser == null) {
+            //   return PageRouteBuilder(
+            //     pageBuilder: (context, _, __) => const ResponsiveLogin(),
+            //     settings: settings,
+            //   );
+            // } else {
+            //   return PageRouteBuilder(
+            //     pageBuilder: (context, _, __) => const Responsivechat(),
+            //     settings: const RouteSettings(name: '/chat'),
+            //   );
+            // }
+            return PageRouteBuilder(
                 pageBuilder: (context, _, __) => const ResponsiveLogin(),
-                settings: settings,
-              );
-            } else {
-              return PageRouteBuilder(
-                pageBuilder: (context, _, __) => const Responsivechat(),
-                settings: const RouteSettings(name: '/chat'),
-              );
-            }
+                settings: const RouteSettings(name: '/login'));
           // case '/chatMobile':
           //   // Check if we have user ID in arguments
           //   if (args is Map<String, dynamic> && args.containsKey('userId')) {
