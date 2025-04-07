@@ -70,6 +70,7 @@ class MessageProcessor {
             });
           }
           break;
+          print(Constants.ACTION_RECIEVE_LISTUSER);
           case Constants.ACTION_RECIEVE_LISTUSER:
           if(data!=null){
             print(data);
@@ -79,13 +80,12 @@ class MessageProcessor {
             MessageNotifier.updateListUser(participants);
           }
           break;
+
+          print(Constants.ACTION_RECIEVE_LISTUSER);
+          print("-----------");
         case Constants.ACTION_RECEIVE_MESSAGE:
           // RECEIVE_MESSAGE comes directly from server (S->C), status might not be relevant here, focus on data
-          if (data != null &&
-              data.containsKey(Constants.KEY_ROOM_ID) &&
-              data.containsKey(Constants.KEY_SENDER_CHAT_ID) &&
-              data.containsKey(Constants.KEY_CONTENT) &&
-              data.containsKey(Constants.KEY_TIMESTAMP)) {
+          if (data != null &&data.containsKey(Constants.KEY_ROOM_ID) &&data.containsKey(Constants.KEY_SENDER_CHAT_ID) &&data.containsKey(Constants.KEY_CONTENT) &&data.containsKey(Constants.KEY_TIMESTAMP)) {
             String roomId = data[Constants.KEY_ROOM_ID];
             String sender = data[Constants.KEY_SENDER_CHAT_ID];
             String content = data[Constants.KEY_CONTENT];

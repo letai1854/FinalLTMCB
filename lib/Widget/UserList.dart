@@ -77,7 +77,7 @@ class _MessageListState extends State<MessageList> {
       }
 
       // Cập nhật danh sách chat dựa trên người dùng mới
-      _updateCachedMessagesFromUsers(userList);
+      // _updateCachedMessagesFromUsers(userList);
     });
   }
 
@@ -175,7 +175,7 @@ class _MessageListState extends State<MessageList> {
 
       // Find the chat in cached messages
       final chatIndex = MessageList.cachedMessages!.indexWhere((chat) => chat['id'] == roomId);
-
+      print("----------"+chatIndex.toString());
       if (chatIndex != -1) {
         setState(() {
           // Update message content with sender info
