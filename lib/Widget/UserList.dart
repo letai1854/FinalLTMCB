@@ -50,10 +50,112 @@ class _MessageListState extends State<MessageList> {
 
       // Add message listener
       MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+      MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
+      // Thêm listener cho danh sách người dùng
+      MessageNotifier.messageNotifierListUser.addListener(_handleUserListUpdate);
 
       if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
         _autoSelectFirstUser();
       }
+    }
+  }
+
+  // Thêm phương thức xử lý cập nhật danh sách người dùng
+  void _handleUserListUpdate() {
+    if (!mounted) return;
+
+    final userList = MessageNotifier.messageNotifierListUser.value;
+    if (userList.isEmpty) return;
+
+    setState(() {
+      // Chuyển đổi danh sách người dùng từ server thành danh sách User trong ứng dụng
+      final convertedUsers = _convertToUsers(userList, currentUserId);
+
+      // Cập nhật danh sách người dùng trong ClientState
+      if (widget.groupController.clientState != null) {
+        widget.groupController.clientState!.convertedUsers = convertedUsers;
+      }
+
+      // Cập nhật danh sách chat dựa trên người dùng mới
+      _updateCachedMessagesFromUsers(userList);
+    });
+  }
+
+  // Chuyển đổi danh sách ID người dùng thành danh sách đối tượng User
+  List<User> _convertToUsers(List<String> userIds, String currentUserId) {
+    return userIds
+        .where((userId) => userId != currentUserId) // Loại bỏ ID người dùng hiện tại
+        .map((userId) => User(
+              chatId: userId,
+              createdAt: DateTime.now(),
+            ))
+        .toList();
+  }
+
+  // Cập nhật danh sách chat từ danh sách người dùng
+  void _updateCachedMessagesFromUsers(List<String> userIds) {
+    // Khởi tạo cache nếu chưa có
+    MessageList.cachedMessages ??= [];
+
+    // Danh sách ID người dùng đã có trong cache
+    final existingUserIds = MessageList.cachedMessages!
+        .where((chat) => chat['isGroup'] == false)
+        .map((chat) => chat['id'] as String)
+        .toSet();
+
+    // Thêm người dùng mới vào cache
+    for (final userId in userIds) {
+      // Bỏ qua người dùng hiện tại và người dùng đã có trong cache
+      if (userId == currentUserId || existingUserIds.contains(userId)) {
+        continue;
+      }
+
+      // Thêm người dùng mới vào cache
+      MessageList.cachedMessages!.add({
+        'id': userId,
+        'name': userId, // Sử dụng ID làm tên hiển thị
+        'avatar': 'assets/logoS.jpg', // Avatar mặc định
+        'isOnline': true,
+        'message': 'Người dùng mới',
+        'isGroup': false,
+      });
+    }
+  }
+
+  void _handleNewRoom() {
+    final roomData = MessageNotifier.messageNotifierRoom.value;
+    if (roomData != null && mounted) {
+      setState(() {
+        final roomId = roomData['room_id'];
+        final roomName = roomData['room_name'];
+        final List<String> members = roomData['participants'];
+
+        // Kiểm tra xem phòng đã tồn tại chưa
+        int existingIndex =
+            MessageList.cachedMessages?.indexWhere((room) => room['id'] == roomId) ?? -1;
+
+        if (existingIndex == -1) {
+          // Thêm phòng mới vào danh sách nếu chưa tồn tại
+          MessageList.cachedMessages?.insert(0, {
+            'id': roomId,
+            'name': roomName,
+            'avatar': "assets/logoS.jpg",
+            'isOnline': true,
+            'message': 'Phòng chat mới được tạo',
+            'isGroup': true,
+            'members': members, // Sử dụng List<String> thay vì Set<String>
+          });
+
+          print("Đã thêm phòng chat mới: $roomName (ID: $roomId)");
+
+          // Đã loại bỏ phần tự động chọn phòng mới
+        } else {
+          // Cập nhật thông tin phòng nếu đã tồn tại
+          MessageList.cachedMessages![existingIndex]['name'] = roomName;
+          MessageList.cachedMessages![existingIndex]['members'] = members;
+          print("Đã cập nhật thông tin phòng: $roomName (ID: $roomId)");
+        }
+      });
     }
   }
 
@@ -65,8 +167,8 @@ class _MessageListState extends State<MessageList> {
       final content = messageData['content'];
 
       // Find the chat in cached messages
-      final chatIndex = MessageList.cachedMessages!
-          .indexWhere((chat) => chat['id'] == roomId);
+      final chatIndex =
+          MessageList.cachedMessages!.indexWhere((chat) => chat['id'] == roomId);
 
       if (chatIndex != -1) {
         setState(() {
@@ -91,6 +193,9 @@ class _MessageListState extends State<MessageList> {
   @override
   void dispose() {
     MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+    MessageNotifier.messageNotifierRoom.removeListener(_handleNewRoom);
+    // Xóa listener cho danh sách người dùng
+    MessageNotifier.messageNotifierListUser.removeListener(_handleUserListUpdate);
     super.dispose();
   }
 
@@ -294,8 +399,7 @@ class _MessageListState extends State<MessageList> {
           builder: (context, setDialogState) {
             // Filter users based on search query
             var filteredUsers =
-                (widget.groupController.client?.clientState.convertedUsers ??
-                        [])
+                (widget.groupController.client?.clientState.convertedUsers ?? [])
                     .where((user) => user.chatId
                         .toLowerCase()
                         .contains(searchQuery.toLowerCase()))

@@ -50,9 +50,43 @@ class MessageController {
     print("UDP client set in MessageController");
   }
 
-  // Method to send MessageData via UDP
-  Future<void> SendMessage(MessageData message) async {
-    String roomId = "room1";
+  // *** HÀM GỬI TIN NHẮN VĂN BẢN ***
+  Future<void> SendTextMessage(String roomId, List<String> members, String messageContent) async {
+    // Kiểm tra roomId có hợp lệ không
+    if (roomId.isEmpty) {
+      logger.log("Error: Room ID is empty.", name: "MessageController");
+      throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
+    }
+    
+    logger.log(
+        'MessageController: Preparing to send text message to room $roomId');
+
+    // Lấy instance UdpClient
+    try {
+      UdpChatClient? _udpClient = _instance.udpClient;
+      
+      if (_udpClient == null) {
+        throw Exception("Không thể kết nối đến máy chủ chat");
+      }
+
+      // Gửi dữ liệu qua UdpClient - sử dụng roomId được truyền vào từ tham số
+      final String commandString = "/send $roomId $messageContent";
+      logger.log('Sending command: $commandString');
+      
+      await _udpClient.commandProcessor.processCommand(commandString);
+      logger.log(
+          'MessageController: Text message sent successfully to room $roomId.');
+    } catch (e) {
+      logger.log('Error sending text message via UdpClient: $e',
+          name: "MessageController");
+      // Ném lại lỗi để ChatContent có thể hiển thị thông báo
+      throw Exception('Failed to send message: $e');
+    }
+  }
+  
+  // Phương thức gửi MessageData phức tạp qua UDP (sẽ thực hiện sau)
+  Future<void> SendComplexMessage(String roomId, MessageData message) async {
+    // Kiểm tra roomId có hợp lệ không
     if (roomId.isEmpty) {
       logger.log("Error: Room ID is empty.", name: "MessageController");
       throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
@@ -60,78 +94,29 @@ class MessageController {
 
     try {
       // 1. Chuyển MessageData thành Map -> JSON String
-      //    (Giả định các hàm toJson() của Image/Audio/Video/File đã tự Base64 dữ liệu media)
       final Map<String, dynamic> messageJsonMap = message.toJson();
       final String messageJsonString = jsonEncode(messageJsonMap);
       logger.log(
           "MessageData JSON (Payload): ${messageJsonString.substring(0, min(messageJsonString.length, 150))}...",
           name: "MessageController");
 
-      // 2. --- LOẠI BỎ BƯỚC BASE64 TOÀN BỘ JSON ---
-      // final String messagePayloadBase64 = base64Encode(utf8.encode(messageJsonString));
-      // logger.log("Message Payload Base64: ${messagePayloadBase64.substring(0, min(messagePayloadBase64.length, 100))}...", name: "MessageController");
-
-      // 3. Tạo chuỗi lệnh: /send <roomId> <rawJsonStringPayload>
-      //    Payload bây giờ là chuỗi JSON trực tiếp
+      // 2. Tạo chuỗi lệnh với roomId từ tham số
       final String commandString = "/send $roomId $messageJsonString";
-      // Log cẩn thận vì payload có thể rất dài
-      logger.log("Formatted command string using Raw JSON Payload",
-          name: "MessageController");
-      print(
-          "Formatted command string (preview): ${commandString.substring(0, min(commandString.length, 200))}..."); // Log preview dài hơn
-
-      // 4. Gửi lệnh đến CommandProcessor để xử lý tiếp
+      
+      // 3. Gửi lệnh đến CommandProcessor
       logger.log("Passing command to CommandProcessor...",
           name: "MessageController");
-      // !!! Đảm bảo CommandProcessor/Handler biết cách trích xuất payload JSON này !!!
       await _udpClient?.commandProcessor.processCommand(commandString);
       logger.log(
-          "Command '/send' with Raw JSON Payload passed to CommandProcessor.",
+          "Command '/send' with JSON Payload passed to CommandProcessor.",
           name: "MessageController");
     } catch (e, stackTrace) {
-      logger.log("Error formatting/processing send command with Raw JSON: $e",
+      logger.log("Error formatting/processing send command with JSON: $e",
           name: "MessageController", error: e, stackTrace: stackTrace);
       throw Exception('Gửi tin nhắn thất bại: $e');
     }
   }
-
-  // *** HÀM GỬI TIN NHẮN VĂN BẢN ***
-  Future<void> SendTextMessage(
-      String roomId, List<String> members, String messageContent) async {
-    logger.log(
-        'MessageController: Preparing to send text message to room $roomId');
-
-    // Lấy instance UdpClient (điều chỉnh cách lấy cho phù hợp với cấu trúc của bạn)
-    try {
-      // !!! THAY THẾ BẰNG CÁCH LẤY INSTANCE UDPCLIENT/CLIENTSTATE ĐÚNG !!!
-      // Ví dụ truy cập qua một singleton hoặc GetIt
-      // Giả sử UdpClient có một getter static hoặc tương tự để lấy instance đang chạy
-
-      // Cần đảm bảo client đã login và có session key
-    } catch (e) {
-      logger.log('Error getting UdpClient instance: $e',
-          name: 'MessageController');
-      throw Exception('Failed to get UDP client instance: $e');
-    }
-
-    // Tạo payload dữ liệu theo định dạng yêu cầu của server
-
-    try {
-      // Gửi dữ liệu qua UdpClient
-      // Hàm sendData của UdpClient sẽ tự động mã hóa và gửi
-      // Nó cũng nên xử lý việc chờ ACK hoặc timeout nếu cần
-      final String commandString = "/send $roomId $messageContent";
-      await _udpClient?.commandProcessor.processCommand(commandString);
-      logger.log(
-          'MessageController: Text message sent successfully to room $roomId.');
-    } catch (e) {
-      logger.log('Error sending text message via UdpClient: $e',
-          name: 'MessageController');
-      // Ném lại lỗi để ChatContent có thể hiển thị thông báo
-      throw Exception('Failed to send message: $e');
-    }
-  }
   // **********************************
 
-  // Các hàm khác của contr
+  // Các hàm khác của controller có thể thêm vào đây
 }
