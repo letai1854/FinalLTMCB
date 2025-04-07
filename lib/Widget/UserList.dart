@@ -77,7 +77,6 @@ class _MessageListState extends State<MessageList> {
       }
 
       // Cập nhật danh sách chat dựa trên người dùng mới
-      // _updateCachedMessagesFromUsers(userList);
     });
   }
 
@@ -90,36 +89,6 @@ class _MessageListState extends State<MessageList> {
               createdAt: DateTime.now(),
             ))
         .toList();
-  }
-
-  // Cập nhật danh sách chat từ danh sách người dùng
-  void _updateCachedMessagesFromUsers(List<String> userIds) {
-    // Khởi tạo cache nếu chưa có
-    MessageList.cachedMessages ??= [];
-
-    // Danh sách ID người dùng đã có trong cache
-    final existingUserIds = MessageList.cachedMessages!
-        .where((chat) => chat['isGroup'] == false)
-        .map((chat) => chat['id'] as String)
-        .toSet();
-
-    // Thêm người dùng mới vào cache
-    for (final userId in userIds) {
-      // Bỏ qua người dùng hiện tại và người dùng đã có trong cache
-      if (userId == currentUserId || existingUserIds.contains(userId)) {
-        continue;
-      }
-
-      // Thêm người dùng mới vào cache
-      MessageList.cachedMessages!.add({
-        'id': userId,
-        'name': userId, // Sử dụng ID làm tên hiển thị
-        'avatar': 'assets/logoS.jpg', // Avatar mặc định
-        'isOnline': true,
-        'message': 'Người dùng mới',
-        'isGroup': false,
-      });
-    }
   }
 
   void _handleNewRoom() {
@@ -332,37 +301,37 @@ class _MessageListState extends State<MessageList> {
             currentUserId, // Use the state's getter for the current user ID
           );
 
-          // --- START: Update cache and trigger rebuild ---
-          // Tạo group mới để thêm vào cache
-          final newGroupId =
-              'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
-          final newGroup = {
-            'name': message['groupName'],
-            'message': 'New group created', // Placeholder message
-            'avatar': 'assets/logoS.jpg', // Placeholder avatar
-            'isOnline': true, // Placeholder status
-            'id': newGroupId, // Lưu ID để sử dụng sau
-            'isGroup': true,
-            'members': message['memberIds'],
-          };
+          // // --- START: Update cache and trigger rebuild ---
+          // // Tạo group mới để thêm vào cache
+          // final newGroupId =
+          //     'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
+          // final newGroup = {
+          //   'name': message['groupName'],
+          //   'message': 'New group created', // Placeholder message
+          //   'avatar': 'assets/logoS.jpg', // Placeholder avatar
+          //   'isOnline': true, // Placeholder status
+          //   'id': newGroupId, // Lưu ID để sử dụng sau
+          //   'isGroup': true,
+          //   'members': message['memberIds'],
+          // };
 
-          // Ensure cache is initialized
-          MessageList.cachedMessages ??= [];
-          // Add to the beginning of the list
-          MessageList.cachedMessages!.insert(0, newGroup);
+          // // Ensure cache is initialized
+          // MessageList.cachedMessages ??= [];
+          // // Add to the beginning of the list
+          // MessageList.cachedMessages!.insert(0, newGroup);
 
-          // Trigger UI rebuild
-          if (mounted) {
-            setState(() {});
+          // // Trigger UI rebuild
+          // if (mounted) {
+          //   setState(() {});
 
-            // Tự động chọn group mới sau khi UI đã được cập nhật
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && widget.onUserSelected != null) {
-                // Chọn group mới bằng cách gọi callback với ID của group
-                widget.onUserSelected!(newGroupId); // Truyền String ID
-              }
-            });
-          }
+          //   // Tự động chọn group mới sau khi UI đã được cập nhật
+          //   WidgetsBinding.instance.addPostFrameCallback((_) {
+          //     if (mounted && widget.onUserSelected != null) {
+          //       // Chọn group mới bằng cách gọi callback với ID của group
+          //       widget.onUserSelected!(newGroupId); // Truyền String ID
+          //     }
+          //   });
+          // }
           // --- END: Update cache and trigger rebuild ---
 
           completer.complete();
