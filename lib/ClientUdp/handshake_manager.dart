@@ -234,6 +234,7 @@ void removeUsersCallback() {
               'Session key from ACK: ${clientState.sessionKey} (Transaction ID: $transactionId)');
           clientState.currentChatId = data[Constants.KEY_CHAT_ID];
         }
+
         var result =
             DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {
