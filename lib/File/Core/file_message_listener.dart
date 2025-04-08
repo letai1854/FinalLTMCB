@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as logger;
 import 'package:finalltmcb/File/Core/file_json_helper.dart';
+import 'package:finalltmcb/Model/FileTransferQueue.dart';
 
 import '../Models/file_constants.dart';
 import '../ClientStateForFile.dart';
@@ -86,13 +87,32 @@ class FileMessageListener {
 
   void _handleFileInit(Map<String, dynamic> response) {
     // Handle file initialization
+    print('File initialization response: $response');
+    final data = response['data'];
+    // This method should handle the *response* to the initial request,
+    // not re-initiate the transfer. Call the handshake manager's
+    // response handler instead.
+    handshakeManager.handleResponse(response);
   }
 
   void _handleFileData(Map<String, dynamic> response) {
     // Handle file data chunks
+    handshakeManager.sendRemainingChunks(response);
   }
 
   void _handleFileFin(Map<String, dynamic> response) {
-    // Handle file transfer completion
+    try {
+      if (response['status'] == 'success') {
+        logger.log('✅ File transfer completed successfully');
+        // Reset the transfer state and remove from queue
+        FileTransferQueue.instance.removeFirst();
+      } else {
+        logger.log('❌ File transfer failed');
+        FileTransferState.instance.isTransferring = false;
+      }
+    } catch (e) {
+      logger.log('Error handling file completion: $e');
+      FileTransferState.instance.isTransferring = false;
+    }
   }
 }

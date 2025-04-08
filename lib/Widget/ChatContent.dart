@@ -3,6 +3,7 @@ import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
+import 'package:finalltmcb/Model/FileTransferQueue.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
 import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
@@ -35,11 +36,13 @@ import 'package:finalltmcb/Widget/ChatInputWidget.dart'; // Import the new widge
 
 class ChatContent extends StatefulWidget {
   final String userId;
-  GroupController groupController; // Access the global instance
+  GroupController groupController;
+  MessageController messageController; // Access the global instance
   ChatContent({
     Key? key,
     required this.userId,
     required this.groupController,
+    required this.messageController, // Pass the global instance
   }) : super(key: key);
 
   @override
@@ -206,7 +209,7 @@ class _ChatContentState extends State<ChatContent> {
     _addMessageToUI(uiMessage);
 
     try {
-      await MessageController()
+      await widget.messageController
           .SendTextMessage(widget.userId, _groupMembers, text);
       logger
           .log('ChatContent: Called SendTextMessage for room ${widget.userId}');
@@ -223,38 +226,82 @@ class _ChatContentState extends State<ChatContent> {
     final timestamp = DateTime.now();
     List<ChatMessage> uiMessagesToAdd = [];
 
+    // Handle text message
     if (text != null && text.isNotEmpty) {
-      uiMessagesToAdd
-          .add(ChatMessage(text: text, isMe: true, timestamp: timestamp));
-    }
-    for (var img in images) {
-      uiMessagesToAdd.add(ChatMessage(
-        text: '',
-        isMe: true,
-        timestamp: timestamp,
-        image: img.base64Data,
-        mimeType: img.mimeType,
-      ));
-    }
+      final textMessage =
+          ChatMessage(text: text, isMe: true, timestamp: timestamp);
+      uiMessagesToAdd.add(textMessage);
 
-    _addMultipleMessagesToUI(uiMessagesToAdd);
-
-    Future(() async {
       try {
-        final messageDataToSend = MessageData(
-            text: text,
-            images: images,
-            audios: [],
-            files: [],
-            video: null,
-            timestamp: timestamp);
-        _logMessageDataForServer(messageDataToSend);
+        await widget.messageController
+            .SendTextMessage(widget.userId, _groupMembers, text);
+        logger.log(
+            'ChatContent: Called SendTextMessage for room ${widget.userId}');
       } catch (e, s) {
-        logger.log("Error sending media message: $e",
+        logger.log("Error initiating text message send: $e",
             name: "ChatContent", error: e, stackTrace: s);
-        _showTopNotification('Lỗi gửi ảnh/media', isError: true);
+        _showTopNotification('Lỗi gửi tin nhắn văn bản', isError: true);
       }
-    });
+    }
+
+    // Handle image messages
+    if (images.isNotEmpty) {
+      final currentChatId = UdpClientSingleton().clientState?.currentChatId;
+      if (currentChatId == null) {
+        logger.log('Warning: No current chat ID available.',
+            name: "ChatContent");
+        _showTopNotification('Lỗi: Chưa đăng nhập', isError: true);
+        return;
+      }
+
+      for (var img in images) {
+        // Add to UI
+        uiMessagesToAdd.add(ChatMessage(
+          text: '',
+          isMe: true,
+          timestamp: timestamp,
+          image: img.base64Data,
+          mimeType: img.mimeType,
+        ));
+
+        // Create temporary file from base64
+        try {
+          final tempDir = await getTemporaryDirectory();
+          final tempFile = File(
+              '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg');
+          await tempFile.writeAsBytes(base64Decode(img.base64Data));
+
+          final actualFileSize = await tempFile.length();
+          final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
+          final item = FileTransferItem(
+            currentChatId: widget.userId,
+            userId: widget.userId,
+            filePath: tempFile.path,
+            actualFileSize: actualFileSize,
+            fileType: 'image',
+            actualTotalPackages: (actualFileSize / (1024 * 32)).ceil(),
+          );
+
+          FileTransferQueue.instance.addToQueue(item);
+          // Add to global queue
+          // FileTransferQueue().addToQueue(FileTransferItem(
+          //   currentChatId: currentChatId,
+          //   userId: widget.userId,
+          //   filePath: tempFile.path,
+          //   actualFileSize: actualFileSize,
+          //   fileType: 'image',
+          //   actualTotalPackages: actualTotalPackages,
+          // ));
+        } catch (e, s) {
+          logger.log("Error preparing image for sending: $e",
+              name: "ChatContent", error: e, stackTrace: s);
+          _showTopNotification('Lỗi xử lý ảnh', isError: true);
+        }
+      }
+    }
+
+    // Update UI with all messages
+    _addMultipleMessagesToUI(uiMessagesToAdd);
   }
 
   void _handleAudioCreated(ChatMessage audioMessage) {
@@ -263,38 +310,51 @@ class _ChatContentState extends State<ChatContent> {
     Future(() async {
       try {
         AudioData? audioData;
+        String filePath = '';
+        int actualFileSize = 0;
+        final currentChatId = UdpClientSingleton().clientState?.currentChatId;
+        if (currentChatId == null) {
+          logger.log('Warning: No current chat ID available.',
+              name: "ChatContent");
+          _showTopNotification('Lỗi: Chưa đăng nhập', isError: true);
+          return;
+        }
+
         if (audioMessage.isAudioPath && audioMessage.audio != null) {
           final File audioFile = File(audioMessage.audio!);
           final bytes = await audioFile.readAsBytes();
+          filePath = audioMessage.audio!;
+          actualFileSize = bytes.length;
+          final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
+          final fileType = 'audio';
           audioData = AudioData(
             base64Data: base64Encode(bytes),
             duration: 0,
             mimeType: lookupMimeType(audioMessage.audio!) ?? 'audio/mp4',
             size: bytes.length,
           );
-        } else if (audioMessage.audio != null) {
-          final bytes = base64Decode(audioMessage.audio!);
-          audioData = AudioData(
-            base64Data: audioMessage.audio!,
-            duration: 0,
-            mimeType: 'audio/mp4',
-            size: bytes.length,
-          );
+
+          // Send file message first
+          try {
+            await widget.messageController.SendFileMessage(
+                currentChatId,
+                widget.userId,
+                filePath,
+                actualFileSize,
+                fileType,
+                actualTotalPackages);
+          } catch (e, s) {
+            logger.log("Error sending audio file: $e",
+                name: "ChatContent", error: e, stackTrace: s);
+            _showTopNotification('Lỗi gửi audio', isError: true);
+            return;
+          }
         } else {
           logger.log(
               'Warning: No valid audio data found in ChatMessage for sending.',
               name: "ChatContent");
           return;
         }
-
-        final messageDataToSend = MessageData(
-            text: null,
-            images: [],
-            audios: [audioData],
-            files: [],
-            video: null,
-            timestamp: audioMessage.timestamp);
-        _logMessageDataForServer(messageDataToSend);
       } catch (e, s) {
         logger.log("Error sending audio message: $e",
             name: "ChatContent", error: e, stackTrace: s);
@@ -332,7 +392,7 @@ class _ChatContentState extends State<ChatContent> {
 
       // Get actual file size
       final actualFileSize = file.lengthSync();
-      final actualTotalPackages = (actualFileSize / (512 * 1024)).ceil();
+      final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
 
       logger.log('File details:', name: "ChatContent");
       logger.log('Path: ${fileInfo.filePath}', name: "ChatContent");
@@ -343,21 +403,33 @@ class _ChatContentState extends State<ChatContent> {
       // Add message to UI before sending
       _addMessageToUI(fileMessage);
 
-      Future(() async {
-        try {
-          await MessageController().SendFileMessage(
-              currentChatId,
-              widget.userId,
-              fileInfo.filePath,
-              actualFileSize,
-              fileInfo.fileType,
-              actualTotalPackages);
-        } catch (e, s) {
-          logger.log("Error sending file message: $e",
-              name: "ChatContent", error: e, stackTrace: s);
-          _showTopNotification('Lỗi gửi tệp', isError: true);
-        }
-      });
+      void _handleFileMessage(String filePath, int fileSize) {
+        final item = FileTransferItem(
+          currentChatId: widget.userId,
+          userId: widget.userId,
+          filePath: filePath,
+          actualFileSize: fileSize,
+          fileType: 'file',
+          actualTotalPackages: (fileSize / (1024 * 32)).ceil(),
+        );
+
+        FileTransferQueue.instance.addToQueue(item);
+      }
+      // Future(() async {
+      //   try {
+      //     await widget.messageController.SendFileMessage(
+      //         currentChatId,
+      //         widget.userId,
+      //         fileInfo.filePath,
+      //         actualFileSize,
+      //         fileInfo.fileType,
+      //         actualTotalPackages);
+      //   } catch (e, s) {
+      //     logger.log("Error sending file message: $e",
+      //         name: "ChatContent", error: e, stackTrace: s);
+      //     _showTopNotification('Lỗi gửi tệp', isError: true);
+      //   }
+      // });
     } catch (e) {
       logger.log('Error handling file creation: $e', name: "ChatContent");
       _showTopNotification('Lỗi xử lý file', isError: true);
@@ -365,29 +437,65 @@ class _ChatContentState extends State<ChatContent> {
   }
 
   void _handleVideoCreated(ChatMessage videoMessage) {
-    _addMessageToUI(videoMessage);
-
-    Future(() async {
-      try {
-        if (videoMessage.video == null) {
-          logger.log('Warning: VideoFileMessage in callback is null.',
-              name: "ChatContent");
-          return;
-        }
-        final messageDataToSend = MessageData(
-            text: null,
-            images: [],
-            audios: [],
-            files: [],
-            video: videoMessage.video,
-            timestamp: videoMessage.timestamp);
-        _logMessageDataForServer(messageDataToSend);
-      } catch (e, s) {
-        logger.log("Error sending video message: $e",
-            name: "ChatContent", error: e, stackTrace: s);
-        _showTopNotification('Lỗi gửi video', isError: true);
+    try {
+      if (videoMessage.video == null) {
+        logger.log('Warning: VideoFileMessage in callback is null.',
+            name: "ChatContent");
+        return;
       }
-    });
+
+      final currentChatId = UdpClientSingleton().clientState?.currentChatId;
+      if (currentChatId == null) {
+        logger.log('Warning: No current chat ID available.',
+            name: "ChatContent");
+        _showTopNotification('Lỗi: Chưa đăng nhập', isError: true);
+        return;
+      }
+
+      final videoInfo = videoMessage.video!;
+
+      // Verify video exists and is readable
+      final file = File(videoInfo.localPath);
+      if (!file.existsSync()) {
+        logger.log('Warning: Video file does not exist: ${videoInfo.localPath}',
+            name: "ChatContent");
+        _showTopNotification('Lỗi: File video không tồn tại', isError: true);
+        return;
+      }
+
+      // Get actual file size
+      final actualFileSize = file.lengthSync();
+      final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
+      final fileType = 'video'; // Since we know it's a video file
+
+      logger.log('Video details:', name: "ChatContent");
+      logger.log('Path: ${videoInfo.localPath}', name: "ChatContent");
+      logger.log('Size: $actualFileSize bytes', name: "ChatContent");
+      logger.log('Packages: $actualTotalPackages', name: "ChatContent");
+      logger.log('Type: $fileType', name: "ChatContent");
+
+      // Add message to UI before sending
+      _addMessageToUI(videoMessage);
+
+      Future(() async {
+        try {
+          await widget.messageController.SendFileMessage(
+              currentChatId,
+              widget.userId,
+              videoInfo.localPath,
+              actualFileSize,
+              fileType,
+              actualTotalPackages);
+        } catch (e, s) {
+          logger.log("Error sending video message: $e",
+              name: "ChatContent", error: e, stackTrace: s);
+          _showTopNotification('Lỗi gửi video', isError: true);
+        }
+      });
+    } catch (e) {
+      logger.log('Error handling video creation: $e', name: "ChatContent");
+      _showTopNotification('Lỗi xử lý video', isError: true);
+    }
   }
 
   void _addMessageToUI(ChatMessage message) {

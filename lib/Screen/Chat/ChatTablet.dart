@@ -55,6 +55,7 @@ class _ChatTabletState extends State<ChatTablet> {
                 ? ChatContent(
                     userId: selectedUserId!,
                     groupController: globalGroupController,
+                    messageController: globalMessageController,
                   )
                 : const Center(
                     child: Text('Select a conversation to start chatting')),

@@ -3,6 +3,7 @@ import 'dart:developer' as logger;
 import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
+import 'package:finalltmcb/constants/GlobalVariables.dart';
 import 'Models/file_constants.dart';
 
 /// Stores the current state of the UDP chat client, including
@@ -15,6 +16,7 @@ class ClientStateForFile {
   String? sessionKey = UdpClientSingleton().clientState?.sessionKey;
   String? currentUserId = UdpClientSingleton().clientState?.currentChatId;
   bool running = true;
+  final int portNew;
   List<Map<String, dynamic>> rooms = [];
   // Danh sách tất cả người dùng
   List<String> allUsers = [];
@@ -24,8 +26,8 @@ class ClientStateForFile {
   // Converted data structures
 
   /// Private constructor - use ClientState.create() factory constructor instead
-  ClientStateForFile._internal(
-      this.serverHost, this.serverPort, this.socket, this.serverAddress) {
+  ClientStateForFile._internal(this.serverHost, this.serverPort, this.socket,
+      this.serverAddress, this.portNew) {
     rooms = [];
     allUsers = [];
     allMessages = {};
@@ -33,7 +35,7 @@ class ClientStateForFile {
 
   /// Factory constructor that creates the socket and resolves the server address
   static Future<ClientStateForFile> create(
-      String serverHost, int serverPort) async {
+      String serverHost, int serverPort, int portFile) async {
     try {
       logger.log("File transfer client created with session key:");
 
@@ -59,12 +61,15 @@ class ClientStateForFile {
 
       logger.log("Creating UDP socket...");
       // Create UDP socket using FILE_TRANSFER_SERVER_PORT
-      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      var a = GlobalVariables.instance.port;
+      print(a);
+      final socket =
+          await RawDatagramSocket.bind(InternetAddress.anyIPv4, portFile);
 
       logger.log("Socket created. Local port: ${socket.port}");
 
       return ClientStateForFile._internal(
-          serverHost, serverPort, socket, resolvedAddress);
+          serverHost, serverPort, socket, resolvedAddress, portFile);
     } catch (e) {
       logger.log("Failed to initialize client state: $e");
       throw Exception('Failed to initialize file client state: $e');

@@ -35,10 +35,11 @@ class FileCommandProcessor {
     final type = parts[0].substring(1); // Remove '/'
     final roomId = parts[1];
     final chatId = parts[2];
-    final filePath = parts[3];
-    final fileSize = int.tryParse(parts[4]) ?? 0;
-    final fileType = parts[5];
-    final totalPackages = int.tryParse(parts[6]) ?? 0;
+    // Reconstruct filePath from remaining parts
+    final filePath = parts.sublist(3, parts.length - 3).join(' ');
+    final fileSize = int.tryParse(parts[parts.length - 3]) ?? 0;
+    final fileType = parts[parts.length - 2];
+    final totalPackages = int.tryParse(parts[parts.length - 1]) ?? 0;
 
     final handler = handlers[type];
     if (handler != null) {

@@ -13,27 +13,36 @@ class UdpChatClientFile {
   UdpChatClientFile._internal(this.clientState, this.handshakeManager,
       this.commandProcessor, this.messageListener);
 
-  static Future<UdpChatClientFile> create(String host, int port) async {
+  static Future<UdpChatClientFile> create(
+      String host, int port, int portFile) async {
     logger.log('⚡ [FileClient] Initializing UDP File Client on $host:$port');
 
-    final clientState = await ClientStateForFile.create(host, port);
-    logger.log(
-        '🔌 [FileClient] Client state created. Socket bound to port ${clientState.socket.port}');
+    try {
+      final clientState = await ClientStateForFile.create(host, port, portFile);
+      logger.log(
+          '🔌 [FileClient] Client state created. Socket bound to port ${clientState.socket.port}');
 
-    final handshakeManager = FileHandshakeManager(clientState);
-    logger.log('🤝 [FileClient] Handshake manager initialized');
+      // Verify server address and port
+      if (clientState.serverAddress.address == '0.0.0.0') {
+        throw Exception(
+            'Invalid server address: ${clientState.serverAddress.address}');
+      }
 
-    final commandProcessor =
-        FileCommandProcessor(clientState, handshakeManager);
-    logger.log('⌨️ [FileClient] Command processor initialized');
+      logger.log(
+          '🌐 Server address: ${clientState.serverAddress.address}:${clientState.serverPort}');
 
-    final messageListener = FileMessageListener(clientState, handshakeManager);
-    logger.log('👂 [FileClient] Message listener initialized');
+      final handshakeManager = FileHandshakeManager(clientState);
+      final commandProcessor =
+          FileCommandProcessor(clientState, handshakeManager);
+      final messageListener =
+          FileMessageListener(clientState, handshakeManager);
 
-    logger.log('✅ [FileClient] UDP File Client initialization complete');
-
-    return UdpChatClientFile._internal(
-        clientState, handshakeManager, commandProcessor, messageListener);
+      return UdpChatClientFile._internal(
+          clientState, handshakeManager, commandProcessor, messageListener);
+    } catch (e) {
+      logger.log('❌ [FileClient] Error creating UDP File Client: $e');
+      rethrow;
+    }
   }
 
   Future<bool> start() async {

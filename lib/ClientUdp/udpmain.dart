@@ -14,12 +14,12 @@ import 'message_processor.dart';
 // Main entry point for command line use
 void main(List<String> args) async {
   final String DEFAULT_SERVER_HOST = "localhost";
-  
+
   String host = DEFAULT_SERVER_HOST;
   int port = Constants.DEFAULT_SERVER_PORT;
 
   logger.log('Starting UDP Chat Client...');
-  
+
   // Parse command line arguments
   if (args.length >= 1) {
     host = args[0];
@@ -27,13 +27,14 @@ void main(List<String> args) async {
   } else {
     logger.log('Using default host: $host');
   }
-  
+
   if (args.length >= 2) {
     try {
       port = int.parse(args[1]);
       logger.log('Using provided port: $port');
     } catch (e) {
-      stderr.writeln("Invalid port number provided: ${args[1]}. Using default port $port.");
+      stderr.writeln(
+          "Invalid port number provided: ${args[1]}. Using default port $port.");
       logger.log("Invalid port argument '${args[1]}', using default $port");
     }
   } else {
@@ -50,18 +51,18 @@ void main(List<String> args) async {
   try {
     logger.log('Creating UDP client for $host:$port...');
     UdpChatClient client = await UdpChatClient.create(host, port);
-    
+
     // If we have a login command, process it immediately
     if (loginCommand != null) {
       logger.log('Processing login command: $loginCommand');
       client.commandProcessor.processCommand(loginCommand);
-      
+
       // Wait a moment to let communication happen
       logger.log('Waiting for server response...');
       await Future.delayed(Duration(seconds: 5));
       logger.log('Login attempt completed');
     }
-    
+
     // Only start the full interactive client if no direct login was requested
     if (loginCommand == null) {
       logger.log('Starting interactive client mode...');
@@ -89,7 +90,7 @@ Future<void> processCommand(UdpChatClient client, String command) async {
 Future<void> startUdpService() async {
   print("Starting UDP client for Flutter environment...");
   logger.log("Initializing UDP client for Flutter environment");
-  
+
   // Run encryption test before anything else
   logger.log("Running encryption comparison test...");
   // CaesarCipher.runComparisonTest();
@@ -107,40 +108,36 @@ class UdpChatClient {
 
   // Factory constructor for creating the client with all its dependencies
   static Future<UdpChatClient> create(String serverHost, int serverPort) async {
-    logger.log("Initializing UDP Chat Client for server $serverHost:$serverPort");
-    
+    logger
+        .log("Initializing UDP Chat Client for server $serverHost:$serverPort");
+
     // Create ClientState (contains socket)
     logger.log("Creating ClientState with socket...");
     final clientState = await ClientState.create(serverHost, serverPort);
     logger.log("ClientState created. Local port: ${clientState.socket.port}");
-    
+
     // Order matters: MessageProcessor needs ClientState
     logger.log("Creating MessageProcessor...");
     final messageProcessor = MessageProcessor(clientState);
-    
+
     // HandshakeManager needs ClientState and MessageProcessor
     logger.log("Creating HandshakeManager...");
     final handshakeManager = HandshakeManager(clientState, messageProcessor);
-    
+
     // CommandProcessor needs ClientState and HandshakeManager
     logger.log("Creating CommandProcessor...");
     final commandProcessor = CommandProcessor(clientState, handshakeManager);
-    
+
     // MessageListener needs ClientState and HandshakeManager
     logger.log("Creating MessageListener...");
     final messageListener = MessageListener(clientState, handshakeManager);
-    
+
     logger.log("Client components initialized successfully.");
-    
-    return UdpChatClient(
-      clientState, 
-      messageProcessor, 
-      handshakeManager, 
-      commandProcessor, 
-      messageListener
-    );
+
+    return UdpChatClient(clientState, messageProcessor, handshakeManager,
+        commandProcessor, messageListener);
   }
-   
+
   Future<void> start() async {
     // Start the message listener
     logger.log("Starting message listener...");
@@ -155,7 +152,7 @@ class UdpChatClient {
     try {
       stdin.lineMode = true;
       logger.log("Entering main input loop for command processing.");
-      
+
       while (clientState.running) {
         stdout.write("> ");
         String? line = stdin.readLineSync();
@@ -178,7 +175,7 @@ class UdpChatClient {
 
   void cleanup() {
     logger.log("Starting client cleanup...");
-    
+
     // Ensure running state is false to signal listener thread
     clientState.running = false;
     logger.log("Set client running state to false.");
@@ -196,7 +193,7 @@ class UdpChatClient {
     logger.log("Client cleanup finished.");
     print("\nClient connection closed.");
   }
-  
+
   // Method for Flutter compatibility - non-blocking start
   Future<void> startForFlutter() async {
     // Only start the listener - don't start the input loop

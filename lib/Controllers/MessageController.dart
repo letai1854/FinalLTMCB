@@ -8,6 +8,7 @@ import 'dart:isolate'; // Import for Isolate
 
 import 'package:finalltmcb/ClientUdp/command_processor.dart';
 import 'package:finalltmcb/ClientUdp/json_helper.dart';
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/File/UdpChatClientFile.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
@@ -28,15 +29,24 @@ import 'package:universal_html/html.dart';
 
 class MessageController {
   // Create a singleton instance of UserController
+  // static final MessageController _instance = MessageController._internal();
+
+  // // Private constructor
+  // MessageController._internal();
+
+  // // Factory constructor to return the singleton instance
+  // factory MessageController() {
+  //   return _instance;
+  // }
+
   static final MessageController _instance = MessageController._internal();
 
-  // Private constructor
   MessageController._internal();
-
-  // Factory constructor to return the singleton instance
   factory MessageController() {
     return _instance;
   }
+  static MessageController get instance => _instance;
+  UdpChatClientFile? _udpChatClientFile;
 
   // Reference to the UDP client
   UdpChatClient? _udpClient;
@@ -45,12 +55,35 @@ class MessageController {
   UdpChatClient? get udpClient => _udpClient;
 
   // Set the UDP client reference
-  void setUdpClient(UdpChatClient client) {
-    _udpClient = client;
-    // Cần truyền client cho CommandProcessor nếu nó cần
-    // commandProcessor.setUdpClient(client); // Ví dụ
-    print("UDP client set in MessageController");
+  // void setUdpClient(UdpChatClient client, int portFile) {
+  //   _udpClient = client;
+  //    _udpChatClientFile = await UdpChatClientFile.create(
+  //       "localhost", Constants.FILE_TRANSFER_SERVER_PORT, portFile);
+
+  //   // Cần truyền client cho CommandProcessor nếu nó cần
+  //   // commandProcessor.setUdpClient(client); // Ví dụ
+
+  //   print("UDP client set in MessageController");
+  // }
+  Future<void> setUdpClient(UdpChatClient client, int portFile) async {
+    try {
+      _udpClient = client;
+
+      // Create UdpChatClientFile asynchronously
+      _udpChatClientFile = await UdpChatClientFile.create(
+          "localhost", Constants.FILE_TRANSFER_SERVER_PORT, portFile);
+      _udpChatClientFile?.messageListener.startListening();
+      logger.log("UDP clients initialized successfully");
+    } catch (e) {
+      logger.log("Error initializing UDP clients: $e");
+      throw Exception('Failed to initialize UDP clients: $e');
+    }
+    // void setUdpChatClientFile(UdpChatClientFile client) {
+    //   _udpChatClientFile = client;
+    // }
   }
+
+  UdpChatClientFile? get udpChatClientFile => _udpChatClientFile;
 
   // Add new properties for file transfer isolate
   Isolate? _fileTransferIsolate;
@@ -59,7 +92,9 @@ class MessageController {
   // Method to send MessageData via UDP
   Future<void> SendFileMessage(String chat_id, String room_id, String file_path,
       int file_Size, String file_type, int totalPackage) async {
-    String host = "localhost";
+    String host = "localhost"; // Change this to your actual server IP
+    int port = Constants
+        .FILE_TRANSFER_SERVER_PORT; // Make sure this matches your server's file transfer port
 
     try {
       // Extract file extension from path
@@ -75,7 +110,7 @@ class MessageController {
       }
 
       final actualFileSize = await file.length();
-      final actualTotalPackages = (actualFileSize / (512 * 1024)).ceil();
+      final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
 
       logger.log("File details:");
       logger.log("Path: $file_path");
@@ -86,34 +121,42 @@ class MessageController {
       // Create a ReceivePort for communication
       _receivePort = ReceivePort();
 
-      // Create the isolate with correct file information
-      _fileTransferIsolate = await Isolate.spawn(
-        _fileTransferHandler,
-        {
-          'sendPort': _receivePort!.sendPort,
-          'host': host,
-          'port': Constants.FILE_TRANSFER_SERVER_PORT,
-          'chatId': chat_id,
-          'roomId': room_id,
-          'filePath': file_path,
-          'fileSize': actualFileSize,
-          'fileType': '$file_type.$fileExtension', // Include extension
-          'totalPackage': actualTotalPackages,
-        },
-      );
+      try {
+        final String commandString =
+            "/file $room_id $chat_id $file_path $file_Size $file_type $totalPackage";
+        final fileClient = MessageController._instance?._udpChatClientFile;
+        fileClient?.commandProcessor
+            .processCommand(commandString, fileClient.handshakeManager);
+      } catch (e) {}
+
+      // Create the isolate with correct server details
+      // _fileTransferIsolate = await Isolate.spawn(
+      //   _fileTransferHandler,
+      //   {
+      //     'sendPort': _receivePort!.sendPort,
+      //     'host': host,
+      //     'port': port,
+      //     'chatId': chat_id,
+      //     'roomId': room_id,
+      //     'filePath': file_path,
+      //     'fileSize': actualFileSize,
+      //     'fileType': '$file_type.$fileExtension',
+      //     'totalPackage': actualTotalPackages,
+      //   },
+      // );
 
       // Listen for responses from the file transfer isolate
-      _receivePort!.listen((dynamic message) {
-        if (message is Map) {
-          if (message['status'] == 'completed') {
-            logger.log('File transfer completed successfully');
-            _cleanupFileTransfer();
-          } else if (message['status'] == 'error') {
-            logger.log('File transfer error: ${message['error']}');
-            _cleanupFileTransfer();
-          }
-        }
-      });
+      // _receivePort!.listen((dynamic message) {
+      //   if (message is Map) {
+      //     if (message['status'] == 'completed') {
+      //       logger.log('File transfer completed successfully');
+      //       _cleanupFileTransfer();
+      //     } else if (message['status'] == 'error') {
+      //       logger.log('File transfer error: ${message['error']}');
+      //       _cleanupFileTransfer();
+      //     }
+      //   }
+      // });
     } catch (e) {
       logger.log("Error in SendFileMessage: $e");
       throw Exception("Failed to process file: $e");
@@ -135,10 +178,6 @@ class MessageController {
 
     // Lấy instance UdpClient (điều chỉnh cách lấy cho phù hợp với cấu trúc của bạn)
     try {
-      // !!! THAY THẾ BẰNG CÁCH LẤY INSTANCE UDPCLIENT/CLIENTSTATE ĐÚNG !!!
-      // Ví dụ truy cập qua một singleton hoặc GetIt
-      // Giả sử UdpClient có một getter static hoặc tương tự để lấy instance đang chạy
-
       // Cần đảm bảo client đã login và có session key
     } catch (e) {
       logger.log('Error getting UdpClient instance: $e',
@@ -180,18 +219,25 @@ void _fileTransferHandler(Map<String, dynamic> params) async {
 
   try {
     // Create UDP client in the new isolate
-    final clientFile = await UdpChatClientFile.create(host, port);
+    // int portFile = UdpClientSingleton().clientState?.portFile ?? 0;
+    // final clientFile = await UdpChatClientFile.create(host, port, portFile);
+
     final String commandString =
         "/file $roomId $chat_id $file_path $file_Size $file_type $totalPackage";
-    if (clientFile != null) {
-      clientFile.commandProcessor
-          .processCommand(commandString, clientFile.handshakeManager);
-    }
+    // Prepare the command string with file detailscli
+    // var clientFile = udpChatClientFile; // Use the getter
+    final fileClient = MessageController._instance?._udpChatClientFile;
+    fileClient?.commandProcessor
+        .processCommand(commandString, fileClient.handshakeManager);
+    // if (clientFile != null) {
+    //   clientFile.commandProcessor
+    //       .processCommand(commandString, clientFile.handshakeManager);
+    // }
     // Start the client and check result
-    final bool started = await clientFile.start();
-    if (!started) {
-      throw Exception('Failed to start file client');
-    }
+    // final bool started = await fileClient?.start();
+    // if (!started) {
+    //   throw Exception('Failed to start file client');
+    // }
 
     // sendPort.send({'status': 'completed'});
 
@@ -205,3 +251,5 @@ void _fileTransferHandler(Map<String, dynamic> params) async {
     });
   }
 }
+
+class _udpClient {}

@@ -50,7 +50,7 @@ Future<void> initApp() async {
 // Global instances
 late final GroupController globalGroupController;
 late final ClientState globalClientState;
-
+late final MessageController globalMessageController;
 Future<void> startUdpService() async {
   print("Starting UDP client for Flutter environment...");
   logger.log("Initializing UDP client for Flutter environment");
@@ -59,7 +59,7 @@ Future<void> startUdpService() async {
   final userController = UserController();
   // Initialize global GroupController
   globalGroupController = GroupController.instance;
-  final messageController = MessageController();
+  globalMessageController = MessageController.instance;
 
   try {
     // Choose the right host based on platform
@@ -88,9 +88,11 @@ Future<void> startUdpService() async {
     globalClientState = client.clientState;
     userController.setUdpClient(client);
     globalGroupController.setUdpClient(client);
-    messageController.setUdpClient(client);
-    logger.log("UdpClient set in UserController");
-    print("UDP client setup completed");
+    // globalMessageController.setUdpClient(
+    //     client, udpClientSingleton.clientState?.getFilePort() ?? 0);
+    // logger.log("UdpClient set in UserController");
+    await globalMessageController.setUdpClient(
+        client, udpClientSingleton.clientState?.getFilePort() ?? 0);
 
     // Test socket connection before starting
     try {

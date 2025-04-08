@@ -39,7 +39,9 @@ class _ListuserchatState extends State<Listuserchat> {
             child: selectedUserId != null
                 ? ChatContent(
                     userId: selectedUserId!,
-                    groupController: globalGroupController)
+                    groupController: globalGroupController,
+                    messageController: globalMessageController,
+                  )
                 : const Center(
                     child: Text('Select a conversation to start chatting')),
           ),
