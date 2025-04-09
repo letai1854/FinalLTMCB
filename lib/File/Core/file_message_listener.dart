@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as logger;
+import 'dart:math';
+import 'package:finalltmcb/File/Core/file_command_processor.dart';
 import 'package:finalltmcb/File/Core/file_json_helper.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
 
@@ -12,6 +14,7 @@ import '../Core/file_handshake_manager.dart';
 class FileMessageListener {
   final ClientStateForFile clientState;
   final FileHandshakeManager handshakeManager;
+  final FileDownloadProcessor _downloadProcessor = FileDownloadProcessor();
   bool isListening = false;
   StreamSubscription<RawSocketEvent>? _subscription;
 
@@ -77,6 +80,26 @@ class FileMessageListener {
           logger.log('🏁 [FileListener] Handling file transfer completion');
           _handleFileFin(response);
           break;
+        case FileConstants.ACTION_RECIEVE_FILE:
+          logger.log('📥 [FileListener] Handling file reception');
+          _handleFileReceive(response);
+        // Handle file reception logic here
+        case FileConstants.ACTION_FILE_DOWNLOAD_REQ:
+          logger.log('📥 [FileListener] Handling file download request');
+          _handlerDownReq(response);
+          break;
+        case FileConstants.ACTION_FILE_DOWN_META:
+          logger.log('🏁 [FileListener] Handling file download Meta');
+          _handleFileDownMeta(response);
+          break;
+        case FileConstants.ACTION_FILE_DOWN_DATA:
+          logger.log('🏁 [FileListener] Handling file download data');
+          _handleFileDownData(response);
+          break;
+        case FileConstants.ACTION_FILE_DOWN_FIN:
+          logger.log('🏁 [FileListener] Handling file download fin');
+          _handleFileDownFin(response);
+          break;
         default:
           logger.log('❓ [FileListener] Unknown action: $action');
       }
@@ -106,6 +129,7 @@ class FileMessageListener {
         logger.log('✅ File transfer completed successfully');
         // Reset the transfer state and remove from queue
         FileTransferQueue.instance.removeFirst();
+        FileTransferState.instance.isTransferring = false;
       } else {
         logger.log('❌ File transfer failed');
         FileTransferState.instance.isTransferring = false;
@@ -113,6 +137,83 @@ class FileMessageListener {
     } catch (e) {
       logger.log('Error handling file completion: $e');
       FileTransferState.instance.isTransferring = false;
+    }
+  }
+
+  void _handlerDownReq(Map<String, dynamic> response) {
+    if (response['status'] == 'error') {
+      logger.log('❌ File download request failed');
+      FileTransferQueue.instance.removeFirst();
+      FileTransferState.instance.isTransferring = false;
+    }
+  }
+
+  void _handleFileReceive(Map<String, dynamic> response) {
+    try {
+      logger.log('📥 [FileListener] Processing file reception: $response');
+
+      if (response.containsKey('data')) {
+        final data = response['data'] as Map<String, dynamic>;
+        final String content = data['content'] ?? '';
+
+        // Extract file path using regex to handle spaces correctly
+        final filePathMatch =
+            RegExp(r'file_path\s+(.*?)\s+(?:chat_id|room_id|file_type)')
+                .firstMatch(content);
+        final String filePath = filePathMatch?.group(1)?.trim() ?? '';
+
+        // Extract other fields
+        final String chatId = data['chat_id'] ?? '';
+        final String roomId = data['room_id'] ?? '';
+        final String fileType = RegExp(r'file_type\s+(\S+)')
+                .firstMatch(content)
+                ?.group(1)
+                ?.trim() ??
+            '';
+
+        logger.log('Parsed File Information:');
+        logger.log('File Path: $filePath');
+        logger.log('Chat ID: $chatId');
+        logger.log('Room ID: $roomId');
+        logger.log('File Type: $fileType');
+
+        if (filePath.isNotEmpty) {
+          final item = FileTransferItem(
+              status: FileConstants.Action_Status_File_Download,
+              currentChatId: chatId,
+              userId: roomId,
+              filePath: filePath,
+              actualFileSize: 0,
+              fileType: fileType,
+              actualTotalPackages: 0);
+
+          FileTransferQueue.instance.addToQueue(item);
+        } else {
+          logger
+              .log('❌ [FileListener] Could not extract file path from content');
+        }
+      }
+    } catch (e, stackTrace) {
+      logger.log('❌ [FileListener] Error handling file reception: $e');
+      logger.log('Stack trace: $stackTrace');
+    }
+  }
+
+  void _handleFileDownMeta(Map<String, dynamic> response) {
+    if (response['data'] != null) {
+      _downloadProcessor.handleDownloadMeta(response['data']);
+    }
+  }
+
+  void _handleFileDownData(Map<String, dynamic> response) {
+    if (response['data'] != null) {
+      _downloadProcessor.handleDownloadData(response['data']);
+    }
+  }
+
+  void _handleFileDownFin(Map<String, dynamic> response) {
+    if (response['data'] != null) {
+      _downloadProcessor.handleDownloadFinish(response['data']);
     }
   }
 }

@@ -17,10 +17,10 @@ class FileHandshakeManager {
   static const int MAX_RETRIES = 3;
   static const int RETRY_DELAY_MS = 1000;
 
-  final ClientStateForFile clientState;
+  final ClientStateForFile clientStateFile;
   final Map<String, Completer<bool>> _pendingTransfers = {};
 
-  FileHandshakeManager(this.clientState);
+  FileHandshakeManager(this.clientStateFile);
 
   Future<bool> SendPackageTransfer(Map<String, dynamic> request) async {
     try {
@@ -70,16 +70,16 @@ class FileHandshakeManager {
             const MAX_RETRIES = 3;
             const RETRY_DELAY_MS = 1000;
 
-            logger.log('Server address: ${clientState.serverAddress}');
-            logger.log('Server port: ${clientState.serverPort}');
+            logger.log('Server address: ${clientStateFile.serverAddress}');
+            logger.log('Server port: ${clientStateFile.serverPort}');
             logger.log('Chunk size: $bytesRead');
             print('Data packet: $dataPacket');
             while (!packetSent && retries < MAX_RETRIES) {
               try {
                 FileJsonHelper.sendPacket(
-                    clientState.socket,
-                    clientState.serverAddress,
-                    clientState.serverPort,
+                    clientStateFile.socket,
+                    clientStateFile.serverAddress,
+                    clientStateFile.serverPort,
                     dataPacket);
                 packetSent = true;
                 logger
@@ -105,8 +105,8 @@ class FileHandshakeManager {
       }
 
       // Send initial request
-      logger.log('Server address: ${clientState.serverAddress}');
-      logger.log('Server port: ${clientState.serverPort}');
+      logger.log('Server address: ${clientStateFile.serverAddress}');
+      logger.log('Server port: ${clientStateFile.serverPort}');
       logger.log('File path: $filePath');
       logger.log('File size: $fileSize');
 
@@ -154,8 +154,11 @@ class FileHandshakeManager {
               'file_path': filePath,
             }
           };
-          await FileJsonHelper.sendPacket(clientState.socket,
-              clientState.serverAddress, clientState.serverPort, dataPacket);
+          await FileJsonHelper.sendPacket(
+              clientStateFile.socket,
+              clientStateFile.serverAddress,
+              clientStateFile.serverPort,
+              dataPacket);
           return; // Reset sequence number for new transfer
         }
         if (sequenceNumber < totalPackets) {
@@ -188,9 +191,9 @@ class FileHandshakeManager {
           while (!packetSent && retries < MAX_RETRIES) {
             try {
               await FileJsonHelper.sendPacket(
-                  clientState.socket,
-                  clientState.serverAddress,
-                  clientState.serverPort,
+                  clientStateFile.socket,
+                  clientStateFile.serverAddress,
+                  clientStateFile.serverPort,
                   dataPacket);
               packetSent = true;
               totalBytesSent += bytesRead;
@@ -241,7 +244,18 @@ class FileHandshakeManager {
   }
 
   Future<void> InitFileTranfer(Map<String, dynamic> request) async {
-    FileJsonHelper.sendPacket(clientState.socket, clientState.serverAddress,
-        clientState.serverPort, request);
+    FileJsonHelper.sendPacket(clientStateFile.socket,
+        clientStateFile.serverAddress, clientStateFile.serverPort, request);
+  }
+
+  Future<void> InitFileDownload(Map<String, dynamic> request) async {
+    try {
+      await FileJsonHelper.sendPacket(clientStateFile.socket,
+          clientStateFile.serverAddress, clientStateFile.serverPort, request);
+      print('File download request sent successfully');
+    } catch (e) {
+      print('Error initiating file download: $e');
+      throw Exception('Failed to initiate file download: $e');
+    }
   }
 }

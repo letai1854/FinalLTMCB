@@ -31,39 +31,52 @@ class MessageListener {
             return;
           }
 
-          logger.log('Received packet from ${datagram.address.address}:${datagram.port}, size: ${datagram.data.length} bytes');
-          
+          logger.log(
+              'Received packet from ${datagram.address.address}:${datagram.port}, size: ${datagram.data.length} bytes');
+
           // Determine decryption key (session key if logged in, otherwise fixed key)
-          String decryptionKey = clientState.sessionKey ?? Constants.FIXED_LOGIN_KEY_STRING;
+          String decryptionKey =
+              clientState.sessionKey ?? Constants.FIXED_LOGIN_KEY_STRING;
           logger.log('Attempting decryption with key: $decryptionKey');
 
           // Attempt decryption and parsing
-          var decryptedResult = JsonHelper.decryptAndParse(datagram, decryptionKey, logTrace: true);
+          var decryptedResult = JsonHelper.decryptAndParse(
+              datagram, decryptionKey,
+              logTrace: true);
 
           // If decryption failed with session key, try the fixed key (might be a late login response)
           if (decryptedResult == null && clientState.sessionKey != null) {
-            logger.log('Decryption failed with session key, trying fixed key...');
+            logger
+                .log('Decryption failed with session key, trying fixed key...');
             decryptionKey = Constants.FIXED_LOGIN_KEY_STRING;
-            decryptedResult = JsonHelper.decryptAndParse(datagram, decryptionKey, logTrace: true);
+            decryptedResult = JsonHelper.decryptAndParse(
+                datagram, decryptionKey,
+                logTrace: true);
           }
 
           // Special handling for login_success message (can use different key)
           if (decryptedResult == null) {
-            logger.log('Standard decryption failed, attempting with additional keys...');
+            logger.log(
+                'Standard decryption failed, attempting with additional keys...');
             // Try to extract just enough from the packet to see if it's a login_success message
             String rawContent = _safeDecodeData(datagram.data);
             logger.log('Raw packet content: $rawContent');
-            
+
             if (rawContent.contains("login_success")) {
-              logger.log('Detected possible login_success message, trying special handling...');
+              logger.log(
+                  'Detected possible login_success message, trying special handling...');
               // This might be encrypted with a new session key from the response
               // We'll try to extract the session key from the raw content
-              var matches = RegExp(r'session_key[^\w]+([\w]+)').allMatches(rawContent);
+              var matches =
+                  RegExp(r'session_key[^\w]+([\w]+)').allMatches(rawContent);
               if (matches.isNotEmpty) {
                 String possibleSessionKey = matches.first.group(1) ?? "";
-                logger.log('Found possible session key in message: $possibleSessionKey');
+                logger.log(
+                    'Found possible session key in message: $possibleSessionKey');
                 if (possibleSessionKey.isNotEmpty) {
-                  decryptedResult = JsonHelper.decryptAndParse(datagram, possibleSessionKey, logTrace: true);
+                  decryptedResult = JsonHelper.decryptAndParse(
+                      datagram, possibleSessionKey,
+                      logTrace: true);
                 }
               }
             }
@@ -71,7 +84,8 @@ class MessageListener {
 
           // If still failed, log error and skip packet
           if (decryptedResult == null) {
-            logger.log('Failed to decrypt or parse packet from server ${datagram.address.address}:${datagram.port}.');
+            logger.log(
+                'Failed to decrypt or parse packet from server ${datagram.address.address}:${datagram.port}.');
             // Log the raw data for debugging in a safer way
             logger.log('Raw data: ${_safeDecodeData(datagram.data)}');
             return; // Skip this packet
@@ -79,11 +93,12 @@ class MessageListener {
 
           Map<String, dynamic> responseJson = decryptedResult.jsonObject;
           String decryptedJsonString = decryptedResult.decryptedJsonString;
-          logger.log('Successfully decrypted JSON: $decryptedJsonString');
+          logger.log('Successfully decrypted JSON: success');
 
           // Basic validation: Check for 'action' field
           if (!responseJson.containsKey(Constants.KEY_ACTION)) {
-            logger.log('Received packet missing \'action\' field: $decryptedJsonString');
+            logger.log(
+                'Received packet missing \'action\' field: $decryptedJsonString');
             return; // Skip invalid packet
           }
           String action = responseJson[Constants.KEY_ACTION];
@@ -113,8 +128,8 @@ class MessageListener {
             default:
               // If it's not a handshake action, it must be an initial action from the server (S->C flow)
               logger.log('Handling initial server action: $action');
-              handshakeManager.handleInitialServerAction(
-                  decryptedJsonString, responseJson, datagram.address, datagram.port);
+              handshakeManager.handleInitialServerAction(decryptedJsonString,
+                  responseJson, datagram.address, datagram.port);
               break;
           }
         } catch (e, stackTrace) {
@@ -139,7 +154,7 @@ class MessageListener {
     try {
       // First, clean the data by removing null bytes which can cause issues
       List<int> cleanedData = data.where((byte) => byte != 0).toList();
-      
+
       // Try Latin-1 encoding first which can represent any byte (0-255)
       // This is more forgiving than UTF-8 for corrupted data
       return String.fromCharCodes(cleanedData);
@@ -150,18 +165,22 @@ class MessageListener {
         for (int i = 0; i < data.length; i += 4) {
           int end = (i + 4 < data.length) ? i + 4 : data.length;
           List<int> chunk = data.sublist(i, end);
-          
+
           try {
             chunks.add(String.fromCharCodes(chunk));
           } catch (_) {
             // If a chunk fails, represent it as hex
-            chunks.add(chunk.map((b) => '\\x${b.toRadixString(16).padLeft(2, '0')}').join(''));
+            chunks.add(chunk
+                .map((b) => '\\x${b.toRadixString(16).padLeft(2, '0')}')
+                .join(''));
           }
         }
         return chunks.join('');
       } catch (e2) {
         // Last resort: convert to hex representation
-        return data.map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}').join(' ');
+        return data
+            .map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}')
+            .join(' ');
       }
     }
   }

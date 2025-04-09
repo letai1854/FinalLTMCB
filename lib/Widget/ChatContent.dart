@@ -2,6 +2,7 @@
 import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'package:finalltmcb/File/Models/file_constants.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
@@ -110,7 +111,10 @@ class _ChatContentState extends State<ChatContent> {
 
   void _handleNewMessage() {
     final messageData = MessageNotifier.messageNotifier.value;
-    if (messageData != null && mounted) {
+    final udpClient = UdpClientSingleton();
+    if (messageData != null &&
+        mounted &&
+        messageData['sender'] != udpClient.clientState?.currentChatId) {
       final roomId = messageData['roomId'];
 
       // Store message in global state regardless of current room
@@ -274,7 +278,8 @@ class _ChatContentState extends State<ChatContent> {
           final actualFileSize = await tempFile.length();
           final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
           final item = FileTransferItem(
-            currentChatId: widget.userId,
+            status: FileConstants.Action_Status_File_Send,
+            currentChatId: currentChatId,
             userId: widget.userId,
             filePath: tempFile.path,
             actualFileSize: actualFileSize,
@@ -333,16 +338,19 @@ class _ChatContentState extends State<ChatContent> {
             mimeType: lookupMimeType(audioMessage.audio!) ?? 'audio/mp4',
             size: bytes.length,
           );
-
-          // Send file message first
           try {
-            await widget.messageController.SendFileMessage(
-                currentChatId,
-                widget.userId,
-                filePath,
-                actualFileSize,
-                fileType,
-                actualTotalPackages);
+            // Send file message first
+            final item = FileTransferItem(
+              status: FileConstants.Action_Status_File_Send,
+              currentChatId: currentChatId,
+              userId: widget.userId,
+              filePath: filePath,
+              actualFileSize: actualFileSize,
+              fileType: fileType,
+              actualTotalPackages: actualTotalPackages,
+            );
+
+            FileTransferQueue.instance.addToQueue(item);
           } catch (e, s) {
             logger.log("Error sending audio file: $e",
                 name: "ChatContent", error: e, stackTrace: s);
@@ -398,40 +406,28 @@ class _ChatContentState extends State<ChatContent> {
       logger.log('Path: ${fileInfo.filePath}', name: "ChatContent");
       logger.log('Size: $actualFileSize bytes', name: "ChatContent");
       logger.log('Packages: $actualTotalPackages', name: "ChatContent");
-      logger.log('Type: ${fileInfo.fileType}', name: "ChatContent");
 
       // Add message to UI before sending
       _addMessageToUI(fileMessage);
 
-      void _handleFileMessage(String filePath, int fileSize) {
-        final item = FileTransferItem(
-          currentChatId: widget.userId,
-          userId: widget.userId,
-          filePath: filePath,
-          actualFileSize: fileSize,
-          fileType: 'file',
-          actualTotalPackages: (fileSize / (1024 * 32)).ceil(),
-        );
+      final item = FileTransferItem(
+        status: FileConstants.Action_Status_File_Send,
+        currentChatId: currentChatId,
+        userId: widget.userId,
+        filePath: fileInfo
+            .filePath, // Fix: Use fileInfo.filePath instead of undefined filePath
+        actualFileSize:
+            actualFileSize, // Fix: Use actualFileSize instead of undefined fileSize
+        fileType: 'file',
+        actualTotalPackages:
+            actualTotalPackages, // Fix: Use actualTotalPackages
+      );
 
-        FileTransferQueue.instance.addToQueue(item);
-      }
-      // Future(() async {
-      //   try {
-      //     await widget.messageController.SendFileMessage(
-      //         currentChatId,
-      //         widget.userId,
-      //         fileInfo.filePath,
-      //         actualFileSize,
-      //         fileInfo.fileType,
-      //         actualTotalPackages);
-      //   } catch (e, s) {
-      //     logger.log("Error sending file message: $e",
-      //         name: "ChatContent", error: e, stackTrace: s);
-      //     _showTopNotification('Lỗi gửi tệp', isError: true);
-      //   }
-      // });
-    } catch (e) {
+      logger.log('Adding file to transfer queue', name: "ChatContent");
+      FileTransferQueue.instance.addToQueue(item);
+    } catch (e, stackTrace) {
       logger.log('Error handling file creation: $e', name: "ChatContent");
+      logger.log('Stack trace: $stackTrace', name: "ChatContent");
       _showTopNotification('Lỗi xử lý file', isError: true);
     }
   }
@@ -466,34 +462,30 @@ class _ChatContentState extends State<ChatContent> {
       // Get actual file size
       final actualFileSize = file.lengthSync();
       final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
-      final fileType = 'video'; // Since we know it's a video file
 
       logger.log('Video details:', name: "ChatContent");
       logger.log('Path: ${videoInfo.localPath}', name: "ChatContent");
       logger.log('Size: $actualFileSize bytes', name: "ChatContent");
       logger.log('Packages: $actualTotalPackages', name: "ChatContent");
-      logger.log('Type: $fileType', name: "ChatContent");
 
       // Add message to UI before sending
       _addMessageToUI(videoMessage);
 
-      Future(() async {
-        try {
-          await widget.messageController.SendFileMessage(
-              currentChatId,
-              widget.userId,
-              videoInfo.localPath,
-              actualFileSize,
-              fileType,
-              actualTotalPackages);
-        } catch (e, s) {
-          logger.log("Error sending video message: $e",
-              name: "ChatContent", error: e, stackTrace: s);
-          _showTopNotification('Lỗi gửi video', isError: true);
-        }
-      });
-    } catch (e) {
+      final item = FileTransferItem(
+        status: FileConstants.Action_Status_File_Send,
+        currentChatId: currentChatId,
+        userId: widget.userId,
+        filePath: videoInfo.localPath,
+        actualFileSize: actualFileSize,
+        fileType: 'video',
+        actualTotalPackages: actualTotalPackages,
+      );
+
+      logger.log('Adding video to transfer queue', name: "ChatContent");
+      FileTransferQueue.instance.addToQueue(item);
+    } catch (e, stackTrace) {
       logger.log('Error handling video creation: $e', name: "ChatContent");
+      logger.log('Stack trace: $stackTrace', name: "ChatContent");
       _showTopNotification('Lỗi xử lý video', isError: true);
     }
   }

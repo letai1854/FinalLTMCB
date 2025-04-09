@@ -145,13 +145,14 @@ class HandshakeManager {
           'Could not find tempIdToRemove while processing CHARACTER_COUNT for tx $transactionId');
     }
 
-
     pendingClientRequestsByServerId[transactionId] = pendingReq!; // them moi
-    Map<String, int> clientCalculatedFrequencies = CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson, needProcessSpecialChar: false);
-    Map<String, int> serverFrequencies = parseFrequencyJson(serverFrequenciesJson);
-    bool isValid = areFrequenciesEqual(clientCalculatedFrequencies, serverFrequencies);
-
-
+    Map<String, int> clientCalculatedFrequencies =
+        CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson,
+            needProcessSpecialChar: false);
+    Map<String, int> serverFrequencies =
+        parseFrequencyJson(serverFrequenciesJson);
+    bool isValid =
+        areFrequenciesEqual(clientCalculatedFrequencies, serverFrequencies);
 
     if (!isValid) {
       logger.log(
@@ -253,7 +254,7 @@ class HandshakeManager {
       var messageStr = responseJson[Constants.KEY_MESSAGE] as String;
       try {
         // Use DataConverter to process the handshake data
-        if(data[Constants.KEY_SESSION_KEY] != null){
+        if (data[Constants.KEY_SESSION_KEY] != null) {
           clientState.sessionKey = data[Constants.KEY_SESSION_KEY];
           logger.log(
               'Session key from ACK: ${clientState.sessionKey} (Transaction ID: $transactionId)');
@@ -631,7 +632,6 @@ class HandshakeManager {
           rethrow; // Other error, rethrow it
         }
       }
-
       bool completed =
           result != null; // If we got any result, consider it completed
 
