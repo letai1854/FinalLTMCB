@@ -6,6 +6,7 @@ import 'package:finalltmcb/File/Models/file_constants.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
+import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
 import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
 import 'package:finalltmcb/Widget/UserList.dart';
@@ -67,6 +68,9 @@ class _ChatContentState extends State<ChatContent> {
     _loadUserMessages();
     _initializeHistoryMessages();
     MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+
+    // Add file download listener
+    FileDownloadNotifier.instance.addListener(_handleFileDownloadNotification);
   }
 
   void _initializeHistoryMessages() async {
@@ -146,6 +150,25 @@ class _ChatContentState extends State<ChatContent> {
           _scrollToBottom();
         }
       }
+    }
+  }
+
+  void _handleFileDownloadNotification() {
+    final downloadData = FileDownloadNotifier.instance.value;
+    if (downloadData != null &&
+        mounted &&
+        downloadData['roomId'] == widget.userId) {
+      final newMessage = downloadData['message'] as ChatMessage;
+
+      setState(() {
+        if (!_userMessages.containsKey(widget.userId)) {
+          _userMessages[widget.userId] = [];
+        }
+        _userMessages[widget.userId]!.add(newMessage);
+        listhistorymessage = _userMessages[widget.userId]!;
+      });
+
+      _scrollToBottom();
     }
   }
 
@@ -653,7 +676,7 @@ class _ChatContentState extends State<ChatContent> {
     });
   }
 
-  void _handleFileDownload(FileMessage file) async {
+  Future<void> _handleFileDownload(FileMessage file) async {
     print("Attempting to download/open file: ${file.fileName}");
     await FileDownloader.downloadFile(file, context);
   }
@@ -662,6 +685,8 @@ class _ChatContentState extends State<ChatContent> {
   void dispose() {
     MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
     _scrollController.dispose();
+    FileDownloadNotifier.instance
+        .removeListener(_handleFileDownloadNotification);
     super.dispose();
   }
 

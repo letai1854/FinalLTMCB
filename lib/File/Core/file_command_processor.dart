@@ -1,10 +1,15 @@
 import 'package:finalltmcb/File/Core/file_handshake_manager.dart';
+import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
+import 'package:finalltmcb/Model/VideoFileMessage.dart';
+import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
+import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'dart:developer' as logger;
+import 'package:mime/mime.dart';
 
 import '../ClientStateForFile.dart';
 import '../Handlers/base_handler.dart';
@@ -207,6 +212,68 @@ class FileDownloadProcessor {
 
       logger.log('✅ File saved successfully to: ${file.path}');
       logger.log('📁 File size: ${await file.length()} bytes');
+
+      // After file is successfully saved
+      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+
+      // Create appropriate message based on file type
+      ChatMessage newMessage = ChatMessage(
+        isMe: false,
+        timestamp: DateTime.now(),
+        text: '', // Add required text parameter
+      );
+
+      if (mimeType.startsWith('image/')) {
+        newMessage = ChatMessage(
+          text: '', // Required
+          isMe: false,
+          timestamp: DateTime.now(),
+          image: base64Encode(completeFile),
+          mimeType: mimeType,
+        );
+      } else if (mimeType.startsWith('video/')) {
+        newMessage = ChatMessage(
+          text: '', // Required
+          isMe: false,
+          timestamp: DateTime.now(),
+          video: VideoFileMessage(
+            fileName: fileName,
+            mimeType: mimeType,
+            fileSize: completeFile.length,
+            base64Data: '',
+            localPath: file.path,
+          ),
+        );
+      } else if (mimeType.startsWith('audio/')) {
+        newMessage = ChatMessage(
+          text: '', // Required
+          isMe: false,
+          timestamp: DateTime.now(),
+          audio: file.path,
+          isAudioPath: true,
+        );
+      } else {
+        newMessage = ChatMessage(
+          text: '', // Required
+          isMe: false,
+          timestamp: DateTime.now(),
+          file: FileMessage(
+            fileName: fileName,
+            mimeType: mimeType,
+            fileSize: completeFile.length,
+            filePath: file.path,
+            totalPackages: expectedTotal,
+            fileType: 'file',
+          ),
+        );
+      }
+
+      // Notify UI about new file
+      FileDownloadNotifier.instance.updateFileDownload({
+        'roomId': roomId,
+        'message': newMessage,
+        'filePath': file.path,
+      });
 
       // Cleanup
       fileChunks.remove(fileKey);
