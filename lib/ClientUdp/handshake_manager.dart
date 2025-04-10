@@ -145,6 +145,10 @@ class HandshakeManager {
           'Could not find tempIdToRemove while processing CHARACTER_COUNT for tx $transactionId');
     }
 
+    pendingClientRequestsByServerId[transactionId] = pendingReq!;
+    logger.log(
+        'Associated server tx ID $transactionId with pending action $originalAction (TempID: $tempIdToRemove)');
+
     pendingClientRequestsByServerId[transactionId] = pendingReq!; // them moi
     Map<String, int> clientCalculatedFrequencies =
         CaesarCipher.countLetterFrequencies(pendingReq!.originalSentJson,
@@ -260,6 +264,7 @@ class HandshakeManager {
               'Session key from ACK: ${clientState.sessionKey} (Transaction ID: $transactionId)');
           clientState.currentChatId = data[Constants.KEY_CHAT_ID];
         }
+
         var result =
             DataConverter.processHandshakeData(clientState, messageStr);
         if (result != null && result['success'] == true) {
@@ -632,6 +637,7 @@ class HandshakeManager {
           rethrow; // Other error, rethrow it
         }
       }
+
       bool completed =
           result != null; // If we got any result, consider it completed
 

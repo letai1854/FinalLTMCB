@@ -1,4 +1,5 @@
 import 'dart:math'; // For generating random IDs
+import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -38,7 +39,7 @@ class MessageList extends StatefulWidget {
 
 class _MessageListState extends State<MessageList> {
   String get currentUserId =>
-      widget.groupController.client?.clientState.currentChatId ?? 'user1';
+      widget.groupController.client?.clientState.currentChatId ?? '';
 
   @override
   void initState() {
@@ -49,7 +50,12 @@ class _MessageListState extends State<MessageList> {
       MessageList.cachedMessages = clientState.cachedMessages;
 
       // Add message listener
-      MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+      MessageNotifier.messageNotifier.addListener(_handleNewMessageUserList);
+      MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
+
+      // Thêm listener cho danh sách người dùng
+      MessageNotifier.messageNotifierListUser
+          .addListener(_handleUserListUpdate);
 
       if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
         _autoSelectFirstUser();
@@ -57,21 +63,98 @@ class _MessageListState extends State<MessageList> {
     }
   }
 
+  // Thêm phương thức xử lý cập nhật danh sách người dùng
+  void _handleUserListUpdate() {
+    if (!mounted) return;
+
+    final userList = MessageNotifier.messageNotifierListUser.value;
+    if (userList.isEmpty) return;
+
+    setState(() {
+      // Chuyển đổi danh sách người dùng từ server thành danh sách User trong ứng dụng
+      final convertedUsers = _convertToUsers(userList, currentUserId);
+
+      // Cập nhật danh sách người dùng trong ClientState
+      if (widget.groupController.clientState != null) {
+        widget.groupController.clientState!.convertedUsers = convertedUsers;
+      }
+
+      // Cập nhật danh sách chat dựa trên người dùng mới
+    });
+  }
+
+  // Chuyển đổi danh sách ID người dùng thành danh sách đối tượng User
+  List<User> _convertToUsers(List<String> userIds, String currentUserId) {
+    return userIds
+        .where((userId) =>
+            userId != currentUserId) // Loại bỏ ID người dùng hiện tại
+        .map((userId) => User(
+              chatId: userId,
+              createdAt: DateTime.now(),
+            ))
+        .toList();
+  }
+
+  void _handleNewRoom() {
+    final roomData = MessageNotifier.messageNotifierRoom.value;
+    if (roomData != null && mounted) {
+      setState(() {
+        final roomId = roomData['room_id'];
+        final roomName = roomData['room_name'];
+        final List<String> members = roomData['participants'];
+
+        print("Received new room notification - ID: $roomId, Name: $roomName");
+
+        // Kiểm tra xem phòng đã tồn tại chưa
+        int existingIndex = MessageList.cachedMessages
+                ?.indexWhere((room) => room['id'] == roomId) ??
+            -1;
+
+        if (existingIndex == -1) {
+          // Thêm phòng mới vào danh sách nếu chưa tồn tại
+          MessageList.cachedMessages?.insert(0, {
+            'id': roomId,
+            'name': roomName,
+            'avatar': "assets/logoS.jpg",
+            'isOnline': true,
+            'message': 'Phòng chat mới được tạo',
+            'isGroup': true,
+            'members': members, // Sử dụng List<String> thay vì Set<String>
+          });
+
+          // Initialize message container for the new room
+          widget.groupController.clientState!.allMessagesConverted[roomId] = [];
+          print("Đã thêm phòng chat mới: $roomName (ID: $roomId)");
+        } else {
+          // Cập nhật thông tin phòng nếu đã tồn tại
+          MessageList.cachedMessages![existingIndex]['name'] = roomName;
+          MessageList.cachedMessages![existingIndex]['members'] = members;
+          print("Đã cập nhật thông tin phòng: $roomName (ID: $roomId)");
+        }
+      });
+    }
+  }
+
   // Add new method to handle messages
-  void _handleNewMessage() {
+  void _handleNewMessageUserList() {
     final messageData = MessageNotifier.messageNotifier.value;
     if (messageData != null && mounted && MessageList.cachedMessages != null) {
       final roomId = messageData['roomId'];
       final content = messageData['content'];
+      final sender = messageData['sender_chatid'] ??
+          messageData['sender'] ??
+          messageData['name'] ??
+          'Unknown';
 
       // Find the chat in cached messages
       final chatIndex = MessageList.cachedMessages!
           .indexWhere((chat) => chat['id'] == roomId);
-
+      print("----------" + chatIndex.toString());
       if (chatIndex != -1) {
         setState(() {
-          // Update message content
-          MessageList.cachedMessages![chatIndex]['message'] = content;
+          // Update message content with sender info
+          MessageList.cachedMessages![chatIndex]['message'] =
+              '$sender: $content';
 
           // Mark message as unread if it's not the currently selected chat
           if (roomId != widget.selectedUserId) {
@@ -84,13 +167,33 @@ class _MessageListState extends State<MessageList> {
             MessageList.cachedMessages!.insert(0, chat);
           }
         });
+        final newMessage = ChatMessage(
+          text: messageData['content'],
+          isMe: false,
+          // Use sender_chatid from server or fallback to name
+          name: messageData['sender_chatid'] ??
+              messageData['sender'] ??
+              messageData['name'] ??
+              'Unknown',
+          timestamp: DateTime.parse(messageData['timestamp']),
+        );
+        widget.groupController.clientState!.allMessagesConverted
+            .putIfAbsent(roomId, () => []);
+        widget.groupController.clientState!.allMessagesConverted[roomId]!
+            .add(newMessage);
+      } else {
+        print("Warning: Received message for unknown room: $roomId");
       }
     }
   }
 
   @override
   void dispose() {
-    MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+    MessageNotifier.messageNotifier.removeListener(_handleNewMessageUserList);
+    MessageNotifier.messageNotifierRoom.removeListener(_handleNewRoom);
+    // Xóa listener cho danh sách người dùng
+    MessageNotifier.messageNotifierListUser
+        .removeListener(_handleUserListUpdate);
     super.dispose();
   }
 
@@ -187,83 +290,11 @@ class _MessageListState extends State<MessageList> {
   // *** Định nghĩa lại hàm _createGroupChat ***
   Future<void> _createGroupChat(
       String groupName, List<String> memberIds) async {
-    final completer = Completer<void>();
-    final receivePort = ReceivePort();
-
-    // Spawn isolate for group creation
-    final isolate = await Isolate.spawn((List<dynamic> args) {
-      final SendPort sendPort = args[0];
-      final Map<String, dynamic> data = args[1];
-
-      try {
-        sendPort.send({
-          'type': 'execute',
-          'groupName': data['groupName'],
-          'memberIds': data['memberIds'],
-        });
-      } catch (e) {
-        sendPort.send({'type': 'error', 'message': e.toString()});
-      }
-    }, [
-      receivePort.sendPort,
-      {'groupName': groupName, 'memberIds': memberIds}
-    ]);
-
-    // Listen for messages from isolate
-    receivePort.listen((message) async {
-      if (message['type'] == 'execute') {
-        try {
-          await widget.groupController.createGroupChat(
-            message['groupName'],
-            message['memberIds'],
-          );
-
-          // --- START: Update cache and trigger rebuild ---
-          // Tạo group mới để thêm vào cache
-          final newGroupId =
-              'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
-          final newGroup = {
-            'name': message['groupName'],
-            'message': 'New group created', // Placeholder message
-            'avatar': 'assets/logoS.jpg', // Placeholder avatar
-            'isOnline': true, // Placeholder status
-            'id': newGroupId, // Lưu ID để sử dụng sau
-            'isGroup': true,
-            'members': message['memberIds'],
-          };
-
-          // Ensure cache is initialized
-          MessageList.cachedMessages ??= [];
-          // Add to the beginning of the list
-          MessageList.cachedMessages!.insert(0, newGroup);
-
-          // Trigger UI rebuild
-          if (mounted) {
-            setState(() {});
-
-            // Tự động chọn group mới sau khi UI đã được cập nhật
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && widget.onUserSelected != null) {
-                // Chọn group mới bằng cách gọi callback với ID của group
-                widget.onUserSelected!(newGroupId); // Truyền String ID
-              }
-            });
-          }
-          // --- END: Update cache and trigger rebuild ---
-
-          completer.complete();
-        } catch (e) {
-          completer.completeError(e);
-        }
-      } else if (message['type'] == 'error') {
-        completer.completeError(message['message']);
-      }
-
-      isolate.kill();
-      receivePort.close(); // Close the port when done
-    });
-
-    return completer.future;
+    await widget.groupController.createGroupChat(
+      groupName,
+      memberIds,
+      currentUserId, // Use the state's getter for the current user ID
+    );
   }
   // ******************************************
 

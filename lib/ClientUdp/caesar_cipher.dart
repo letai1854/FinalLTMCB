@@ -54,8 +54,9 @@ class CaesarCipher {
   /// @return The processed text.
   static String processText(String text, int shift) {
     logger.log('Processing text: $text');
-    // if (text != null) return text;
-    // shift = 0;
+
+    if (text.isEmpty) return text;
+    // if(text!=null) return text;
     StringBuffer result = StringBuffer();
     int i = 0;
 

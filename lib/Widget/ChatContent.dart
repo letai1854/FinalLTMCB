@@ -71,6 +71,9 @@ class _ChatContentState extends State<ChatContent> {
 
     // Add file download listener
     FileDownloadNotifier.instance.addListener(_handleFileDownloadNotification);
+
+    // Add room notification listener to reinitialize when new rooms are created
+    MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
   }
 
   void _initializeHistoryMessages() async {
@@ -126,24 +129,28 @@ class _ChatContentState extends State<ChatContent> {
         final newMessage = ChatMessage(
           text: messageData['content'],
           isMe: false,
-          name: messageData['name'],
+          // Use sender_chatid from server or fallback to name
+          name: messageData['sender_chatid'] ??
+              messageData['sender'] ??
+              messageData['name'] ??
+              'Unknown',
           timestamp: DateTime.parse(messageData['timestamp']),
         );
 
-        // Add to global state
-        if (!widget.groupController.clientState!.allMessagesConverted
-            .containsKey(roomId)) {
-          widget.groupController.clientState!.allMessagesConverted[roomId] = [];
-        }
-        widget.groupController.clientState!.allMessagesConverted[roomId]!
-            .add(newMessage);
+        // Initialize the messages list for this room if it doesn't exist
+        // widget.groupController.clientState!.allMessagesConverted
+        //     .putIfAbsent(roomId, () => []);
+        // widget.groupController.clientState!.allMessagesConverted[roomId]!
+        //     .add(newMessage);
+
+        // Debug prints
+        print("Received message for room: $roomId");
+        print("Currently viewing room: ${widget.userId}");
 
         // Only update UI if message is for current room
         if (roomId == widget.userId) {
           setState(() {
-            if (!_userMessages.containsKey(widget.userId)) {
-              _userMessages[widget.userId] = [];
-            }
+            _userMessages.putIfAbsent(widget.userId, () => []);
             _userMessages[widget.userId]!.add(newMessage);
             listhistorymessage = _userMessages[widget.userId]!;
           });
@@ -169,6 +176,22 @@ class _ChatContentState extends State<ChatContent> {
       });
 
       _scrollToBottom();
+    }
+  }
+
+  // Handle notifications about new rooms being created
+  void _handleNewRoom() {
+    final roomData = MessageNotifier.messageNotifierRoom.value;
+    if (roomData == null || !mounted) return;
+
+    final roomId = roomData['room_id'];
+
+    // Check if this is the room we're currently viewing
+    if (roomId == widget.userId) {
+      // Reinitialize the room data since it's a new room
+      _loadUserMessages();
+      _initializeHistoryMessages();
+      print("Reinitialized view for newly created room: $roomId");
     }
   }
 
@@ -232,7 +255,9 @@ class _ChatContentState extends State<ChatContent> {
   Future<void> _handleTextInputSubmitted(String text) async {
     if (text.isEmpty) return;
     final timestamp = DateTime.now();
-    final uiMessage = ChatMessage(text: text, isMe: true, timestamp: timestamp);
+    final userName = widget.groupController.clientState?.currentChatId ?? "Me";
+    final uiMessage = ChatMessage(
+        text: text, isMe: true, timestamp: timestamp, name: userName);
     _addMessageToUI(uiMessage);
 
     try {
@@ -251,6 +276,7 @@ class _ChatContentState extends State<ChatContent> {
       List<ImageMessage> images, String? text) async {
     if (images.isEmpty && (text == null || text.isEmpty)) return;
     final timestamp = DateTime.now();
+    final userName = widget.groupController.clientState?.currentChatId ?? "Me";
     List<ChatMessage> uiMessagesToAdd = [];
 
     // Handle text message
@@ -333,7 +359,15 @@ class _ChatContentState extends State<ChatContent> {
   }
 
   void _handleAudioCreated(ChatMessage audioMessage) {
-    _addMessageToUI(audioMessage);
+    final userName = widget.groupController.clientState?.currentChatId ?? "Me";
+    final messageWithName = ChatMessage(
+        text: audioMessage.text,
+        isMe: audioMessage.isMe,
+        timestamp: audioMessage.timestamp,
+        audio: audioMessage.audio,
+        isAudioPath: audioMessage.isAudioPath,
+        name: userName);
+    _addMessageToUI(messageWithName);
 
     Future(() async {
       try {
@@ -681,16 +715,17 @@ class _ChatContentState extends State<ChatContent> {
     await FileDownloader.downloadFile(file, context);
   }
 
-  @override
   void dispose() {
     MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
     _scrollController.dispose();
     FileDownloadNotifier.instance
         .removeListener(_handleFileDownloadNotification);
+    MessageNotifier.messageNotifierRoom.removeListener(_handleNewRoom);
+    _scrollController.dispose();
+
     super.dispose();
   }
 
-  @override
   Widget build(BuildContext context) {
     final messages = _userMessages[widget.userId] ?? [];
 

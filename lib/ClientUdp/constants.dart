@@ -107,7 +107,7 @@ class Constants {
   static const String ACTION_ROOM_RENAMED = "room_renamed";
   static const String ACTION_GET_ROOM_USERS = "get_room_users";
   static const String ACTION_ROOM_USERS_LIST = "room_users_list";
-
+  static const String ACTION_RECIEVE_ROOM = "recieve_room";
   // --- Status Values ---
   static const String STATUS_SUCCESS = "success";
   static const String STATUS_FAILURE = "failure";
@@ -141,7 +141,7 @@ class Constants {
       "No pending action found for this confirmation/ack.";
   static const String ERROR_MSG_INVALID_STATE =
       "Invalid state for current action.";
-
+  static const String ACTION_RECIEVE_LISTUSER = "recieve_listuser";
   // --- Client Command Definitions ---
   static const String CMD_LOGIN = "/login";
   static const String CMD_CREATE_ROOM = "/create";

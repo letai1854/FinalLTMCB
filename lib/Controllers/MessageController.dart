@@ -154,33 +154,33 @@ class MessageController {
       throw Exception('Failed to send message: $e');
     }
   }
+
   // **********************************
-}
-
 // Isolate handler function - runs in separate thread
-void _fileTransferHandler(Map<String, dynamic> params) async {
-  final SendPort sendPort = params['sendPort'];
-  final String host = params['host'];
-  final int port = params['port'];
-  final String roomId = params['roomId'];
-  final String chat_id = params['chatId'];
-  final String file_path = params['filePath'];
-  final int file_Size = params['fileSize'];
-  final String file_type = params['fileType'];
-  final int totalPackage = params['totalPackage'];
+  void _fileTransferHandler(Map<String, dynamic> params) async {
+    final SendPort sendPort = params['sendPort'];
+    final String host = params['host'];
+    final int port = params['port'];
+    final String roomId = params['roomId'];
+    final String chat_id = params['chatId'];
+    final String file_path = params['filePath'];
+    final int file_Size = params['fileSize'];
+    final String file_type = params['fileType'];
+    final int totalPackage = params['totalPackage'];
 
-  try {
-    final String commandString =
-        "/file $roomId $chat_id $file_path $file_Size $file_type $totalPackage";
+    try {
+      final String commandString =
+          "/file $roomId $chat_id $file_path $file_Size $file_type $totalPackage";
 
-    final fileClient = MessageController._instance?._udpChatClientFile;
-    fileClient?.commandProcessor
-        .processCommand(commandString, fileClient.handshakeManager);
-  } catch (e) {
-    sendPort.send({
-      'status': 'error',
-      'error': e.toString(),
-    });
+      final fileClient = MessageController._instance?._udpChatClientFile;
+      fileClient?.commandProcessor
+          .processCommand(commandString, fileClient.handshakeManager);
+    } catch (e) {
+      sendPort.send({
+        'status': 'error',
+        'error': e.toString(),
+      });
+    }
   }
 }
 

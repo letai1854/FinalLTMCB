@@ -49,14 +49,43 @@ class MessageProcessor {
             print("\nRoom creation failed: ${message ?? "Unknown reason"}");
           }
           break;
+        case Constants.ACTION_RECIEVE_ROOM:
+          if(data!=null){
+            print(data);
+            String roomId = data[Constants.KEY_ROOM_ID];
+            String roomName = data[Constants.KEY_ROOM_NAME];
+            
+            // Lấy danh sách người tham gia và giữ nguyên dạng List<String>
+            List<dynamic> participantsList = data[Constants.KEY_PARTICIPANTS];
+            List<String> participants = participantsList.map((item) => item.toString()).toList();
+            
+            print(roomId);
+            print(roomName);
+            print(participants);
+            
+            MessageNotifier.updateDataRoom({
+              'room_id': roomId,
+              'room_name': roomName,
+              'participants': participants, // Giữ dạng List<String>
+            });
+          }
+          break;
+          print(Constants.ACTION_RECIEVE_LISTUSER);
+          case Constants.ACTION_RECIEVE_LISTUSER:
+          if(data!=null){
+            print(data);
+            List<dynamic> participantsList = data[Constants.KEY_PARTICIPANTS];
+            List<String> participants = participantsList.map((item) => item.toString()).toList();
+            print(participants);
+            MessageNotifier.updateListUser(participants);
+          }
+          break;
 
+          print(Constants.ACTION_RECIEVE_LISTUSER);
+          print("-----------");
         case Constants.ACTION_RECEIVE_MESSAGE:
           // RECEIVE_MESSAGE comes directly from server (S->C), status might not be relevant here, focus on data
-          if (data != null &&
-              data.containsKey(Constants.KEY_ROOM_ID) &&
-              data.containsKey(Constants.KEY_SENDER_CHAT_ID) &&
-              data.containsKey(Constants.KEY_CONTENT) &&
-              data.containsKey(Constants.KEY_TIMESTAMP)) {
+          if (data != null &&data.containsKey(Constants.KEY_ROOM_ID) &&data.containsKey(Constants.KEY_SENDER_CHAT_ID) &&data.containsKey(Constants.KEY_CONTENT) &&data.containsKey(Constants.KEY_TIMESTAMP)) {
             String roomId = data[Constants.KEY_ROOM_ID];
             String sender = data[Constants.KEY_SENDER_CHAT_ID];
             String content = data[Constants.KEY_CONTENT];
