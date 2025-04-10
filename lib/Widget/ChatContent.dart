@@ -70,12 +70,14 @@ class _ChatContentState extends State<ChatContent> {
     _loadUserMessages();
     _initializeHistoryMessages();
     MessageNotifier.messageNotifier.addListener(_handleNewMessage);
-
     // Add file download listener
     FileDownloadNotifier.instance.addListener(_handleFileDownloadNotification);
 
     // Add room notification listener to reinitialize when new rooms are created
     MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
+    
+    // Thêm listener cho việc cập nhật chat bubble
+    MessageNotifier.message.addListener(_handleChatBubbleUpdate);
   }
 
   void _initializeHistoryMessages() async {
@@ -685,11 +687,14 @@ class _ChatContentState extends State<ChatContent> {
     FileDownloadNotifier.instance
         .removeListener(_handleFileDownloadNotification);
     MessageNotifier.messageNotifierRoom.removeListener(_handleNewRoom);
+    // Hủy đăng ký listener cho cập nhật ChatBubble
+    MessageNotifier.message.removeListener(_handleChatBubbleUpdate);
     _scrollController.dispose();
 
     super.dispose();
   }
 
+  @override
   Widget build(BuildContext context) {
     final messages = _userMessages[widget.userId] ?? [];
 
@@ -745,6 +750,14 @@ class _ChatContentState extends State<ChatContent> {
                         padding: EdgeInsets.only(bottom: 16),
                         itemBuilder: (context, index) {
                           final message = messages[index];
+                          
+                          // Kiểm tra nếu tin nhắn có định dạng file_path
+                          if (message.text.startsWith('file_path ')) {
+                            // Xử lý hiển thị widget placeholder cho file đang chờ
+                            return _buildFilePathPlaceholder(message, index);
+                          }
+                          
+                          // Logic hiển thị tin nhắn thông thường
                           if (message.isMe) {
                             return ChatBubble(
                               message: message,
@@ -796,5 +809,170 @@ class _ChatContentState extends State<ChatContent> {
         ],
       ),
     );
+  }
+  
+  // Widget hiển thị placeholder cho file đang chờ tải
+  Widget _buildFilePathPlaceholder(ChatMessage message, int index) {
+    // Phân tích thông tin từ định dạng: file_path [filename] chat_id [chat_id] room_id [room_id] file_type [type]
+    final parts = message.text.split(' ');
+    if (parts.length < 7) {
+      return Text('Invalid file format');
+    }
+    
+    final fileName = parts[1];
+    final chatId = parts[3];
+    final roomId = parts[5];
+    final fileType = parts.length >= 9 ? parts[8] : 'file';
+    _addToDownloadQueue(chatId, roomId, fileName, fileType);
+    // Chọn biểu tượng phù hợp với loại file
+    IconData fileIcon;
+    switch (fileType.toLowerCase()) {
+      case 'image':
+        fileIcon = Icons.image;
+        break;
+      case 'video':
+        fileIcon = Icons.videocam;
+        break;
+      case 'audio':
+        fileIcon = Icons.audiotrack;
+        break;
+      default:
+        fileIcon = Icons.insert_drive_file;
+    }
+    
+    // Widget placeholder với màu xám
+    Widget placeholderWidget = Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(fileIcon, size: 20, color: Colors.grey[700]),
+          SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fileName, 
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Đang tải...', 
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
+                LinearProgressIndicator(
+                  backgroundColor: Colors.grey[400],
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    // Đặt placeholder vào vị trí phù hợp (trái/phải) dựa vào isMe
+    if (message.isMe) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 64.0, right: 8.0, top: 4.0, bottom: 4.0),
+          child: placeholderWidget,
+        ),
+      );
+    } else {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0, right: 4.0),
+              child: CircleAvatar(
+                backgroundImage: AssetImage(_currentUserAvatar),
+                radius: 16,
+              ),
+            ),
+            Expanded(
+              child: placeholderWidget,
+            ),
+          ],
+        ),
+      );
+    }
+  }
+  
+  // Hàm cập nhật ChatBubble khi nhận được file đầy đủ
+  void updateFileMessage(String fileName, ChatMessage updatedMessage) {
+    if (!mounted || !_userMessages.containsKey(widget.userId)) return;
+    
+    final messages = _userMessages[widget.userId]!;
+    int indexToUpdate = -1;
+    
+    // Tìm tin nhắn dựa trên tên file trong định dạng "file_path [filename] ..."
+    for (int i = 0; i < messages.length; i++) {
+      if (messages[i].text.startsWith('file_path ') && 
+          messages[i].text.contains(fileName)) {
+        indexToUpdate = i;
+        break;
+      }
+    }
+    
+    // Nếu tìm thấy, cập nhật tin nhắn
+    if (indexToUpdate >= 0) {
+      setState(() {
+        // Cập nhật trong bộ nhớ cache local
+        _userMessages[widget.userId]![indexToUpdate] = updatedMessage;
+        
+        // Đồng thời cập nhật trong trạng thái toàn cục
+        if (widget.groupController.clientState != null && 
+            widget.groupController.clientState!.allMessagesConverted.containsKey(widget.userId)) {
+          widget.groupController.clientState!.allMessagesConverted[widget.userId]![indexToUpdate] = updatedMessage;
+        }
+        
+        // Cập nhật lại danh sách tin nhắn hiển thị
+        listhistorymessage = _userMessages[widget.userId]!;
+        
+        print("Cập nhật tin nhắn file tại vị trí $indexToUpdate: $fileName");
+      });
+    } else {
+      print("Không tìm thấy tin nhắn file với tên: $fileName");
+    }
+  }
+
+   void _addToDownloadQueue(
+      String chatId, String roomId, String filePath, String fileType) {
+    final item = FileTransferItem(
+      status: FileConstants.Action_Status_File_Download,
+      currentChatId: chatId,
+      userId: roomId,
+      filePath: filePath,
+      actualFileSize: 0,
+      fileType: fileType,
+      actualTotalPackages: 0,
+    );
+
+    FileTransferQueue.instance.addToQueue(item);
+  }
+  
+  // Xử lý khi có thông báo cập nhật ChatBubble từ MessageNotifier
+  void _handleChatBubbleUpdate() {
+    if (MessageNotifier.message.value != null) {
+      // Nhận tin nhắn cập nhật từ MessageNotifier
+      final updatedMessage = MessageNotifier.message.value!;
+      final fileName = MessageNotifier.name.value;
+      
+      if (fileName.isNotEmpty) {
+        // Tìm và cập nhật tin nhắn dựa trên tên file
+        updateFileMessage(fileName, updatedMessage);
+      }
+    }
   }
 }
