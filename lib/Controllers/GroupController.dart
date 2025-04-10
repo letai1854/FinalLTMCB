@@ -73,7 +73,7 @@ class GroupController {
     }
   }
 
-  Future<void> createGroupChat(String groupName, List<String> memberIds) async {
+  Future<void> createGroupChat(String groupName, List<String> memberIds, String idcurrent) async {
     if (_udpClient == null) {
       throw Exception('UDP Client is not initialized. Please try again later.');
     }
@@ -89,12 +89,10 @@ class GroupController {
 
     // Remove current user and get other members
     final List<String> otherMembers = memberIds
-        .where((id) =>
-                id != currentUserId && // Remove current user
-                id != groupName && // Remove group name if it's in the list
-                RegExp(r'^user\d+$').hasMatch(id) // Only allow userX format
-            )
-        .toList();
+    .where((id) =>
+            id != idcurrent
+        )
+    .toList();
 
     if (otherMembers.isEmpty) {
       throw Exception('Must have at least one other valid member');

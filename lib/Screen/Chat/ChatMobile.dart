@@ -1,4 +1,5 @@
 import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'package:finalltmcb/Controllers/MessageController.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
@@ -7,11 +8,14 @@ import 'package:flutter/material.dart';
 
 class ChatMobile extends StatefulWidget {
   final String userId;
-  GroupController groupController; // Access the global instance
+  GroupController groupController;
+  MessageController messageController; // Access the global instance
   ChatMobile({
     Key? key,
     required this.userId,
-    required this.groupController, // Pass the global instance
+    required this.groupController,
+    required this.messageController, // Pass the global instance
+    // Pass the global instance
   }) : super(key: key);
 
   @override
@@ -28,7 +32,8 @@ class _ChatMobileState extends State<ChatMobile> {
       ),
       body: ChatContent(
         userId: widget.userId,
-        groupController: widget.groupController, // Pass the global instance
+        groupController: widget.groupController,
+        messageController: widget.messageController, // Pass the global instance
       ),
     );
   }

@@ -1,25 +1,22 @@
 import 'dart:io';
 import 'dart:developer' as logger;
-import 'package:finalltmcb/ClientUdp/constants.dart';
-import 'package:finalltmcb/Controllers/MessageController.dart';
-import 'package:finalltmcb/File/UdpChatClientFile.dart';
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/constants/GlobalVariables.dart';
-import 'package:finalltmcb/constants/constants.dart';
+import 'Models/file_constants.dart';
 
 /// Stores the current state of the UDP chat client, including
 /// connection details and session information.
-class ClientState {
+class ClientStateForFile {
   final String serverHost;
   final int serverPort;
   final RawDatagramSocket socket;
   final InternetAddress serverAddress;
-
-  String? sessionKey;
-  String? currentChatId;
+  String? sessionKey = UdpClientSingleton().clientState?.sessionKey;
+  String? currentUserId = UdpClientSingleton().clientState?.currentChatId;
   bool running = true;
-  final int portFile;
+  final int portNew;
   List<Map<String, dynamic>> rooms = [];
   // Danh sách tất cả người dùng
   List<String> allUsers = [];
@@ -27,29 +24,20 @@ class ClientState {
   Map<String, List<dynamic>> allMessages = {};
 
   // Converted data structures
-  List<User> convertedUsers = [];
-  List<Map<String, dynamic>> cachedMessages = [];
-  Map<String, List<ChatMessage>> roomMessages = {};
-  Map<String, List<ChatMessage>> allMessagesConverted = {};
 
   /// Private constructor - use ClientState.create() factory constructor instead
-  ClientState._internal(this.serverHost, this.serverPort, this.socket,
-      this.serverAddress, this.portFile) {
+  ClientStateForFile._internal(this.serverHost, this.serverPort, this.socket,
+      this.serverAddress, this.portNew) {
     rooms = [];
     allUsers = [];
     allMessages = {};
-    convertedUsers = [];
-    cachedMessages = [];
-    roomMessages = {};
-  }
-  int getFilePort() {
-    return portFile;
   }
 
   /// Factory constructor that creates the socket and resolves the server address
-  static Future<ClientState> create(String serverHost, int serverPort) async {
+  static Future<ClientStateForFile> create(
+      String serverHost, int serverPort, int portFile) async {
     try {
-      logger.log("Resolving server address: $serverHost");
+      logger.log("File transfer client created with session key:");
 
       // Properly resolve the server address
       InternetAddress resolvedAddress;
@@ -72,28 +60,19 @@ class ClientState {
       }
 
       logger.log("Creating UDP socket...");
-      // Create UDP socket (explicitly specify IPv4)
-      final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4,
-          0, // Use port 0 for automatic port assignment
-          reuseAddress: true);
-      GlobalVariables.instance.setPort(socket.port);
+      // Create UDP socket using FILE_TRANSFER_SERVER_PORT
+      var a = GlobalVariables.instance.port;
+      print(a);
+      final socket =
+          await RawDatagramSocket.bind(InternetAddress.anyIPv4, portFile);
 
-      int portFile = socket.port + 1;
-      // int portServer = Constants.FILE_TRANSFER_SERVER_PORT;
-      // final clientFile = await UdpChatClientFile.create(
-      //     "localhost", portServer, socket.port + 1);
+      logger.log("Socket created. Local port: ${socket.port}");
 
-      // MessageController().setUdpChatClientFile(clientFile);
-      // int portServer = Constants.FILE_TRANSFER_SERVER_PORT;
-      // final clientFile = await UdpChatClientFile.create(
-      //     "localhost", portServer, socket.port + 1);
-      // logger.log("Socket created. Local port: ${socket.port}");
-
-      return ClientState._internal(
+      return ClientStateForFile._internal(
           serverHost, serverPort, socket, resolvedAddress, portFile);
     } catch (e) {
       logger.log("Failed to initialize client state: $e");
-      throw Exception('Failed to initialize client state: $e');
+      throw Exception('Failed to initialize file client state: $e');
     }
   }
 
@@ -103,5 +82,10 @@ class ClientState {
       socket.close();
       logger.log("Socket closed");
     }
+  }
+
+  void close() {
+    running = false;
+    closeSocket();
   }
 }

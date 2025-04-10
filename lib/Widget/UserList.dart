@@ -1,5 +1,7 @@
 import 'dart:math'; // For generating random IDs
+import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
+import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
@@ -38,21 +40,25 @@ class MessageList extends StatefulWidget {
 
 class _MessageListState extends State<MessageList> {
   String get currentUserId =>
-      widget.groupController.client?.clientState.currentChatId ?? 'user1';
+      widget.groupController.client?.clientState.currentChatId ?? '';
 
   @override
   void initState() {
     super.initState();
     // Initialize data from clientState
+    FileDownloadNotifier.instance.addListener(_handleFileDownloadNotification);
     final clientState = widget.groupController.client?.clientState;
     if (clientState != null) {
       MessageList.cachedMessages = clientState.cachedMessages;
 
       // Add message listener
-      MessageNotifier.messageNotifier.addListener(_handleNewMessage);
+      MessageNotifier.messageNotifier.addListener(_handleNewMessageUserList);
       MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
+      MessageNotifier.messageNotifierRecieveFile
+          .addListener(_handleNewMessageUserListFile);
       // Thêm listener cho danh sách người dùng
-      MessageNotifier.messageNotifierListUser.addListener(_handleUserListUpdate);
+      MessageNotifier.messageNotifierListUser
+          .addListener(_handleUserListUpdate);
 
       if (widget.isDesktopOrTablet && clientState.cachedMessages.isNotEmpty) {
         _autoSelectFirstUser();
@@ -77,49 +83,19 @@ class _MessageListState extends State<MessageList> {
       }
 
       // Cập nhật danh sách chat dựa trên người dùng mới
-      _updateCachedMessagesFromUsers(userList);
     });
   }
 
   // Chuyển đổi danh sách ID người dùng thành danh sách đối tượng User
   List<User> _convertToUsers(List<String> userIds, String currentUserId) {
     return userIds
-        .where((userId) => userId != currentUserId) // Loại bỏ ID người dùng hiện tại
+        .where((userId) =>
+            userId != currentUserId) // Loại bỏ ID người dùng hiện tại
         .map((userId) => User(
               chatId: userId,
               createdAt: DateTime.now(),
             ))
         .toList();
-  }
-
-  // Cập nhật danh sách chat từ danh sách người dùng
-  void _updateCachedMessagesFromUsers(List<String> userIds) {
-    // Khởi tạo cache nếu chưa có
-    MessageList.cachedMessages ??= [];
-
-    // Danh sách ID người dùng đã có trong cache
-    final existingUserIds = MessageList.cachedMessages!
-        .where((chat) => chat['isGroup'] == false)
-        .map((chat) => chat['id'] as String)
-        .toSet();
-
-    // Thêm người dùng mới vào cache
-    for (final userId in userIds) {
-      // Bỏ qua người dùng hiện tại và người dùng đã có trong cache
-      if (userId == currentUserId || existingUserIds.contains(userId)) {
-        continue;
-      }
-
-      // Thêm người dùng mới vào cache
-      MessageList.cachedMessages!.add({
-        'id': userId,
-        'name': userId, // Sử dụng ID làm tên hiển thị
-        'avatar': 'assets/logoS.jpg', // Avatar mặc định
-        'isOnline': true,
-        'message': 'Người dùng mới',
-        'isGroup': false,
-      });
-    }
   }
 
   void _handleNewRoom() {
@@ -130,9 +106,12 @@ class _MessageListState extends State<MessageList> {
         final roomName = roomData['room_name'];
         final List<String> members = roomData['participants'];
 
+        print("Received new room notification - ID: $roomId, Name: $roomName");
+
         // Kiểm tra xem phòng đã tồn tại chưa
-        int existingIndex =
-            MessageList.cachedMessages?.indexWhere((room) => room['id'] == roomId) ?? -1;
+        int existingIndex = MessageList.cachedMessages
+                ?.indexWhere((room) => room['id'] == roomId) ??
+            -1;
 
         if (existingIndex == -1) {
           // Thêm phòng mới vào danh sách nếu chưa tồn tại
@@ -146,9 +125,9 @@ class _MessageListState extends State<MessageList> {
             'members': members, // Sử dụng List<String> thay vì Set<String>
           });
 
+          // Initialize message container for the new room
+          widget.groupController.clientState!.allMessagesConverted[roomId] = [];
           print("Đã thêm phòng chat mới: $roomName (ID: $roomId)");
-
-          // Đã loại bỏ phần tự động chọn phòng mới
         } else {
           // Cập nhật thông tin phòng nếu đã tồn tại
           MessageList.cachedMessages![existingIndex]['name'] = roomName;
@@ -160,20 +139,25 @@ class _MessageListState extends State<MessageList> {
   }
 
   // Add new method to handle messages
-  void _handleNewMessage() {
+  void _handleNewMessageUserList() {
     final messageData = MessageNotifier.messageNotifier.value;
     if (messageData != null && mounted && MessageList.cachedMessages != null) {
       final roomId = messageData['roomId'];
       final content = messageData['content'];
+      final sender = messageData['sender_chatid'] ??
+          messageData['sender'] ??
+          messageData['name'] ??
+          'Unknown';
 
       // Find the chat in cached messages
-      final chatIndex =
-          MessageList.cachedMessages!.indexWhere((chat) => chat['id'] == roomId);
-
+      final chatIndex = MessageList.cachedMessages!
+          .indexWhere((chat) => chat['id'] == roomId);
+      print("----------" + chatIndex.toString());
       if (chatIndex != -1) {
         setState(() {
-          // Update message content
-          MessageList.cachedMessages![chatIndex]['message'] = content;
+          // Update message content with sender info
+          MessageList.cachedMessages![chatIndex]['message'] =
+              '$sender: $content';
 
           // Mark message as unread if it's not the currently selected chat
           if (roomId != widget.selectedUserId) {
@@ -186,16 +170,103 @@ class _MessageListState extends State<MessageList> {
             MessageList.cachedMessages!.insert(0, chat);
           }
         });
+        final newMessage = ChatMessage(
+          text: messageData['content'],
+          isMe: false,
+          // Use sender_chatid from server or fallback to name
+          name: messageData['sender_chatid'] ??
+              messageData['sender'] ??
+              messageData['name'] ??
+              'Unknown',
+          timestamp: DateTime.parse(messageData['timestamp']),
+        );
+        widget.groupController.clientState!.allMessagesConverted
+            .putIfAbsent(roomId, () => []);
+        widget.groupController.clientState!.allMessagesConverted[roomId]!
+            .add(newMessage);
+      } else {
+        print("Warning: Received message for unknown room: $roomId");
       }
     }
   }
 
+  void _handleNewMessageUserListFile() {
+    final messageData = MessageNotifier.messageNotifierRecieveFile.value;
+    if (messageData != null && mounted && MessageList.cachedMessages != null) {
+      final roomId = messageData['roomId'];
+      final type = messageData['type'];
+      String content = '';
+      if (type.startsWith('audio/')) {
+        content = 'Có bản ghi âm mới';
+      } else if (type.startsWith('video/')) {
+        content = 'Có video mới';
+      } else if (type.startsWith('image/')) {
+        content = 'Có hình ảnh mới';
+      } else {
+        content = 'Có tệp tin mới';
+      }
+
+      // Find the chat in cached messages
+      final chatIndex = MessageList.cachedMessages!
+          .indexWhere((chat) => chat['id'] == roomId);
+      print("----------" + chatIndex.toString());
+      if (chatIndex != -1) {
+        setState(() {
+          // Update message content with sender info
+          MessageList.cachedMessages![chatIndex]['message'] = '$content';
+
+          // Mark message as unread if it's not the currently selected chat
+          if (roomId != widget.selectedUserId) {
+            MessageList.unreadMessages.add(roomId);
+          }
+
+          // Move chat to top if not already there
+          if (chatIndex > 0) {
+            final chat = MessageList.cachedMessages!.removeAt(chatIndex);
+            MessageList.cachedMessages!.insert(0, chat);
+          }
+        });
+      } else {
+        print("Warning: Received message for unknown room: $roomId");
+      }
+    }
+  }
+
+  void _handleFileDownloadNotification() {
+    final downloadData = FileDownloadNotifier.instance.value;
+    final newMessage = downloadData!['message'] as ChatMessage;
+    final roomId = downloadData['roomId'];
+    print("Received file download notification: $newMessage");
+    widget.groupController.clientState!.allMessagesConverted[roomId]!
+        .add(newMessage);
+    // if (!_userMessages.containsKey(widget.userId)) {
+    //   _userMessages[widget.userId] = [];
+    // }
+    // _userMessages[widget.userId]!.add(newMessage);
+    // listhistorymessage = _userMessages[widget.userId]!;
+    // final newMessage = ChatMessage(
+    //   text: messageData['content'],
+    //   isMe: false,
+    //   // Use sender_chatid from server or fallback to name
+    //   name: messageData['sender_chatid'] ??
+    //       messageData['sender'] ??
+    //       messageData['name'] ??
+    //       'Unknown',
+    //   timestamp: DateTime.parse(messageData['timestamp']),
+    // );
+    // widget.groupController.clientState!.allMessagesConverted
+    //     .putIfAbsent(roomId, () => []);
+    // widget.groupController.clientState!.allMessagesConverted[roomId]!
+    //     .add(newMessage);
+  }
+
   @override
   void dispose() {
-    MessageNotifier.messageNotifier.removeListener(_handleNewMessage);
+    MessageNotifier.messageNotifier.removeListener(_handleNewMessageUserList);
     MessageNotifier.messageNotifierRoom.removeListener(_handleNewRoom);
     // Xóa listener cho danh sách người dùng
-    MessageNotifier.messageNotifierListUser.removeListener(_handleUserListUpdate);
+    MessageNotifier.messageNotifierListUser
+        .removeListener(_handleUserListUpdate);
     super.dispose();
   }
 
@@ -292,83 +363,11 @@ class _MessageListState extends State<MessageList> {
   // *** Định nghĩa lại hàm _createGroupChat ***
   Future<void> _createGroupChat(
       String groupName, List<String> memberIds) async {
-    final completer = Completer<void>();
-    final receivePort = ReceivePort();
-
-    // Spawn isolate for group creation
-    final isolate = await Isolate.spawn((List<dynamic> args) {
-      final SendPort sendPort = args[0];
-      final Map<String, dynamic> data = args[1];
-
-      try {
-        sendPort.send({
-          'type': 'execute',
-          'groupName': data['groupName'],
-          'memberIds': data['memberIds'],
-        });
-      } catch (e) {
-        sendPort.send({'type': 'error', 'message': e.toString()});
-      }
-    }, [
-      receivePort.sendPort,
-      {'groupName': groupName, 'memberIds': memberIds}
-    ]);
-
-    // Listen for messages from isolate
-    receivePort.listen((message) async {
-      if (message['type'] == 'execute') {
-        try {
-          await widget.groupController.createGroupChat(
-            message['groupName'],
-            message['memberIds'],
-          );
-
-          // --- START: Update cache and trigger rebuild ---
-          // Tạo group mới để thêm vào cache
-          final newGroupId =
-              'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
-          final newGroup = {
-            'name': message['groupName'],
-            'message': 'New group created', // Placeholder message
-            'avatar': 'assets/logoS.jpg', // Placeholder avatar
-            'isOnline': true, // Placeholder status
-            'id': newGroupId, // Lưu ID để sử dụng sau
-            'isGroup': true,
-            'members': message['memberIds'],
-          };
-
-          // Ensure cache is initialized
-          MessageList.cachedMessages ??= [];
-          // Add to the beginning of the list
-          MessageList.cachedMessages!.insert(0, newGroup);
-
-          // Trigger UI rebuild
-          if (mounted) {
-            setState(() {});
-
-            // Tự động chọn group mới sau khi UI đã được cập nhật
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && widget.onUserSelected != null) {
-                // Chọn group mới bằng cách gọi callback với ID của group
-                widget.onUserSelected!(newGroupId); // Truyền String ID
-              }
-            });
-          }
-          // --- END: Update cache and trigger rebuild ---
-
-          completer.complete();
-        } catch (e) {
-          completer.completeError(e);
-        }
-      } else if (message['type'] == 'error') {
-        completer.completeError(message['message']);
-      }
-
-      isolate.kill();
-      receivePort.close(); // Close the port when done
-    });
-
-    return completer.future;
+    await widget.groupController.createGroupChat(
+      groupName,
+      memberIds,
+      currentUserId, // Use the state's getter for the current user ID
+    );
   }
   // ******************************************
 
@@ -399,7 +398,8 @@ class _MessageListState extends State<MessageList> {
           builder: (context, setDialogState) {
             // Filter users based on search query
             var filteredUsers =
-                (widget.groupController.client?.clientState.convertedUsers ?? [])
+                (widget.groupController.client?.clientState.convertedUsers ??
+                        [])
                     .where((user) => user.chatId
                         .toLowerCase()
                         .contains(searchQuery.toLowerCase()))

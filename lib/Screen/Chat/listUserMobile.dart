@@ -22,7 +22,9 @@ class _ListUserMobileState extends State<ListUserMobile> {
       MaterialPageRoute(
         builder: (context) => ChatMobile(
             userId: userId,
-            groupController: globalGroupController), // Pass the global instance
+            groupController: globalGroupController,
+            messageController:
+                globalMessageController), // Pass the global instance
       ),
     );
   }

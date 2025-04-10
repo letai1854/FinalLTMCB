@@ -54,9 +54,9 @@ class CaesarCipher {
   /// @return The processed text.
   static String processText(String text, int shift) {
     logger.log('Processing text: $text');
+
     if (text.isEmpty) return text;
-    // shift = 0;
-    if(text!=null) return text;
+    // if(text!=null) return text;
     StringBuffer result = StringBuffer();
     int i = 0;
 
@@ -67,7 +67,8 @@ class CaesarCipher {
           _isHighSurrogate(text.codeUnitAt(i)) &&
           _isLowSurrogate(text.codeUnitAt(i + 1))) {
         // Kết hợp surrogate pair thành một code point
-        codePoint = _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
+        codePoint =
+            _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
         i += 2; // Bỏ qua cả hai đơn vị mã
         // logger.log()
         logger.log('Surrogate pair found: $codePoint');
@@ -130,8 +131,9 @@ class CaesarCipher {
 
   // Hàm hỗ trợ kiểm tra code point hợp lệ
   static bool _isValidCodePoint(int codePoint) {
-    return codePoint >= 0 && codePoint <= 0x10FFFF &&
-           !(codePoint >= 0xD800 && codePoint <= 0xDFFF);
+    return codePoint >= 0 &&
+        codePoint <= 0x10FFFF &&
+        !(codePoint >= 0xD800 && codePoint <= 0xDFFF);
   }
 
   /// Counts the frequency of each character in a string.
@@ -140,7 +142,8 @@ class CaesarCipher {
   ///
   /// @param text The string to analyze.
   /// @return A map with characters as keys and their frequencies as values.
-  static Map<String, int> countLetterFrequencies(String? text, {bool needProcessSpecialChar = true}) {
+  static Map<String, int> countLetterFrequencies(String? text,
+      {bool needProcessSpecialChar = true}) {
     logger.log('Counting letter frequencies in text: ${text ?? "null"}');
     if (text == null || text.isEmpty) {
       return {};
@@ -158,7 +161,7 @@ class CaesarCipher {
         i++; // Skip the second part of the surrogate pair
         continue;
       }
-      
+
       // Regular character or Vietnamese letter
       String character = text[i];
       frequencies[character] = (frequencies[character] ?? 0) + 1;
@@ -182,23 +185,21 @@ class CaesarCipher {
       if (_isHighSurrogate(codePoint) &&
           i + 1 < text.length &&
           _isLowSurrogate(text.codeUnitAt(i + 1))) {
-
         // Combine the surrogate pair into a code point
-        int combinedCodePoint = _combineSurrogatePair(
-          text.codeUnitAt(i),
-          text.codeUnitAt(i + 1)
-        );
+        int combinedCodePoint =
+            _combineSurrogatePair(text.codeUnitAt(i), text.codeUnitAt(i + 1));
 
         // Convert to \uXXXX escape sequence
-        result.write('\\u${combinedCodePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
+        result.write(
+            '\\u${combinedCodePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
         i++; // Skip the second part of the surrogate pair
       }
       // Check if this is a character that might be handled differently in Java
       else if (codePoint > 127) {
         // Convert to \uXXXX escape sequence for non-ASCII characters
-        result.write('\\u${codePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
-      }
-      else {
+        result.write(
+            '\\u${codePoint.toRadixString(16).toUpperCase().padLeft(4, '0')}');
+      } else {
         // Regular ASCII character
         result.writeCharCode(codePoint);
       }
