@@ -11,6 +11,8 @@ import 'package:mime/mime.dart';
 // This will be ignored on non-web platforms
 import 'dart:html' if (dart.library.io) './fake_html.dart' as html;
 
+import 'package:path_provider/path_provider.dart';
+
 // Create a fake html implementation for non-web platforms
 class FakeBlob {}
 
@@ -355,59 +357,107 @@ class FileDownloader {
       FileMessage file, BuildContext context) async {
     try {
       if (kIsWeb) {
-        // Web implementation
+        // ========= WEB IMPLEMENTATION (Giữ nguyên) =========
         if (file.hasFileBytes) {
-          // Hiển thị thông báo đang tải
           _showTopNotification(context, 'Đang tải ${file.fileName}...');
-
-          // Create a blob and trigger download
           final blob = _WebHelper.createBlob([file.fileBytes!]);
           final url = _WebHelper.createObjectUrl(blob);
-
-          // Trigger download
           _WebHelper.downloadWithAnchor(url, file.fileName);
-
-          // Clean up
           _WebHelper.revokeObjectUrl(url);
-
-          // Hiển thị thông báo tải thành công
           _showTopNotification(context, 'Đã tải ${file.fileName} thành công',
               isSuccess: true);
         } else {
-          _showTopNotification(context, 'Không thể tải: File không có dữ liệu',
+          _showTopNotification(
+              context, 'Không thể tải trên web: File không có dữ liệu bytes.',
               isError: true);
         }
+        // ========= KẾT THÚC WEB IMPLEMENTATION =========
       } else {
-        // Native platform implementation
-        if (file.filePath.isNotEmpty) {
-          final filePath = file.filePath;
+        // ========= NATIVE PLATFORM IMPLEMENTATION (Sử dụng "Save As" Dialog) =========
 
-          try {
-            final fileExists = await File(filePath).exists();
-            if (fileExists) {
-              // Hiển thị thông báo ở trên cùng
-              _showTopNotification(context, 'File có sẵn tại: ${file.fileName}',
-                  isSuccess: true);
-            } else {
+        // 1. Kiểm tra tên file
+        if (file.fileName.isEmpty) {
+          _showTopNotification(context, 'Tên file không hợp lệ.',
+              isError: true);
+          return;
+        }
+
+        // 2. Kiểm tra đường dẫn file nguồn
+        if (file.filePath.isEmpty) {
+          _showTopNotification(
+              context, 'Không thể lưu: Đường dẫn file nguồn bị trống.',
+              isError: true);
+          print('Save failed: file.filePath is empty for ${file.fileName}');
+          return;
+        }
+
+        // 3. Tạo đối tượng File cho file nguồn
+        final sourceFile = File(file.filePath);
+
+        // 3.1 Kiểm tra sự tồn tại file nguồn
+        if (!await sourceFile.exists()) {
+          _showTopNotification(
+              context, 'Lỗi: Không tìm thấy file nguồn tại ${file.filePath}',
+              isError: true);
+          print('Save failed: Source file does not exist at ${file.filePath}');
+          return;
+        }
+
+        _showTopNotification(
+            context, 'Vui lòng chọn vị trí lưu cho ${file.fileName}...');
+
+        try {
+          // 4. Mở hộp thoại "Save As" của hệ thống
+          String? savePath = await FilePicker.platform.saveFile(
+            dialogTitle: 'Lưu file vào...', // Tiêu đề hộp thoại
+            fileName: file.fileName, // Tên file gợi ý
+          );
+
+          // 5. Xử lý kết quả từ hộp thoại
+          if (savePath != null) {
+            // Người dùng đã chọn một vị trí (ví dụ: D:\MyFolder\myfile.txt)
+            _showTopNotification(context, 'Đang lưu vào ${savePath}...',
+                isSuccess: false, isError: false);
+
+            try {
+              // 6. Sao chép file từ nguồn đến vị trí người dùng chọn
+              await sourceFile.copy(savePath);
+
+              print('File đã được lưu thành công tại: $savePath');
               _showTopNotification(
-                  context, 'Không tìm thấy file: ${file.fileName}',
-                  isError: true);
+                  context, 'Đã lưu ${file.fileName} thành công!',
+                  isSuccess: true);
+            } catch (e) {
+              // Lỗi trong quá trình copy
+              print('Lỗi khi sao chép file tới vị trí đã chọn: $e');
+              String errorMessage = 'Lỗi khi lưu file';
+              if (e is FileSystemException) {
+                errorMessage = 'Lỗi hệ thống file khi lưu: ${e.message}';
+              } else {
+                errorMessage =
+                    'Lỗi lưu file: ${e.toString().split('\n').first}';
+              }
+              _showTopNotification(context, errorMessage, isError: true);
             }
-          } catch (e) {
-            print('Error checking file: $e');
-            _showTopNotification(
-                context, 'Lỗi truy cập file: ${e.toString().split('\n').first}',
-                isError: true);
+          } else {
+            // Người dùng đã hủy (nhấn Cancel trong hộp thoại)
+            print('Người dùng đã hủy lưu file.');
+            _showTopNotification(context, 'Đã hủy thao tác lưu file.',
+                isError: false);
           }
-        } else {
-          _showTopNotification(context, 'Không có đường dẫn file',
+        } catch (e) {
+          // Lỗi khi mở hộp thoại FilePicker
+          print('Lỗi trong quá trình mở hộp thoại lưu file: $e');
+          _showTopNotification(context, 'Lỗi: Không thể mở hộp thoại lưu file.',
               isError: true);
         }
+        // ========= KẾT THÚC NATIVE IMPLEMENTATION =========
       }
     } catch (e) {
-      print('Error downloading file: $e');
+      // Lỗi chung
+      print('Lỗi không xác định trong downloadFile: $e');
       _showTopNotification(
-          context, 'Lỗi xử lý file: ${e.toString().split('\n').first}',
+          context, 'Lỗi không xác định: ${e.toString().split('\n').first}',
           isError: true);
     }
   }
