@@ -5,6 +5,12 @@ class Constants {
   // --- Network ---
   static const int DEFAULT_SERVER_PORT = 9876;
   static const int MAX_UDP_PACKET_SIZE = 65507;
+  //file network
+  static const int FILE_TRANSFER_SERVER_PORT = 9877;
+  //file detail
+  static final String STORAGE_DIR = "server_storage";
+  static final int BUFFER_SIZE = 1024 * 64;
+  static final int DATA_CHUNK_SIZE = 1024 * 32;
 
   // --- Security ---
   /**
@@ -180,7 +186,14 @@ class Constants {
   static const String TIME_OPTION_DAYS = "days";
   static const String TIME_OPTION_WEEKS = "weeks";
   static const String TIME_OPTION_ALL = "all";
-
+  //file action
+  static final String ACTION_FILE_INIT = "file_init";
+  static final String ACTION_FILE_DATA = "file_data";
+  static final String ACTION_FILE_FIN = "file_fin";
+  static final String ACTION_LIST_REQ = "list_req";
+  static final String ACTION_DOWN_REQ = "down_req";
+  static final String ACTION_DOWN_FIN = "down_fin";
+  static final String ACTION_FILE_DOWN = "file_down";
   // --- Other ---
   static const int SESSION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
   static const int SESSION_MAX_INACTIVE_INTERVAL_MS =

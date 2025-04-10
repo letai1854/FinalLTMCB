@@ -75,15 +75,29 @@ class MediaHandlerWidget {
         return;
       }
 
-      // Create file message from result
+      final mimeType = lookupMimeType(file.name,
+              headerBytes: fileBytes.take(1024).toList()) ??
+          FilePickerUtil.getMimeType(file.name);
+
+      // Calculate total packages based on file size
+      final totalPackages =
+          FileMessage.calculateTotalPackages(fileBytes.length);
+
+      // Determine file type from mime type
+      final fileType = FileMessage.getFileType(mimeType);
+
+      print(
+          "File details - Size: ${fileBytes.length} bytes, Packages: $totalPackages, Type: $fileType");
+
+      // Create file message with proper values
       final fileMessage = FileMessage(
         fileName: file.name,
-        mimeType: lookupMimeType(file.name,
-                headerBytes: fileBytes.take(1024).toList()) ??
-            FilePickerUtil.getMimeType(file.name),
+        mimeType: mimeType,
         fileSize: fileBytes.length,
         filePath: file.path ?? '',
         fileBytes: fileBytes,
+        totalPackages: totalPackages,
+        fileType: fileType,
       );
 
       // Create the chat message

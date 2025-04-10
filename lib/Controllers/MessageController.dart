@@ -3,10 +3,14 @@ import 'dart:math';
 import 'dart:async';
 import 'dart:developer' as logger;
 import 'dart:typed_data'; // Import for Uint8List
-import 'dart:io'; // Import for InternetAddress
+import 'dart:io' as io; // Import for InternetAddress
+import 'dart:isolate'; // Import for Isolate
 
 import 'package:finalltmcb/ClientUdp/command_processor.dart';
 import 'package:finalltmcb/ClientUdp/json_helper.dart';
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
+import 'package:finalltmcb/File/Models/file_constants.dart';
+import 'package:finalltmcb/File/UdpChatClientFile.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
@@ -25,98 +29,159 @@ import 'package:universal_html/html.dart';
 // Ví dụ:
 
 class MessageController {
-  // Create a singleton instance of UserController
   static final MessageController _instance = MessageController._internal();
 
-  // Private constructor
   MessageController._internal();
-
-  // Factory constructor to return the singleton instance
   factory MessageController() {
     return _instance;
   }
+  static MessageController get instance => _instance;
+  UdpChatClientFile? _udpChatClientFile;
 
   // Reference to the UDP client
   UdpChatClient? _udpClient;
 
-  // Add public getter for the UDP client
   UdpChatClient? get udpClient => _udpClient;
 
-  // Set the UDP client reference
-  void setUdpClient(UdpChatClient client) {
-    _udpClient = client;
-    // Cần truyền client cho CommandProcessor nếu nó cần
-    // commandProcessor.setUdpClient(client); // Ví dụ
-    print("UDP client set in MessageController");
+  Future<void> setUdpClient(UdpChatClient client, int portFile) async {
+    try {
+      _udpClient = client;
+
+      // Create UdpChatClientFile asynchronously
+      _udpChatClientFile = await UdpChatClientFile.create(
+          "localhost", Constants.FILE_TRANSFER_SERVER_PORT, portFile);
+      _udpChatClientFile?.messageListener.startListening();
+      logger.log("UDP clients initialized successfully");
+    } catch (e) {
+      logger.log("Error initializing UDP clients: $e");
+      throw Exception('Failed to initialize UDP clients: $e');
+    }
+  }
+
+  UdpChatClientFile? get udpChatClientFile => _udpChatClientFile;
+
+  Isolate? _fileTransferIsolate;
+  ReceivePort? _receivePort;
+
+  Future<void> SendFileMessage(
+      String tatus,
+      String chat_id,
+      String room_id,
+      String file_path,
+      int file_Size,
+      String file_type,
+      int totalPackage) async {
+    try {
+      // Extract file extension from path
+      String fileExtension = file_path.split('.').last;
+      if (fileExtension.isEmpty) {
+        throw Exception("File has no extension: $file_path");
+      }
+
+      // Get full file path and verify file
+      // final file = io.File(file_path);
+      // if (!await file.exists()) {
+      //   throw Exception("File not found: $file_path");
+      // }
+
+      // final actualFileSize = await file.length();
+      // final actualTotalPackages = (actualFileSize / (1024 * 32)).ceil();
+      // Create a ReceivePort for communication
+
+      try {
+        final String commandString =
+            "/file $room_id $chat_id $file_path $file_Size $file_type $totalPackage";
+        final fileClient = MessageController._instance?._udpChatClientFile;
+        fileClient?.commandProcessor
+            .processCommand(commandString, fileClient.handshakeManager);
+      } catch (e) {}
+    } catch (e) {
+      logger.log("Error in SendFileMessage: $e");
+      throw Exception("Failed to process file: $e");
+    }
+  }
+
+  Future<void> DownloadFileMessage(String chat_id, String room_id,
+      String file_path, String file_type) async {
+    try {
+      final String commandString = "/download $room_id $file_path";
+
+      final fileClient = MessageController._instance?._udpChatClientFile;
+      await fileClient?.commandProcessor
+          .processCommandDownload(commandString, fileClient.handshakeManager);
+    } catch (e) {
+      logger.log("Error in DownloadFileMessage: $e");
+      throw Exception("Failed to download file: $e");
+    }
+  }
+
+  void _cleanupFileTransfer() {
+    _fileTransferIsolate?.kill();
+    _receivePort?.close();
+    _fileTransferIsolate = null;
+    _receivePort = null;
   }
 
   // *** HÀM GỬI TIN NHẮN VĂN BẢN ***
-  Future<void> SendTextMessage(String roomId, List<String> members, String messageContent) async {
-    // Kiểm tra roomId có hợp lệ không
-    if (roomId.isEmpty) {
-      logger.log("Error: Room ID is empty.", name: "MessageController");
-      throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
-    }
-    
+  Future<void> SendTextMessage(
+      String roomId, List<String> members, String messageContent) async {
     logger.log(
         'MessageController: Preparing to send text message to room $roomId');
 
-    // Lấy instance UdpClient
+    // Lấy instance UdpClient (điều chỉnh cách lấy cho phù hợp với cấu trúc của bạn)
     try {
-      UdpChatClient? _udpClient = _instance.udpClient;
-      
-      if (_udpClient == null) {
-        throw Exception("Không thể kết nối đến máy chủ chat");
-      }
+      // Cần đảm bảo client đã login và có session key
+    } catch (e) {
+      logger.log('Error getting UdpClient instance: $e',
+          name: 'MessageController');
+      throw Exception('Failed to get UDP client instance: $e');
+    }
 
-      // Gửi dữ liệu qua UdpClient - sử dụng roomId được truyền vào từ tham số
+    // Tạo payload dữ liệu theo định dạng yêu cầu của server
+
+    try {
+      // Gửi dữ liệu qua UdpClient
+      // Hàm sendData của UdpClient sẽ tự động mã hóa và gửi
+      // Nó cũng nên xử lý việc chờ ACK hoặc timeout nếu cần
       final String commandString = "/send $roomId $messageContent";
-      logger.log('Sending command: $commandString');
-      
-      await _udpClient.commandProcessor.processCommand(commandString);
+      await _udpClient?.commandProcessor.processCommand(commandString);
       logger.log(
           'MessageController: Text message sent successfully to room $roomId.');
     } catch (e) {
       logger.log('Error sending text message via UdpClient: $e',
-          name: "MessageController");
+          name: 'MessageController');
       // Ném lại lỗi để ChatContent có thể hiển thị thông báo
       throw Exception('Failed to send message: $e');
     }
   }
-  
-  // Phương thức gửi MessageData phức tạp qua UDP (sẽ thực hiện sau)
-  Future<void> SendComplexMessage(String roomId, MessageData message) async {
-    // Kiểm tra roomId có hợp lệ không
-    if (roomId.isEmpty) {
-      logger.log("Error: Room ID is empty.", name: "MessageController");
-      throw Exception("Không thể gửi tin nhắn: ID phòng không hợp lệ.");
-    }
+
+  // **********************************
+// Isolate handler function - runs in separate thread
+  void _fileTransferHandler(Map<String, dynamic> params) async {
+    final SendPort sendPort = params['sendPort'];
+    final String host = params['host'];
+    final int port = params['port'];
+    final String roomId = params['roomId'];
+    final String chat_id = params['chatId'];
+    final String file_path = params['filePath'];
+    final int file_Size = params['fileSize'];
+    final String file_type = params['fileType'];
+    final int totalPackage = params['totalPackage'];
 
     try {
-      // 1. Chuyển MessageData thành Map -> JSON String
-      final Map<String, dynamic> messageJsonMap = message.toJson();
-      final String messageJsonString = jsonEncode(messageJsonMap);
-      logger.log(
-          "MessageData JSON (Payload): ${messageJsonString.substring(0, min(messageJsonString.length, 150))}...",
-          name: "MessageController");
+      final String commandString =
+          "/file $roomId $chat_id $file_path $file_Size $file_type $totalPackage";
 
-      // 2. Tạo chuỗi lệnh với roomId từ tham số
-      final String commandString = "/send $roomId $messageJsonString";
-      
-      // 3. Gửi lệnh đến CommandProcessor
-      logger.log("Passing command to CommandProcessor...",
-          name: "MessageController");
-      await _udpClient?.commandProcessor.processCommand(commandString);
-      logger.log(
-          "Command '/send' with JSON Payload passed to CommandProcessor.",
-          name: "MessageController");
-    } catch (e, stackTrace) {
-      logger.log("Error formatting/processing send command with JSON: $e",
-          name: "MessageController", error: e, stackTrace: stackTrace);
-      throw Exception('Gửi tin nhắn thất bại: $e');
+      final fileClient = MessageController._instance?._udpChatClientFile;
+      fileClient?.commandProcessor
+          .processCommand(commandString, fileClient.handshakeManager);
+    } catch (e) {
+      sendPort.send({
+        'status': 'error',
+        'error': e.toString(),
+      });
     }
   }
-  // **********************************
-
-  // Các hàm khác của controller có thể thêm vào đây
 }
+
+class _udpClient {}

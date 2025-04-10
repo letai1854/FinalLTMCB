@@ -1,3 +1,4 @@
+import 'package:finalltmcb/Controllers/MessageController.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:finalltmcb/Widget/ChatContent.dart';
@@ -53,6 +54,7 @@ class _ChatDesktopState extends State<ChatDesktop> {
                 ? ChatContent(
                     userId: selectedUserId!,
                     groupController: globalGroupController,
+                    messageController: globalMessageController,
                   )
                 : const Center(
                     child: Text('Select a conversation to start chatting')),
