@@ -106,6 +106,12 @@ class FileTransferQueue {
   }
 
   void addToQueue(FileTransferItem item) {
+    // Check if file is already in queue to prevent duplicates
+    if (_queue.any((queueItem) => queueItem.filePath == item.filePath)) {
+      logger.log('⚠️ File ${item.filePath} already in queue, skipping duplicate', name: 'FileTransferQueue');
+      return;
+    }
+    
     _queue.add(item);
     logger.log('Added item to queue. Queue size: ${_queue.length}');
   }
