@@ -1,3 +1,4 @@
+import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/File/Core/file_handshake_manager.dart';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
@@ -268,16 +269,42 @@ class FileDownloadProcessor {
           ),
         );
       }
-      MessageNotifier.updateRecieveFile({
-        'roomId': roomId,
-        'type': mimeType,
-      });
-      // Notify UI about new file
-      FileDownloadNotifier.instance.updateFileDownload({
-        'roomId': roomId,
-        'message': newMessage,
-        'filePath': file.path,
-      });
+      
+      // Check if there's an existing placeholder message to update
+      var messageExists = false;
+      
+      if (UdpClientSingleton().clientState != null) {
+        var messages = UdpClientSingleton().clientState?.allMessagesConverted[roomId];
+        
+        if (messages != null) {
+          // Try to find a matching file_path message placeholder
+          for (var i = 0; i < messages.length; i++) {
+            if (messages[i].text.startsWith("file_path ") &&  messages[i].text.contains(fileName)) {
+              // Found a placeholder, update using the MessageNotifier
+              messageExists = true;
+              // Pass fileName (not roomId) as the first parameter
+              MessageNotifier.updateChatPubble(fileName, newMessage);
+              logger.log('✅ Updated existing chat bubble for file: $fileName in room: $roomId');
+              break;
+            }
+          }
+        }
+      }
+      
+      // If no placeholder was found, send as a new message
+      if (!messageExists) {
+        MessageNotifier.updateRecieveFile({
+          'roomId': roomId,
+          'type': mimeType,
+        });
+        
+        // Notify UI about new file
+        FileDownloadNotifier.instance.updateFileDownload({
+          'roomId': roomId,
+          'message': newMessage,
+          'filePath': file.path,
+        });
+      }
 
       // Cleanup
       fileChunks.remove(fileKey);
