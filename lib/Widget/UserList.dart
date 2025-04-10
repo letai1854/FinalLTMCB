@@ -267,86 +267,61 @@ class _MessageListState extends State<MessageList> {
   }
 
   // *** Định nghĩa lại hàm _createGroupChat ***
-  Future<void> _createGroupChat(
-      String groupName, List<String> memberIds) async {
-    final completer = Completer<void>();
-    final receivePort = ReceivePort();
+    Future<void> _createGroupChat(String groupName, List<String> memberIds) async {
 
-    // Spawn isolate for group creation
-    final isolate = await Isolate.spawn((List<dynamic> args) {
-      final SendPort sendPort = args[0];
-      final Map<String, dynamic> data = args[1];
-
-      try {
-        sendPort.send({
-          'type': 'execute',
-          'groupName': data['groupName'],
-          'memberIds': data['memberIds'],
-        });
-      } catch (e) {
-        sendPort.send({'type': 'error', 'message': e.toString()});
-      }
-    }, [
-      receivePort.sendPort,
-      {'groupName': groupName, 'memberIds': memberIds}
-    ]);
-
-    // Listen for messages from isolate
-    receivePort.listen((message) async {
-      if (message['type'] == 'execute') {
-        try {
           await widget.groupController.createGroupChat(
-            message['groupName'],
-            message['memberIds'],
-            currentUserId, // Use the state's getter for the current user ID
+            groupName,
+            memberIds,
+            currentUserId, 
           );
-
-
-          // final newGroupId =
-          //     'room${(MessageList.cachedMessages?.where((m) => m['isGroup'] == true).length ?? 0) + 1}';
-          // final newGroup = {
-          //   'name': message['groupName'],
-          //   'message': 'New group created', // Placeholder message
-          //   'avatar': 'assets/logoS.jpg', // Placeholder avatar
-          //   'isOnline': true, // Placeholder status
-          //   'id': newGroupId, // Lưu ID để sử dụng sau
-          //   'isGroup': true,
-          //   'members': message['memberIds'],
-          // };
-
-          // // Ensure cache is initialized
-          // MessageList.cachedMessages ??= [];
-          // // Add to the beginning of the list
-          // MessageList.cachedMessages!.insert(0, newGroup);
-
-          // // Trigger UI rebuild
-          // if (mounted) {
-          //   setState(() {});
-
-          //   // Tự động chọn group mới sau khi UI đã được cập nhật
-          //   WidgetsBinding.instance.addPostFrameCallback((_) {
-          //     if (mounted && widget.onUserSelected != null) {
-          //       // Chọn group mới bằng cách gọi callback với ID của group
-          //       widget.onUserSelected!(newGroupId); // Truyền String ID
-          //     }
-          //   });
-          // }
-          // --- END: Update cache and trigger rebuild ---
-
-          completer.complete();
-        } catch (e) {
-          completer.completeError(e);
-        }
-      } else if (message['type'] == 'error') {
-        completer.completeError(message['message']);
-      }
-
-      isolate.kill();
-      receivePort.close(); // Close the port when done
-    });
-
-    return completer.future;
   }
+  // Future<void> _createGroupChat(
+  //     String groupName, List<String> memberIds) async {
+  //   final completer = Completer<void>();
+  //   final receivePort = ReceivePort();
+
+  //   // Spawn isolate for group creation
+  //   final isolate = await Isolate.spawn((List<dynamic> args) {
+  //     final SendPort sendPort = args[0];
+  //     final Map<String, dynamic> data = args[1];
+
+  //     try {
+  //       sendPort.send({
+  //         'type': 'execute',
+  //         'groupName': data['groupName'],
+  //         'memberIds': data['memberIds'],
+  //       });
+  //     } catch (e) {
+  //       sendPort.send({'type': 'error', 'message': e.toString()});
+  //     }
+  //   }, [
+  //     receivePort.sendPort,
+  //     {'groupName': groupName, 'memberIds': memberIds}
+  //   ]);
+
+  //   // Listen for messages from isolate
+  //   receivePort.listen((message) async {
+  //     if (message['type'] == 'execute') {
+  //       try {
+  //         await widget.groupController.createGroupChat(
+  //           message['groupName'],
+  //           message['memberIds'],
+  //           currentUserId, // Use the state's getter for the current user ID
+  //         );
+  //         completer.complete();
+  //       } catch (e) {
+  //         completer.completeError(e);
+  //       }
+  //     } else if (message['type'] == 'error') {
+  //       completer.completeError(message['message']);
+  //     }
+
+  //     isolate.kill();
+  //     receivePort.close(); // Close the port when done
+  //   });
+
+  //   return completer.future;
+  // }
   // ******************************************
 
   void _handleCreateChat() {
