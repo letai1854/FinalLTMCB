@@ -110,7 +110,7 @@ Future<void> startUdpService() async {
 
     // Start the client in Flutter mode (just start the listener, not the input loop)
     await client.startForFlutter();
-    // logger.log("Message listener started for Flutter environment.");
+    // logger.log(" listener started for Flutter environment.");
     // print("UDP message listener started");
   } catch (e, stackTrace) {
     logger.log("Failed to start UDP client: $e");

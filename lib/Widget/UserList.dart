@@ -1,6 +1,7 @@
 import 'dart:math'; // For generating random IDs
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
+import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
@@ -45,6 +46,7 @@ class _MessageListState extends State<MessageList> {
   void initState() {
     super.initState();
     // Initialize data from clientState
+    FileDownloadNotifier.instance.addListener(_handleFileDownloadNotification);
     final clientState = widget.groupController.client?.clientState;
     if (clientState != null) {
       MessageList.cachedMessages = clientState.cachedMessages;
@@ -52,7 +54,8 @@ class _MessageListState extends State<MessageList> {
       // Add message listener
       MessageNotifier.messageNotifier.addListener(_handleNewMessageUserList);
       MessageNotifier.messageNotifierRoom.addListener(_handleNewRoom);
-
+      MessageNotifier.messageNotifierRecieveFile
+          .addListener(_handleNewMessageUserListFile);
       // Thêm listener cho danh sách người dùng
       MessageNotifier.messageNotifierListUser
           .addListener(_handleUserListUpdate);
@@ -185,6 +188,76 @@ class _MessageListState extends State<MessageList> {
         print("Warning: Received message for unknown room: $roomId");
       }
     }
+  }
+
+  void _handleNewMessageUserListFile() {
+    final messageData = MessageNotifier.messageNotifierRecieveFile.value;
+    if (messageData != null && mounted && MessageList.cachedMessages != null) {
+      final roomId = messageData['roomId'];
+      final type = messageData['type'];
+      String content = '';
+      if (type.startsWith('audio/')) {
+        content = 'Có bản ghi âm mới';
+      } else if (type.startsWith('video/')) {
+        content = 'Có video mới';
+      } else if (type.startsWith('image/')) {
+        content = 'Có hình ảnh mới';
+      } else {
+        content = 'Có tệp tin mới';
+      }
+
+      // Find the chat in cached messages
+      final chatIndex = MessageList.cachedMessages!
+          .indexWhere((chat) => chat['id'] == roomId);
+      print("----------" + chatIndex.toString());
+      if (chatIndex != -1) {
+        setState(() {
+          // Update message content with sender info
+          MessageList.cachedMessages![chatIndex]['message'] = '$content';
+
+          // Mark message as unread if it's not the currently selected chat
+          if (roomId != widget.selectedUserId) {
+            MessageList.unreadMessages.add(roomId);
+          }
+
+          // Move chat to top if not already there
+          if (chatIndex > 0) {
+            final chat = MessageList.cachedMessages!.removeAt(chatIndex);
+            MessageList.cachedMessages!.insert(0, chat);
+          }
+        });
+      } else {
+        print("Warning: Received message for unknown room: $roomId");
+      }
+    }
+  }
+
+  void _handleFileDownloadNotification() {
+    final downloadData = FileDownloadNotifier.instance.value;
+    final newMessage = downloadData!['message'] as ChatMessage;
+    final roomId = downloadData['roomId'];
+    print("Received file download notification: $newMessage");
+    widget.groupController.clientState!.allMessagesConverted[roomId]!
+        .add(newMessage);
+    // if (!_userMessages.containsKey(widget.userId)) {
+    //   _userMessages[widget.userId] = [];
+    // }
+    // _userMessages[widget.userId]!.add(newMessage);
+    // listhistorymessage = _userMessages[widget.userId]!;
+    // final newMessage = ChatMessage(
+    //   text: messageData['content'],
+    //   isMe: false,
+    //   // Use sender_chatid from server or fallback to name
+    //   name: messageData['sender_chatid'] ??
+    //       messageData['sender'] ??
+    //       messageData['name'] ??
+    //       'Unknown',
+    //   timestamp: DateTime.parse(messageData['timestamp']),
+    // );
+    // widget.groupController.clientState!.allMessagesConverted
+    //     .putIfAbsent(roomId, () => []);
+    // widget.groupController.clientState!.allMessagesConverted[roomId]!
+    //     .add(newMessage);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
 import 'package:finalltmcb/Model/VideoFileMessage.dart';
 import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
+import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -267,7 +268,10 @@ class FileDownloadProcessor {
           ),
         );
       }
-
+      MessageNotifier.updateRecieveFile({
+        'roomId': roomId,
+        'type': mimeType,
+      });
       // Notify UI about new file
       FileDownloadNotifier.instance.updateFileDownload({
         'roomId': roomId,

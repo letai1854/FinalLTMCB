@@ -41,6 +41,9 @@ class FileTransferQueue {
   FileTransferQueue._internal() {
     _startQueueProcessor();
   }
+  bool isFileInQueue(String filePath) {
+    return _queue.any((item) => item.filePath == filePath);
+  }
 
   void _startQueueProcessor() {
     _processTimer?.cancel();

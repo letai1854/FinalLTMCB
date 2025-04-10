@@ -2,6 +2,8 @@
 import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
+import 'package:finalltmcb/File/Models/MediaPlaceholder.dart';
+import 'package:finalltmcb/File/Models/MessageContentParser.dart';
 import 'package:finalltmcb/File/Models/file_constants.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
@@ -316,6 +318,14 @@ class _ChatContentState extends State<ChatContent> {
           image: img.base64Data,
           mimeType: img.mimeType,
         ));
+        widget.groupController.clientState!.allMessagesConverted[widget.userId]!
+            .add(ChatMessage(
+          text: '',
+          isMe: true,
+          timestamp: timestamp,
+          image: img.base64Data,
+          mimeType: img.mimeType,
+        )); // Add to UI
 
         // Create temporary file from base64
         try {
@@ -613,52 +623,6 @@ class _ChatContentState extends State<ChatContent> {
 
   void _viewImage(String base64Image) {
     ImageViewerWidget.viewImage(context, base64Image);
-  }
-
-  void _logMessageDataForServer(MessageData messageData) {
-    try {
-      final jsonData = messageData.toJson();
-      final loggableJson = json.decode(json.encode(jsonData));
-
-      if (loggableJson['images'] != null) {
-        for (var img in loggableJson['images']) {
-          if (img['base64Data'] is String) {
-            img['base64Data'] =
-                '${(img['base64Data'] as String).substring(0, math.min(50, (img['base64Data'] as String).length))}... (truncated)';
-          }
-        }
-      }
-      if (loggableJson['audios'] != null) {
-        for (var aud in loggableJson['audios']) {
-          if (aud['base64Data'] is String) {
-            aud['base64Data'] =
-                '${(aud['base64Data'] as String).substring(0, math.min(50, (aud['base64Data'] as String).length))}... (truncated)';
-          }
-        }
-      }
-      if (loggableJson['files'] != null) {
-        for (var file in loggableJson['files']) {
-          if (file['fileData'] is String) {
-            file['fileData'] =
-                '${(file['fileData'] as String).substring(0, math.min(50, (file['fileData'] as String).length))}... (truncated)';
-          }
-          if (file['fileBytes'] != null) {
-            file.remove('fileBytes');
-          }
-        }
-      }
-      if (loggableJson['video'] != null &&
-          loggableJson['video']['base64Data'] is String) {
-        loggableJson['video']['base64Data'] =
-            '${(loggableJson['video']['base64Data'] as String).substring(0, math.min(50, (loggableJson['video']['base64Data'] as String).length))}... (truncated)';
-      }
-
-      print("\n----- Message Data to be sent to server -----");
-      print(JsonEncoder.withIndent('  ').convert(loggableJson));
-      print("----- End Message Data -----");
-    } catch (e) {
-      print("Error logging/encoding MessageData: $e");
-    }
   }
 
   void _showTopNotification(String message,
