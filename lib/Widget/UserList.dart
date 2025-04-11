@@ -239,25 +239,6 @@ class _MessageListState extends State<MessageList> {
     print("Received file download notification: $newMessage");
     widget.groupController.clientState!.allMessagesConverted[roomId]!
         .add(newMessage);
-    // if (!_userMessages.containsKey(widget.userId)) {
-    //   _userMessages[widget.userId] = [];
-    // }
-    // _userMessages[widget.userId]!.add(newMessage);
-    // listhistorymessage = _userMessages[widget.userId]!;
-    // final newMessage = ChatMessage(
-    //   text: messageData['content'],
-    //   isMe: false,
-    //   // Use sender_chatid from server or fallback to name
-    //   name: messageData['sender_chatid'] ??
-    //       messageData['sender'] ??
-    //       messageData['name'] ??
-    //       'Unknown',
-    //   timestamp: DateTime.parse(messageData['timestamp']),
-    // );
-    // widget.groupController.clientState!.allMessagesConverted
-    //     .putIfAbsent(roomId, () => []);
-    // widget.groupController.clientState!.allMessagesConverted[roomId]!
-    //     .add(newMessage);
   }
 
   @override
@@ -370,54 +351,6 @@ class _MessageListState extends State<MessageList> {
       currentUserId, // Use the state's getter for the current user ID
     );
   }
-  // Future<void> _createGroupChat(
-  //     String groupName, List<String> memberIds) async {
-  //   final completer = Completer<void>();
-  //   final receivePort = ReceivePort();
-
-  //   // Spawn isolate for group creation
-  //   final isolate = await Isolate.spawn((List<dynamic> args) {
-  //     final SendPort sendPort = args[0];
-  //     final Map<String, dynamic> data = args[1];
-
-  //     try {
-  //       sendPort.send({
-  //         'type': 'execute',
-  //         'groupName': data['groupName'],
-  //         'memberIds': data['memberIds'],
-  //       });
-  //     } catch (e) {
-  //       sendPort.send({'type': 'error', 'message': e.toString()});
-  //     }
-  //   }, [
-  //     receivePort.sendPort,
-  //     {'groupName': groupName, 'memberIds': memberIds}
-  //   ]);
-
-  //   // Listen for messages from isolate
-  //   receivePort.listen((message) async {
-  //     if (message['type'] == 'execute') {
-  //       try {
-  //         await widget.groupController.createGroupChat(
-  //           message['groupName'],
-  //           message['memberIds'],
-  //           currentUserId, // Use the state's getter for the current user ID
-  //         );
-  //         completer.complete();
-  //       } catch (e) {
-  //         completer.completeError(e);
-  //       }
-  //     } else if (message['type'] == 'error') {
-  //       completer.completeError(message['message']);
-  //     }
-
-  //     isolate.kill();
-  //     receivePort.close(); // Close the port when done
-  //   });
-
-  //   return completer.future;
-  // }
-  // ******************************************
 
   void _handleCreateChat() {
     // --- Dialog State Variables ---
@@ -426,12 +359,6 @@ class _MessageListState extends State<MessageList> {
     final TextEditingController searchController = TextEditingController();
     final TextEditingController groupNameController = TextEditingController();
 
-    // Sử dụng listUsers thay vì potentialMembers
-    // final List<Map<String, dynamic>> potentialMembers = (MessageList.cachedMessages ?? [])
-    //     .where((msg) => msg['isGroup'] == false && msg['id'] != currentUserId)
-    //     .toList();
-
-    // Group counter for generating room IDs
     int existingGroups = (MessageList.cachedMessages ?? [])
         .where((msg) => msg['isGroup'] == true)
         .length;
@@ -454,23 +381,23 @@ class _MessageListState extends State<MessageList> {
                     .toList();
 
             return AlertDialog(
-              title: Text('Create New Group Chat'),
+              title: Text('Tạo nhóm chat mới'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: groupNameController,
                     decoration: InputDecoration(
-                      labelText: 'Group Name',
-                      hintText: 'Enter name for group chat',
+                      labelText: 'Tên nhóm',
+                      hintText: 'Nhập tên cho nhóm chat',
                     ),
                   ),
                   SizedBox(height: 16),
                   TextField(
                     controller: searchController,
                     decoration: InputDecoration(
-                      labelText: 'Search Users',
-                      hintText: 'Type to search...',
+                      labelText: 'Tìm người dùng',
+                      hintText: 'Nhập để tìm kiếm...',
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -483,7 +410,7 @@ class _MessageListState extends State<MessageList> {
                     },
                   ),
                   SizedBox(height: 8),
-                  Text('Select Participants:'),
+                  Text('Chọn thành viên:'),
                   SizedBox(height: 8),
                   Container(
                     height: 200,
@@ -493,7 +420,7 @@ class _MessageListState extends State<MessageList> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: filteredUsers.isEmpty
-                        ? Center(child: Text('No users found or available'))
+                        ? Center(child: Text('Không tìm thấy người dùng'))
                         : ListView.builder(
                             shrinkWrap: true,
                             itemCount: filteredUsers.length,
@@ -534,7 +461,7 @@ class _MessageListState extends State<MessageList> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel'),
+                  child: Text('Hủy'),
                 ),
                 ElevatedButton(
                   onPressed: selectedUserIds.isEmpty
@@ -542,13 +469,14 @@ class _MessageListState extends State<MessageList> {
                       : () async {
                           if (MessageList.cachedMessages == null) return;
 
-                          // Generate room ID
-                          final String roomId = 'room$nextGroupNumber';
+                          // Generate room ID - Đảm bảo roomId không có khoảng trắng và dấu
+                          final String roomId = 'room_${DateTime.now().millisecondsSinceEpoch}';
 
                           // Get group name or generate default
+                          // Giữ nguyên tên nhóm tiếng Việt có dấu và khoảng trắng
                           String groupName = groupNameController.text.trim();
                           if (groupName.isEmpty) {
-                            groupName = 'Group Chat $nextGroupNumber';
+                            groupName = 'Nhóm chat ${nextGroupNumber}';
                           }
 
                           // Create array of all users (including current user)
@@ -559,20 +487,19 @@ class _MessageListState extends State<MessageList> {
 
                           try {
                             // Create group using isolate
-                            await _createGroupChat(groupName,
-                                allUsers); // Gọi hàm đã định nghĩa lại
+                            await _createGroupChat(groupName, allUsers);
                             Navigator.pop(context);
                           } catch (e) {
                             print('Error creating group: $e');
                             ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString())));
+                                SnackBar(content: Text('Lỗi: ${e.toString()}')));
                           }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     disabledBackgroundColor: Colors.red.withOpacity(0.5),
                   ),
-                  child: Text('Create'),
+                  child: Text('Tạo nhóm'),
                 ),
               ],
             );

@@ -3,6 +3,8 @@ import 'package:finalltmcb/ClientUdp/client_state.dart';
 import 'package:finalltmcb/ClientUdp/udpmain.dart';
 import 'package:finalltmcb/Model/GroupModel.dart';
 import 'package:finalltmcb/Widget/UserList.dart';
+import 'package:finalltmcb/ClientUdp/json_helper.dart';  // Thêm import này
+import 'package:finalltmcb/ClientUdp/constants.dart';    // Thêm import này
 
 class GroupController {
   // Current user ID (should be obtained from a user service in a real app)
@@ -81,26 +83,35 @@ class GroupController {
       throw Exception('Group name or member IDs cannot be empty');
     }
 
-    // Validate group name format (no spaces, special characters)
-    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(groupName)) {
-      throw Exception(
-          'Group name can only contain letters, numbers, and underscores');
-    }
-
     // Remove current user and get other members
     final List<String> otherMembers = memberIds
-    .where((id) =>
-            id != idcurrent
-        )
-    .toList();
+        .where((id) => id != idcurrent)
+        .toList();
 
     if (otherMembers.isEmpty) {
       throw Exception('Must have at least one other valid member');
     }
-    print('Creating group with name: $groupName and members: $otherMembers');
-    // Format command: /create <room_name> <user2> [user3 ...]
-    _udpClient?.commandProcessor.processCommand(
-      '/create $groupName ${otherMembers.join(' ')}',
+
+    // Chuẩn bị dữ liệu cho request
+    Map<String, dynamic> data = {
+      Constants.KEY_CHAT_ID: clientState!.currentChatId,
+      Constants.KEY_ROOM_NAME: groupName,
+      Constants.KEY_PARTICIPANTS: otherMembers
+    };
+
+    // Tạo request - Sửa lại để sử dụng JsonHelper trực tiếp
+    Map<String, dynamic> request = JsonHelper.createRequest(
+      Constants.ACTION_CREATE_ROOM, 
+      data
+    );
+    
+    print("Creating room '$groupName' with participants: ${otherMembers.join(", ")}");
+    
+    // Gửi request trực tiếp, không sử dụng commandProcessor
+    _udpClient!.handshakeManager.sendClientRequestWithAck(
+      request, 
+      Constants.ACTION_CREATE_ROOM, 
+      clientState!.sessionKey!
     );
   }
 }
