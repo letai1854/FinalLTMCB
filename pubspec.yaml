@@ -44,6 +44,7 @@ dependencies:
   encrypt: ^5.0.3
   convert: ^3.1.1 # Hoặc phiên bản mới hơn (cho utf8)
   logging: ^1.2.0 # Hoặc phiên bản mới hơn
+  emoji_picker_flutter: ^1.6.4 # Thêm thư viện emoji picker
 
   uuid: ^4.3.3 # 
   file_picker: ^5.2.10
@@ -51,7 +52,6 @@ dependencies:
   media_kit: ^1.1.10                  # Main package
   media_kit_video: ^1.2.4             # For video rendering
   media_kit_libs_windows_video: ^1.0.9 # Windows support
-  emoji_picker_flutter: ^1.6.4
 
 dev_dependencies:
   flutter_test:
