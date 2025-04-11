@@ -63,6 +63,7 @@ class _ChatContentState extends State<ChatContent> {
   final ScrollController _scrollController = ScrollController();
   bool _isProcessingFile = false;
   bool _isLoading = true; // Add loading state
+  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gu_50f61f8f
 
   @override
   void initState() {
@@ -152,6 +153,12 @@ class _ChatContentState extends State<ChatContent> {
         print("Currently viewing room: ${widget.userId}");
 
         // Only update UI if message is for current room
+        if(roomId == "gu_50f61f8f"){
+          setState(() {
+            _isProcessingGeminiRequest = false;
+          });
+        }
+
         if (roomId == widget.userId) {
           setState(() {
             _userMessages.putIfAbsent(widget.userId, () => []);
@@ -170,6 +177,11 @@ class _ChatContentState extends State<ChatContent> {
         mounted &&
         downloadData['roomId'] == widget.userId) {
       final newMessage = downloadData['message'] as ChatMessage;
+        if(widget.userId == "gu_50f61f8f"){
+          setState(() {
+            _isProcessingGeminiRequest = false;
+          });
+        }
 
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
@@ -265,6 +277,11 @@ class _ChatContentState extends State<ChatContent> {
     _addMessageToUI(uiMessage);
 
     try {
+      if(widget.userId=="gu_50f61f8f"){
+        setState(() {
+          _isProcessingGeminiRequest = true;
+        });
+      }
       await widget.messageController
           .SendTextMessage(widget.userId, _groupMembers, text);
       logger
@@ -746,9 +763,46 @@ class _ChatContentState extends State<ChatContent> {
                         child: Text('No messages yet. Start a conversation!'))
                     : ListView.builder(
                         controller: _scrollController,
-                        itemCount: messages.length,
+                        itemCount: messages.length + (_isProcessingGeminiRequest && widget.userId == 'gu_50f61f8f' ? 1 : 0),
                         padding: EdgeInsets.only(bottom: 16),
                         itemBuilder: (context, index) {
+                          // Nếu đây là phần tử cuối cùng và đang chờ xử lý Gemini
+                          if (_isProcessingGeminiRequest && 
+                              widget.userId == 'gu_50f61f8f' && 
+                              index == messages.length) {
+                            // Hiển thị thông báo "đang chờ xử lý"
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                                child: Container(
+                                  padding: EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[700]!),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        "Đang chờ xử lý...",
+                                        style: TextStyle(color: Colors.grey[800]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
                           final message = messages[index];
 
                           // Kiểm tra nếu tin nhắn có định dạng file_path
