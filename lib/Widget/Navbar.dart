@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
 
 class Navbar extends StatelessWidget {
   const Navbar({Key? key}) : super(key: key);
@@ -10,8 +11,16 @@ class Navbar extends StatelessWidget {
 
     return Container(
       height: 80,
-      color: const Color.fromARGB(255, 255, 255, 255),
       padding: EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundGrey,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.lightGrey,
+            width: 0.3
+          )
+        )
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -20,18 +29,18 @@ class Navbar extends StatelessWidget {
                 right: isTablet ? 200 : 550), // Adjusted margin for tablet
             child: Row(
               children: [
-                // Image.asset(
-                //   '/logoS.jpg',
-                //   height: 60,
-                //   width: 60,
-                // ),
+                Image.asset(
+                  'assets/appLogo.png',
+                  height: 60,
+                  width: 60,
+                ),
                 SizedBox(width: 8),
                 Text(
-                  'Shopii',
+                  'facebug',
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
-                    color: const Color.fromARGB(255, 255, 85, 0),
+                    color: AppColors.messengerBlue,
                   ),
                 ),
               ],
@@ -40,7 +49,7 @@ class Navbar extends StatelessWidget {
           Icon(
             Icons.home,
             size: 30,
-            color: const Color.fromARGB(255, 255, 85, 0),
+            color: AppColors.messengerBlue,
           ),
         ],
       ),

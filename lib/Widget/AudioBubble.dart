@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../constants/colors.dart';
 
 class AudioBubble extends StatefulWidget {
   final String audioSource; // Can be base64 or file path
@@ -273,134 +274,137 @@ class _AudioBubbleState extends State<AudioBubble> {
   Widget build(BuildContext context) {
     // Làm cho bubble thậm chí nhỏ gọn hơn nữa
     return Container(
-      width: MediaQuery.of(context).size.width *
-          0.3, // Set width to 30% of screen width
-      padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 6.0),
-      decoration: BoxDecoration(
-        color: widget.isMe ? Colors.red.shade100 : Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12.0),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Play/Pause button - còn nhỏ hơn nữa
-          _loadError
-              ? Icon(
-                  Icons.error_outline,
-                  color: Colors.red.shade700,
-                  size: 18,
-                )
-              : IconButton(
-                  icon: _isLoading
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.red.shade300,
-                          ),
-                        )
-                      : Icon(
-                          _isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: Colors.red,
-                          size: 18,
-                        ),
-                  onPressed: _playPause,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  iconSize: 18,
-                ),
-          const SizedBox(width: 2),
-
-          // Phần visualization và thời gian - giảm kích thước
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Audio visualization - giảm chiều cao
-                Container(
-                  height: 16, // Giảm chiều cao
-                  decoration: BoxDecoration(
-                    color:
-                        _loadError ? Colors.red.shade100 : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  clipBehavior: Clip.hardEdge,
-                  child: _loadError
-                      ? Center(
-                          child: Text(
-                            _errorMessage,
-                            style: TextStyle(
-                              fontSize: 7.0,
-                              color: Colors.red.shade700,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : Stack(
-                          alignment: Alignment.centerLeft,
-                          children: [
-                            // Progress indicator
-                            FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: _duration.inMilliseconds > 0
-                                  ? _position.inMilliseconds /
-                                      _duration.inMilliseconds
-                                  : 0,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.red.shade200,
-                                      Colors.red.shade300
-                                    ],
-                                  ),
-                                ),
-                                height: double.infinity,
+        width: MediaQuery.of(context).size.width *
+            0.3, // Set width to 30% of screen width
+        padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 6.0),
+        decoration: BoxDecoration(
+          color:
+              widget.isMe ? AppColors.messengerBlue : AppColors.secondaryDark,
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Play/Pause button - còn nhỏ hơn nữa
+              _loadError
+                  ? Icon(
+                      Icons.error_outline,
+                      color: Colors.red.shade700,
+                      size: 22,
+                    )
+                  : IconButton(
+                      icon: _isLoading
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.red.shade300,
                               ),
+                            )
+                          : Icon(
+                              _isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 22,
                             ),
-
-                            // Đơn giản hóa pattern - ít thanh hơn, gọn hơn
-                            Center(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: List.generate(
-                                  6, // Giảm số lượng thanh
-                                  (index) => Container(
-                                    width: 1.0,
-                                    height: (index % 3 + 1) * 2.0 +
-                                        2.0, // Giảm chiều cao
-                                    color: Colors.white.withOpacity(0.5),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-
-                // Hiển thị thời gian - fontsize nhỏ hơn
-                Padding(
-                  padding: const EdgeInsets.only(top: 1.0),
-                  child: Text(
-                    _loadError
-                        ? 'Error'
-                        : '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                    style: TextStyle(
-                      fontSize: 7.0, // Giảm font size
-                      color: _loadError
-                          ? Colors.red.shade700
-                          : Colors.grey.shade700,
+                      onPressed: _playPause,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      iconSize: 22,
                     ),
+              const SizedBox(width: 5),
+
+              // Phần visualization và thời gian - giảm kích thước
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Audio visualization - giảm chiều cao
+                    Container(
+                      height: 16, // Giảm chiều cao
+                      decoration: BoxDecoration(
+                        color: _loadError
+                            ? Colors.red.shade200
+                            : Colors.white.withOpacity(0.75),
+                        borderRadius: BorderRadius.circular(16.0),
+                      ),
+                      clipBehavior: Clip.hardEdge,
+                      child: _loadError
+                          ? Center(
+                              child: Text(
+                                _errorMessage,
+                                style: TextStyle(
+                                  fontSize: 7.0,
+                                  color: Colors.red.shade700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                // Progress indicator
+                                FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: _duration.inMilliseconds > 0
+                                      ? _position.inMilliseconds /
+                                          _duration.inMilliseconds
+                                      : 0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.white.withOpacity(0.25),
+                                          Colors.white.withOpacity(0.5),
+                                          Colors.white
+                                        ],
+                                      ),
+                                    ),
+                                    height: double.infinity,
+                                  ),
+                                ),
+
+                                // Đơn giản hóa pattern - ít thanh hơn, gọn hơn
+                                Center(
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: List.generate(
+                                      6, // Giảm số lượng thanh
+                                      (index) => Container(
+                                        width: 1.0,
+                                        height: (index % 3 + 1) * 2.0 +
+                                            2.0, // Giảm chiều cao
+                                        color: AppColors.messengerBlue.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              // Hiển thị thời gian - fontsize nhỏ hơn
+              Padding(
+                padding: const EdgeInsets.only(left: 5),
+                child: Text(
+                  _loadError
+                      ? 'Error'
+                      : '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                  style: TextStyle(
+                    fontSize: 10, // Giảm font size
+                    color:
+                        _loadError ? Colors.red.shade700 : Colors.white,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        ));
   }
 }

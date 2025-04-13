@@ -1,3 +1,4 @@
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'ImagePickerHandler.dart';
@@ -35,7 +36,7 @@ class _ImagePickerButtonState extends State<ImagePickerButton> {
       onPressed: _pickImage,
       icon: const Icon(
         Icons.image,
-        color: Colors.red,
+        color: AppColors.messengerBlue,
       ),
     );
   }

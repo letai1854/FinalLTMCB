@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'dart:async';
@@ -346,7 +347,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
       margin: const EdgeInsets.all(8.0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: AppColors.messengerBlue,
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
@@ -366,7 +367,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
               "Recording Audio",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.red.shade700,
+                color: Colors.white,
               ),
             ),
           ),
@@ -387,7 +388,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                           width: 24 + (_pulseAnimation.value * 10),
                           height: 24 + (_pulseAnimation.value * 10),
                           decoration: BoxDecoration(
-                            color: Colors.red
+                            color: Colors.white
                                 .withOpacity(0.3 * (1 - _pulseAnimation.value)),
                             shape: BoxShape.circle,
                           ),
@@ -399,7 +400,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: Colors.white,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -424,14 +425,14 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
                   _stopRecording(canceled: true);
                   widget.onCancel();
                 },
-                icon: Icon(Icons.close, color: Colors.red.shade700),
+                icon: Icon(Icons.close, color: Colors.white),
                 tooltip: 'Cancel recording',
               ),
 
               // Stop and send button
               IconButton(
                 onPressed: () => _stopRecording(),
-                icon: const Icon(Icons.send, color: Colors.red),
+                icon: const Icon(Icons.send, color: Colors.white),
                 tooltip: 'Stop and send recording',
               ),
             ],

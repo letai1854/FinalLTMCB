@@ -1,4 +1,6 @@
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -34,6 +36,9 @@ class _VideoBubbleState extends State<VideoBubble> {
   Player? _mediaKitPlayer;
   VideoController? _mediaKitVideoController;
   bool _useMediaKit = false;
+
+  // Thêm biến để theo dõi trạng thái âm thanh
+  bool _isMuted = true;
 
   @override
   void initState() {
@@ -181,6 +186,7 @@ class _VideoBubbleState extends State<VideoBubble> {
       // Create and initialize the player
       _mediaKitPlayer = Player();
       _mediaKitVideoController = VideoController(_mediaKitPlayer!);
+      _mediaKitPlayer!.setVolume(0);
 
       // Open the media file
       _mediaKitPlayer!.open(Media(normalizedPath));
@@ -250,11 +256,11 @@ class _VideoBubbleState extends State<VideoBubble> {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.3,
-        maxHeight: 200,
+        maxWidth: MediaQuery.of(context).size.width * 0.25,
+        maxHeight: 360,
       ),
       decoration: BoxDecoration(
-        color: widget.isMe ? Colors.red.shade100 : Colors.grey.shade200,
+        color: widget.isMe ? AppColors.messengerBlue : AppColors.secondaryDark,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ClipRRect(
@@ -276,11 +282,11 @@ class _VideoBubbleState extends State<VideoBubble> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: Colors.red),
+          CircularProgressIndicator(color: Colors.white),
           SizedBox(height: 8),
           Text(
             "Đang xử lý video...",
-            style: TextStyle(color: Colors.red.shade700),
+            style: TextStyle(color: Colors.white),
           ),
         ],
       ),
@@ -314,7 +320,7 @@ class _VideoBubbleState extends State<VideoBubble> {
             Text(
               shortName,
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: Colors.white,
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
@@ -334,7 +340,7 @@ class _VideoBubbleState extends State<VideoBubble> {
             Text(
               "Nhấn để mở",
               style: TextStyle(
-                color: Colors.blue,
+                color: AppColors.messengerBlue,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -353,14 +359,42 @@ class _VideoBubbleState extends State<VideoBubble> {
       return Stack(
         alignment: Alignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 180,
-              width: double.infinity,
-              child: Video(
-                controller: _mediaKitVideoController!,
-                controls: MaterialVideoControls,
+          KeyboardListener(
+            focusNode: FocusNode(),
+            onKeyEvent: (event) {
+              if (event.logicalKey == LogicalKeyboardKey.keyM) {
+                setState(() {
+                  _isMuted = !_isMuted;
+                  _mediaKitPlayer?.setVolume(_isMuted ? 0 : 100);
+                });
+              }
+            },
+            child: Video(
+              controller: _mediaKitVideoController!,
+              controls: MaterialVideoControls,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _isMuted = !_isMuted;
+                  _mediaKitPlayer?.setVolume(_isMuted ? 0 : 100);
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  _isMuted ? Icons.volume_off : Icons.volume_up,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -378,18 +412,18 @@ class _VideoBubbleState extends State<VideoBubble> {
                   ),
                 );
               },
-              child: Container(
-                padding: EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Icon(
-                  Icons.fullscreen,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+              // child: Container(
+              //   padding: EdgeInsets.all(4),
+              //   decoration: BoxDecoration(
+              //     color: Colors.black.withOpacity(0.6),
+              //     borderRadius: BorderRadius.circular(4),
+              //   ),
+              //   child: Icon(
+              //     Icons.fullscreen,
+              //     color: Colors.white,
+              //     size: 20,
+              //   ),
+              // ),
             ),
           ),
         ],
@@ -410,7 +444,42 @@ class _VideoBubbleState extends State<VideoBubble> {
       return Stack(
         alignment: Alignment.center,
         children: [
-          Chewie(controller: _chewieController!),
+          KeyboardListener(
+            focusNode: FocusNode(),
+            onKeyEvent: (event) {
+              if (event.logicalKey == LogicalKeyboardKey.keyM) {
+                setState(() {
+                  _isMuted = !_isMuted;
+                  _controller?.setVolume(_isMuted ? 0 : 1);
+                });
+              }
+            },
+            child: Chewie(controller: _chewieController!),
+          ),
+          Positioned(
+            top: 8,
+            right: 40, // Đặt bên phải nút fullscreen
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _isMuted = !_isMuted;
+                  _controller?.setVolume(_isMuted ? 0 : 1);
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(
+                  _isMuted ? Icons.volume_off : Icons.volume_up,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
           Positioned(
             top: 8,
             right: 8,
@@ -470,11 +539,11 @@ class _VideoBubbleState extends State<VideoBubble> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: Colors.blue),
+          CircularProgressIndicator(color: AppColors.messengerBlue),
           SizedBox(height: 8),
           Text(
             "Đang tải video...",
-            style: TextStyle(color: Colors.blue.shade700),
+            style: TextStyle(color: AppColors.messengerBlue),
           ),
         ],
       ),
@@ -521,7 +590,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
       }
 
       await _controller.initialize();
-      await _controller.setVolume(1.0);
+      await _controller.setVolume(0);
 
       if (mounted) {
         setState(() {
@@ -561,7 +630,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
             ? Text("Không thể phát video",
                 style: TextStyle(color: Colors.white))
             : !_isInitialized
-                ? CircularProgressIndicator(color: Colors.red)
+                ? CircularProgressIndicator(color: AppColors.messengerBlue)
                 : AspectRatio(
                     aspectRatio: _controller.value.aspectRatio,
                     child: VideoPlayer(_controller),
@@ -569,7 +638,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
       ),
       floatingActionButton: _isInitialized
           ? FloatingActionButton(
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.messengerBlue,
               onPressed: () {
                 setState(() {
                   if (_controller.value.isPlaying) {
@@ -616,6 +685,7 @@ class _MediaKitFullscreenPlayerState extends State<MediaKitFullscreenPlayer> {
       String normalizedPath = widget.videoPath.replaceAll('\\', '/');
       _player = Player();
       _controller = VideoController(_player);
+      _player.setVolume(0);
       _player.open(Media(normalizedPath));
       _player.play();
     } catch (e) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
 
 class NavbarAdmin extends StatelessWidget {
   const NavbarAdmin({Key? key}) : super(key: key);
@@ -22,7 +23,7 @@ class NavbarAdmin extends StatelessWidget {
               IconButton(
                 icon: const Icon(
                   Icons.arrow_back,
-                  color: Color.fromARGB(255, 255, 85, 0),
+                  color: AppColors.messengerBlue,
                   size: 28,
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -44,18 +45,18 @@ class NavbarAdmin extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      // Image.asset(
-                      //   '/logoS.jpg',
-                      //   height: 60,
-                      //   width: 60,
-                      // ),
+                      Image.asset(
+                        'assets/appLogo.png',
+                        height: 60,
+                        width: 60,
+                      ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Shopii',
+                        'facebug',
                         style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.bold,
-                          color: Color.fromARGB(255, 255, 85, 0),
+                          color: AppColors.messengerBlue,
                         ),
                       ),
                     ],

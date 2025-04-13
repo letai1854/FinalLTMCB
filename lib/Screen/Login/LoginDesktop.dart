@@ -3,6 +3,7 @@ import 'package:finalltmcb/Widget/LoginForm.dart';
 import 'package:finalltmcb/Widget/Navbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import '../../constants/colors.dart';
 
 class LoginDesktop extends StatelessWidget {
   const LoginDesktop({Key? key}) : super(key: key);
@@ -18,25 +19,19 @@ class LoginDesktop extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: MediaQuery.of(context).size.height,
+              height: MediaQuery.of(context).size.height - 80,
               child: Column(
                 children: [
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 234, 29, 7),
+                        color: AppColors.backgroundGrey,
                       ),
                       child: Row(
                         children: [
                           Expanded(
                             flex: 5,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                // image: DecorationImage(
-                                //   image: AssetImage('/banner.jpg'),
-                                // ),
-                              ),
-                            ),
+                            child: Container(),
                           ),
                           Expanded(
                             flex: 4,

@@ -1,3 +1,4 @@
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:finalltmcb/Widget/ImagePickerHandler.dart';
@@ -15,7 +16,7 @@ class ImagePickerButtonWidget extends StatefulWidget {
   const ImagePickerButtonWidget({
     Key? key,
     required this.onImagesSelected,
-    this.iconColor = Colors.red,
+    this.iconColor = AppColors.messengerBlue,
     this.iconSize = 24.0,
   }) : super(key: key);
 

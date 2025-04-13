@@ -4,6 +4,7 @@ import 'package:finalltmcb/Widget/FilePickerUtil.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:finalltmcb/Widget/VideoBubble.dart';
+import '../constants/colors.dart';
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
@@ -135,7 +136,7 @@ class ChatBubble extends StatelessWidget {
         },
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.7,
+            maxWidth: MediaQuery.of(context).size.width * 0.5,
             maxHeight: 250, // Increased max height for better preview
           ),
           decoration: BoxDecoration(
@@ -156,17 +157,27 @@ class ChatBubble extends StatelessWidget {
     // Text message
     return Container(
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
+        maxWidth: MediaQuery.of(context).size.width * 0.5,
       ),
       decoration: BoxDecoration(
-        color: message.isMe ? Colors.red.shade100 : Colors.grey.shade200,
+        color: message.isMe 
+            ? AppColors.messengerBlue
+            : AppColors.secondaryDark,
         borderRadius: BorderRadius.circular(16.0),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
-      child: Text(
-        message.text,
-        style: const TextStyle(
-          fontSize: 16.0,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          textSelectionTheme: TextSelectionThemeData(
+            selectionColor: Colors.blue.shade800,
+          ),
+        ),
+        child: SelectableText(
+          message.text,
+          style: TextStyle(
+            fontSize: 16.0,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
     );

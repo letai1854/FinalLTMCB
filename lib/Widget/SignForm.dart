@@ -1,5 +1,6 @@
 import 'package:finalltmcb/Controllers/UserController.dart';
 import 'package:finalltmcb/Widget/SuccessMessage.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 
 class SignForm extends StatefulWidget {
@@ -12,13 +13,15 @@ class SignForm extends StatefulWidget {
 class _SignFormState extends State<SignForm> {
   final FocusNode _emailFocusNode = FocusNode(); // Keep as username field
   final FocusNode _passwordFocusNode = FocusNode();
-  final TextEditingController _emailController = TextEditingController(); // Keep as username field
+  final TextEditingController _emailController =
+      TextEditingController(); // Keep as username field
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   // Removed name, address, re-password controllers and focus nodes
   // Removed _isRePasswordVisible
 
-  final UserController _userController = UserController(); // Assuming this is still needed for signup logic
+  final UserController _userController =
+      UserController(); // Assuming this is still needed for signup logic
   bool _isLoading = false;
   String? _errorMessage;
   @override
@@ -112,13 +115,22 @@ class _SignFormState extends State<SignForm> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.lightGrey.withOpacity(0.3), // Màu shadow với độ trong suốt
+            spreadRadius: 1, // Độ lan rộng của shadow
+            blurRadius: 10, // Độ mờ của shadow
+            offset: Offset(0, 0), // Vị trí shadow (x,y)
+          ),
+        ],
       ),
       child: SingleChildScrollView(
         child: Column(
           children: [
             Text(
-              'Đăng ký',
+              'Đăng ký',
               style: TextStyle(
+                color: AppColors.messengerBlue,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -129,6 +141,7 @@ class _SignFormState extends State<SignForm> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
+              style: TextStyle(color: Colors.black),
               onChanged: (value) {
                 if (_errorMessage != null) {
                   setState(() {
@@ -142,11 +155,19 @@ class _SignFormState extends State<SignForm> {
               },
               decoration: InputDecoration(
                 hintText: 'Username (Email)', // Updated hint text
+                hintStyle: TextStyle(color: AppColors.lightGrey),
                 prefixIcon: Icon(
                   Icons.email_outlined,
-                  color: Colors.grey[600],
+                  color: AppColors.lightGrey,
                 ),
-                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  // Thêm enabledBorder
+                  borderSide: BorderSide(
+                      color: AppColors.lightGrey), // Màu đen khi chưa focus
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.messengerBlue),
+                ),
               ),
             ),
             // Removed Name and Address TextFormFields and SizedBoxes
@@ -158,6 +179,7 @@ class _SignFormState extends State<SignForm> {
               // Change textInputAction to done or send the form
               textInputAction: TextInputAction.done,
               obscureText: !_isPasswordVisible,
+              style: TextStyle(color: Colors.black),
               onChanged: (value) {
                 if (_errorMessage != null) {
                   setState(() {
@@ -169,9 +191,10 @@ class _SignFormState extends State<SignForm> {
               onFieldSubmitted: (_) => _isLoading ? null : _handleSignup(),
               decoration: InputDecoration(
                 hintText: 'Mật khẩu',
+                hintStyle: TextStyle(color: AppColors.lightGrey),
                 prefixIcon: Icon(
                   Icons.lock_outline,
-                  color: Colors.grey[600],
+                  color: AppColors.lightGrey,
                 ),
                 suffixIcon: IconButton(
                     onPressed: () {
@@ -183,13 +206,22 @@ class _SignFormState extends State<SignForm> {
                       _isPasswordVisible
                           ? Icons.visibility_off
                           : Icons.visibility,
-                      color: Colors.grey[600],
+                      color: AppColors.lightGrey,
                     )),
-                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  // Thêm enabledBorder
+                  borderSide: BorderSide(
+                      color: AppColors.lightGrey), // Màu đen khi chưa focus
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.messengerBlue),
+                ),
               ),
             ),
             // Removed Re-enter Password TextFormField and SizedBox
-            SizedBox(width: double.infinity, height: 10), // Keep one SizedBox before error message
+            SizedBox(
+                width: double.infinity,
+                height: 10), // Keep one SizedBox before error message
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -205,9 +237,9 @@ class _SignFormState extends State<SignForm> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 18),
-                  backgroundColor: const Color.fromARGB(255, 234, 29, 7),
+                  backgroundColor: AppColors.messengerBlue,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(5),
                   ),
                 ),
                 onPressed: _isLoading ? null : _handleSignup,

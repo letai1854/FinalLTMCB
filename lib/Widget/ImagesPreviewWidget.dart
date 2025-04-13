@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,7 +45,7 @@ class ImagesPreviewWidget extends StatelessWidget {
         height: imageSize,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.red.shade200),
+          border: Border.all(color: AppColors.lightGrey),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -52,7 +53,7 @@ class ImagesPreviewWidget extends StatelessWidget {
           children: [
             // Pre-sized container to avoid layout shifts
             Container(
-              color: Colors.grey.shade100,
+              color: AppColors.backgroundGrey,
               width: imageSize,
               height: imageSize,
             ),
@@ -79,7 +80,7 @@ class ImagesPreviewWidget extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade700,
+                    color: AppColors.messengerBlue,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

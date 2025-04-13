@@ -18,11 +18,13 @@ import 'package:finalltmcb/Widget/IConHandler.dart';
 import 'package:finalltmcb/Widget/ImagePickerButtonWidget.dart';
 import 'package:finalltmcb/Widget/ImagesPreviewWidget.dart';
 import 'package:finalltmcb/Widget/MediaHandlerWidget.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'dart:developer' as logger; // Import logger
+import '../constants/colors.dart';
 
 // Define callback types
 typedef OnTextMessageSent = Future<void> Function(String text);
@@ -80,7 +82,11 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
       userId: widget.userId,
       onProcessingStart: () => _setProcessingState(true),
       onProcessingEnd: () => _setProcessingState(false),
-      onError: (message, {bool isError = false, bool isSuccess = false, bool isInfo = false, Duration? duration}) {
+      onError: (message,
+          {bool isError = false,
+          bool isSuccess = false,
+          bool isInfo = false,
+          Duration? duration}) {
         widget.showNotification(message, isError: true);
       },
     );
@@ -263,7 +269,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
       return Container(
         padding: const EdgeInsets.all(8.0),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey)),
+          border: Border(top: BorderSide(color: AppColors.lightGrey, width: 0.5)),
         ),
         child: AudioHandlerWidget(
           showRecorder: true, // Explicitly show recorder UI
@@ -279,7 +285,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey)),
+        border: Border(top: BorderSide(color: AppColors.lightGrey, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -301,37 +307,12 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                 onVideoSelected: () async {
                   _handleVideoSend(); // Call async function without await
                 },
-                iconColor: Colors.red,
-              ),
-              // Text Input Field
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(25)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    child: TextField(
-                      controller: _textController,
-                      enabled: !_isProcessingFile, // Disable TextField itself
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Aa',
-                      ),
-                      textInputAction:
-                          TextInputAction.send, // Indicate send action
-                      onSubmitted: (_) =>
-                          _handleSendAction(), // Allow sending via keyboard action
-                      minLines: 1,
-                      maxLines: 5, // Allow multi-line input
-                    ),
-                  ),
-                ),
+                iconColor: AppColors.messengerBlue,
               ),
               // Image Picker Button
               ImagePickerButtonWidget(
                 onImagesSelected: _updateSelectedImages,
-                iconColor: Colors.red,
+                iconColor: AppColors.messengerBlue,
               ),
               // Audio Recording Button - starts recording mode
               AudioHandlerWidget(
@@ -343,23 +324,50 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                 onRecordingEnd:
                     _handleAudioRecordingEnd, // Callback to switch UI state
               ),
-              // Emoji picker button
-              Iconhandler(
-                onEmojiSelected: (String emoji) {
-                  // Insert emoji at current cursor position
-                  final currentText = _textController.text;
-                  final selection = _textController.selection;
-                  final newText = currentText.replaceRange(
-                    selection.start,
-                    selection.end,
-                    emoji,
-                  );
-                  _textController.text = newText;
-                  // Move cursor after the inserted emoji
-                  _textController.selection = TextSelection.collapsed(
-                    offset: selection.start + emoji.length,
-                  );
-                },
+              // Text Input Field
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                      color: AppColors.secondaryDark,
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Center( // Wrap TextField trong Center
+                      child: TextField(
+                        controller: _textController,
+                        enabled: !_isProcessingFile,
+                        textAlignVertical: TextAlignVertical.center, // Căn giữa theo chiều dọc
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Aa',
+                          isDense: true, // Giảm padding mặc định
+                          contentPadding: EdgeInsets.symmetric(vertical: 10.0), // Điều chỉnh padding
+                          suffixIcon: Iconhandler(
+                            onEmojiSelected: (String emoji) {
+                              // Insert emoji at current cursor position
+                              final currentText = _textController.text;
+                              final selection = _textController.selection;
+                              final newText = currentText.replaceRange(
+                                selection.start,
+                                selection.end,
+                                emoji,
+                              );
+                              _textController.text = newText;
+                              // Move cursor after the inserted emoji
+                              _textController.selection = TextSelection.collapsed(
+                                offset: selection.start + emoji.length,
+                              );
+                            },
+                          ),
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _handleSendAction(),
+                        minLines: 1,
+                        maxLines: 5,
+                      ),
+                    ),
+                  ),
+                ),
               ),
               // Send Button (for text/images)
               IconButton(
@@ -368,7 +376,9 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                       : _handleSendAction,
                   icon: Icon(
                     Icons.send,
-                    color: _isProcessingFile ? Colors.grey : Colors.red,
+                    color: _isProcessingFile
+                        ? AppColors.lightGrey
+                        : AppColors.messengerBlue,
                   )),
             ],
           ),

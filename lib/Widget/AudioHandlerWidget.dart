@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Widget/AudioRecorderWidget.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -131,11 +132,11 @@ class _AudioHandlerWidgetState extends State<AudioHandlerWidget> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Colors.red),
+              CircularProgressIndicator(color: AppColors.messengerBlue),
               SizedBox(height: 8),
               Text(
                 "Đang xử lý audio...",
-                style: TextStyle(color: Colors.red.shade700),
+                style: TextStyle(color: AppColors.messengerBlue),
               ),
             ],
           ),
@@ -148,11 +149,11 @@ class _AudioHandlerWidgetState extends State<AudioHandlerWidget> {
       onPressed: widget.onRecordingStart, // Directly call the parent's callback
       icon: const Icon(
         Icons.mic,
-        color: Colors.red,
+        color: AppColors.messengerBlue,
       ),
       tooltip: 'Ghi âm',
     );
   }
-}
+} 
 
 ///adjoiadfjofdajk

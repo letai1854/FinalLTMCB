@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
@@ -283,8 +284,8 @@ class FileBubble extends StatelessWidget {
       ),
       margin: const EdgeInsets.symmetric(vertical: 4.0),
       child: Material(
-        borderRadius: BorderRadius.circular(12),
-        color: isMe ? Colors.red.shade100 : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(16),
+        color: isMe ? AppColors.messengerBlue : AppColors.secondaryDark,
         clipBehavior: Clip.hardEdge,
         child: InkWell(
           onTap: onTap,
@@ -302,7 +303,7 @@ class FileBubble extends StatelessWidget {
                   ),
                   child: Icon(
                     file.icon,
-                    color: Colors.red,
+                    color: AppColors.messengerBlue,
                     size: 24,
                   ),
                 ),
@@ -328,7 +329,7 @@ class FileBubble extends StatelessWidget {
                         file.readableSize,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: Colors.white,
                         ),
                       ),
                     ],
@@ -339,7 +340,7 @@ class FileBubble extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.download_rounded,
-                  color: Colors.red.shade700,
+                  color: Colors.white,
                   size: 20,
                 ),
               ],

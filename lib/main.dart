@@ -24,6 +24,7 @@ import 'package:video_player/video_player.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:finalltmcb/ClientUdp/udpmain.dart';
+import 'constants/colors.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -137,9 +138,19 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Shopii',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+      title: 'facebug',
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: AppColors.primaryDark,
+        primaryColor: AppColors.messengerBlue,
+        colorScheme: ColorScheme.dark(
+          primary: AppColors.messengerBlue,
+          secondary: AppColors.messengerBlue,
+          surface: AppColors.messengerBlue,
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.primaryDark,
+          elevation: 0,
+        ),
       ),
       initialRoute: '/', // Đảm bảo có route mặc định
       onGenerateRoute: (settings) {

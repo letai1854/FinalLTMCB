@@ -1,6 +1,7 @@
 import 'package:finalltmcb/Controllers/UserController.dart';
 import 'package:finalltmcb/Provider/UserProvider.dart';
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({Key? key}) : super(key: key);
@@ -11,9 +12,11 @@ class LoginForm extends StatefulWidget {
 
 class _LoginFormState extends State<LoginForm> {
   // Initialize focus nodes and controllers
-  final FocusNode _chatIdFocusNode = FocusNode(); // Changed from _emailFocusNode
+  final FocusNode _chatIdFocusNode =
+      FocusNode(); // Changed from _emailFocusNode
   final FocusNode _passwordFocusNode = FocusNode();
-  final TextEditingController _chatIdController = TextEditingController(); // Changed from _emailController
+  final TextEditingController _chatIdController =
+      TextEditingController(); // Changed from _emailController
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   final UserController _userController = UserController();
@@ -70,7 +73,7 @@ class _LoginFormState extends State<LoginForm> {
       setState(() {
         String errorMsg = e.toString().replaceAll('Exception: ', '');
         _errorMessage = errorMsg;
-        
+
         // Focus the appropriate field based on the error
         if (errorMsg.contains('Chat ID không tồn tại')) {
           _chatIdFocusNode.requestFocus();
@@ -116,6 +119,14 @@ class _LoginFormState extends State<LoginForm> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.lightGrey.withOpacity(0.3), // Màu shadow với độ trong suốt
+            spreadRadius: 1, // Độ lan rộng của shadow
+            blurRadius: 10, // Độ mờ của shadow
+            offset: Offset(0, 0), // Vị trí shadow (x,y)
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -123,6 +134,7 @@ class _LoginFormState extends State<LoginForm> {
           Text(
             'Đăng nhập',
             style: TextStyle(
+              color: AppColors.messengerBlue,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -131,8 +143,10 @@ class _LoginFormState extends State<LoginForm> {
           TextFormField(
             focusNode: _chatIdFocusNode, // Changed from _emailFocusNode
             controller: _chatIdController, // Changed from _emailController
-            keyboardType: TextInputType.text, // Changed from TextInputType.emailAddress
+            keyboardType:
+                TextInputType.text, // Changed from TextInputType.emailAddress
             textInputAction: TextInputAction.next,
+            style: TextStyle(color: Colors.black),
             onFieldSubmitted: (_) {
               FocusScope.of(context).requestFocus(_passwordFocusNode);
             },
@@ -145,16 +159,19 @@ class _LoginFormState extends State<LoginForm> {
               }
             },
             decoration: InputDecoration(
-              hintText: 'Chat ID', // Changed from 'Email'
+              hintText: 'Tài khoản', // Changed from 'Email'
+              hintStyle: TextStyle(color: AppColors.lightGrey),
               prefixIcon: Icon(
                 Icons.person_outline, // Changed from Icons.email_outlined
-                color: Colors.grey[600],
+                color: AppColors.lightGrey,
               ),
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey[400]!),
+              enabledBorder: OutlineInputBorder(
+                // Thêm enabledBorder
+                borderSide: BorderSide(
+                    color: AppColors.lightGrey), // Màu đen khi chưa focus
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color.fromARGB(255, 255, 85, 0)),
+                borderSide: BorderSide(color: AppColors.messengerBlue),
               ),
               contentPadding:
                   EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -166,6 +183,7 @@ class _LoginFormState extends State<LoginForm> {
             controller: _passwordController,
             obscureText: !_isPasswordVisible,
             textInputAction: TextInputAction.done,
+            style: TextStyle(color: Colors.black),
             onChanged: (value) {
               // Clear error message when user starts typing
               if (_errorMessage != null) {
@@ -176,14 +194,15 @@ class _LoginFormState extends State<LoginForm> {
             },
             decoration: InputDecoration(
               hintText: 'Mật khẩu',
+              hintStyle: TextStyle(color: AppColors.lightGrey),
               prefixIcon: Icon(
                 Icons.lock_outline,
-                color: Colors.grey[600],
+                color: AppColors.lightGrey,
               ),
               suffixIcon: IconButton(
                 icon: Icon(
                   _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey[600],
+                  color: AppColors.lightGrey,
                 ),
                 onPressed: () {
                   setState(() {
@@ -191,11 +210,13 @@ class _LoginFormState extends State<LoginForm> {
                   });
                 },
               ),
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey[400]!),
+              enabledBorder: OutlineInputBorder(
+                // Thêm enabledBorder
+                borderSide: BorderSide(
+                    color: AppColors.lightGrey), // Màu đen khi chưa focus
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color.fromARGB(255, 255, 85, 0)),
+                borderSide: BorderSide(color: AppColors.messengerBlue),
               ),
               contentPadding:
                   EdgeInsets.symmetric(vertical: 16, horizontal: 12),
@@ -226,9 +247,9 @@ class _LoginFormState extends State<LoginForm> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(vertical: 18),
-                backgroundColor: const Color.fromARGB(255, 234, 29, 7),
+                backgroundColor: AppColors.messengerBlue,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(5),
                 ),
               ),
               onPressed: _isLoading ? null : _handleLogin,
@@ -259,7 +280,7 @@ class _LoginFormState extends State<LoginForm> {
                 'Quên mật khẩu',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600],
+                  color: AppColors.messengerBlue,
                 ),
               ),
             ),
@@ -268,7 +289,10 @@ class _LoginFormState extends State<LoginForm> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Bạn mới biết đến Shopi? '),
+              Text(
+                'Bạn mới biết đến facebug? ',
+                style: TextStyle(color: Colors.black),
+              ),
               TextButton(
                 onPressed: () {
                   Navigator.pushNamed(context,
@@ -277,7 +301,7 @@ class _LoginFormState extends State<LoginForm> {
                 child: Text(
                   'Đăng ký',
                   style: TextStyle(
-                    color: const Color.fromARGB(255, 234, 29, 7),
+                    color: AppColors.messengerBlue,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

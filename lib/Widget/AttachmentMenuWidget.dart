@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/colors.dart';
 
 typedef AttachmentCallback = Future<void> Function();
 
@@ -11,7 +12,7 @@ class AttachmentMenuWidget extends StatefulWidget {
     Key? key,
     required this.onFileSelected,
     required this.onVideoSelected,
-    this.iconColor = Colors.red,
+    this.iconColor = AppColors.messengerBlue,
   }) : super(key: key);
 
   @override
@@ -63,8 +64,7 @@ class _AttachmentMenuWidgetState extends State<AttachmentMenuWidget> {
 
     // Calculate the menu position to appear just above the button
     final double menuLeft = buttonPosition.dx;
-    final double menuTop =
-        buttonPosition.dy - 100; // Position just above the button
+    final double menuTop = buttonPosition.dy - 115; // Position just above the button
 
     print(
         "Button position: $buttonPosition, Menu position: ($menuLeft, $menuTop)");
@@ -82,11 +82,12 @@ class _AttachmentMenuWidgetState extends State<AttachmentMenuWidget> {
             width: 50, // Fixed width to ensure proper sizing
             padding: EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.backgroundGrey,
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
+                  color: Colors.white.withOpacity(0.5),
+                  blurRadius: 10,
                   offset: Offset(0, 2),
                 ),
               ],

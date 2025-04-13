@@ -2,6 +2,7 @@ import 'dart:math'; // For generating random IDs
 import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/User_model.dart';
 import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
@@ -381,28 +382,43 @@ class _MessageListState extends State<MessageList> {
                     .toList();
 
             return AlertDialog(
+              backgroundColor: AppColors.backgroundGrey,
+              titleTextStyle: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold),
               title: Text('Tạo nhóm chat mới'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
                     controller: groupNameController,
+                    style: TextStyle(
+                        color: Colors.black), // Thêm style cho text input
                     decoration: InputDecoration(
                       labelText: 'Tên nhóm',
+                      labelStyle: TextStyle(color: Colors.black),
                       hintText: 'Nhập tên cho nhóm chat',
+                      hintStyle: TextStyle(color: Colors.grey),
                     ),
+                    cursorColor: Colors.black, // Màu con trỏ
                   ),
                   SizedBox(height: 16),
                   TextField(
                     controller: searchController,
+                    style: TextStyle(
+                        color: Colors.black), // Thêm style cho text input
                     decoration: InputDecoration(
                       labelText: 'Tìm người dùng',
+                      labelStyle: TextStyle(color: Colors.black),
                       hintText: 'Nhập để tìm kiếm...',
-                      prefixIcon: Icon(Icons.search),
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
+                    cursorColor: Colors.black, // Màu con trỏ
                     onChanged: (value) {
                       setDialogState(() {
                         searchQuery = value;
@@ -410,12 +426,18 @@ class _MessageListState extends State<MessageList> {
                     },
                   ),
                   SizedBox(height: 8),
-                  Text('Chọn thành viên:'),
+                  Text(
+                    'Chọn thành viên:',
+                    style: TextStyle(
+                        color: Colors.black, fontWeight: FontWeight.bold),
+                  ),
                   SizedBox(height: 8),
                   Container(
+                    padding: EdgeInsets.only(top: 10),
                     height: 200,
                     width: double.maxFinite,
                     decoration: BoxDecoration(
+                      color: AppColors.lightGrey,
                       border: Border.all(color: Colors.grey.shade300),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -430,7 +452,7 @@ class _MessageListState extends State<MessageList> {
                               // Sử dụng chatId làm tên hiển thị
                               final userName = user.chatId;
                               // Sử dụng avatar mặc định
-                              final avatarPath = 'assets/logoS.jpg';
+                              final avatarPath = 'assets/avatar.jpg';
 
                               final bool isSelected =
                                   selectedUserIds.contains(userId);
@@ -442,6 +464,8 @@ class _MessageListState extends State<MessageList> {
                                 ),
                                 title: Text(userName),
                                 value: isSelected,
+                                activeColor: AppColors.messengerBlue,
+                                checkColor: Colors.white,
                                 onChanged: (bool? value) {
                                   setDialogState(() {
                                     if (value == true) {
@@ -459,10 +483,15 @@ class _MessageListState extends State<MessageList> {
                 ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Hủy'),
-                ),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: Text(
+                      'Hủy',
+                      style: TextStyle(color: Colors.white),
+                    )),
                 ElevatedButton(
                   onPressed: selectedUserIds.isEmpty
                       ? null
@@ -470,7 +499,8 @@ class _MessageListState extends State<MessageList> {
                           if (MessageList.cachedMessages == null) return;
 
                           // Generate room ID - Đảm bảo roomId không có khoảng trắng và dấu
-                          final String roomId = 'room_${DateTime.now().millisecondsSinceEpoch}';
+                          final String roomId =
+                              'room_${DateTime.now().millisecondsSinceEpoch}';
 
                           // Get group name or generate default
                           // Giữ nguyên tên nhóm tiếng Việt có dấu và khoảng trắng
@@ -491,15 +521,19 @@ class _MessageListState extends State<MessageList> {
                             Navigator.pop(context);
                           } catch (e) {
                             print('Error creating group: $e');
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Lỗi: ${e.toString()}')));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Lỗi: ${e.toString()}')));
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    disabledBackgroundColor: Colors.red.withOpacity(0.5),
+                    backgroundColor: AppColors.messengerBlue,
+                    disabledBackgroundColor:
+                        AppColors.messengerBlue.withOpacity(0.5),
                   ),
-                  child: Text('Tạo nhóm'),
+                  child: Text(
+                    'Tạo nhóm',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             );
@@ -515,142 +549,167 @@ class _MessageListState extends State<MessageList> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.red,
-        elevation: 0,
-        title: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(
+            color: AppColors.lightGrey,
+            width: 1.0,
           ),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.0),
-            child: TextField(
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Tìm kiếm trên Messenger',
-                icon: Icon(Icons.search),
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.primaryDark,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: AppColors.messengerBlue,
+          elevation: 0,
+          title: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12.0),
+              child: TextField(
+                style: TextStyle(color: Colors.black), // Thêm style cho text input
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: 'Tìm kiếm trên Messenger',
+                  hintStyle: TextStyle(color: Colors.grey), // Màu cho hint text
+                  icon: Icon(Icons.search, color: Colors.grey), // Màu cho icon
+                  contentPadding: EdgeInsets.symmetric(vertical: 8.5)
+                ),
+                cursorColor: Colors.black, // Màu con trỏ
               ),
             ),
           ),
-        ),
-        actions: widget.isDesktopOrTablet
-            ? [
-                // Desktop/tablet create chat button
-                Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: ElevatedButton.icon(
-                    onPressed: _handleCreateChat,
-                    icon: Icon(Icons.chat_bubble_outline),
-                    label: Text('New Chat'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.red,
-                    ),
-                  ),
-                ),
-              ]
-            : null,
-      ),
-      // Mobile floating action button for creating chats
-      floatingActionButton: widget.isDesktopOrTablet
-          ? null
-          : FloatingActionButton(
-              onPressed: _handleCreateChat,
-              backgroundColor: Colors.red,
-              child: Icon(Icons.chat_bubble_outline),
-            ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        // Use the static future to prevent rebuilding
-        future: MessageList._dataFuture, // Use class name
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Lỗi: ${snapshot.error}'));
-          } else if (snapshot.connectionState == ConnectionState.waiting &&
-              MessageList.cachedMessages == null) {
-            // Use class name
-            return const Center(child: CircularProgressIndicator());
-          } else if ((snapshot.hasData && snapshot.data != null) ||
-              MessageList.cachedMessages != null) {
-            // Use class name
-            final messages =
-                MessageList.cachedMessages ?? snapshot.data!; // Use class name
-            return ListView.builder(
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final isSelected = message['id'] ==
-                    widget.selectedUserId; // Sửa lại check theo ID và tên biến
-                final isUnread =
-                    MessageList.unreadMessages.contains(message['id']);
-                return ListTile(
-                  selected: isSelected,
-                  selectedTileColor: Colors.red.withOpacity(0.1),
-                  onTap: () => _handleUserTap(
-                      message['id']), // Gọi hàm xử lý tap với String ID
-                  leading: Stack(
-                    children: [
-                      CircleAvatar(
-                        backgroundImage: AssetImage(message['avatar']!),
+          actions: widget.isDesktopOrTablet
+              ? [
+                  // Desktop/tablet create chat button
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: _handleCreateChat,
+                      icon: Icon(Icons.chat_bubble_outline),
+                      label: Text('New Chat'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.messengerBlue,
                       ),
-                      // Show group indicator for group chats
-                      if (message['isGroup'] == true)
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
-                            ),
-                            child: Icon(
-                              Icons.people,
-                              size: 12,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  title: Row(
-                    children: [
-                      Text(message['name']!),
-                      if (message['isGroup'] == true)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4.0),
-                          child: Text(
-                            // Display member count for groups based on the 'members' list (which now holds IDs)
-                            '(${(message['members'] as List).length})',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  subtitle: Text(
-                    message['message']!,
-                    style: TextStyle(
-                      color: isUnread ? Colors.black87 : Colors.grey[600],
-                      fontWeight:
-                          isUnread ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
-                  tileColor: Colors.white,
-                );
-              },
-            );
-          } else {
-            return const Center(child: Text("Không có dữ liệu"));
-          }
-        },
+                ]
+              : null,
+        ),
+        // Mobile floating action button for creating chats
+        floatingActionButton: widget.isDesktopOrTablet
+            ? null
+            : FloatingActionButton(
+                onPressed: _handleCreateChat,
+                backgroundColor: AppColors.messengerBlue,
+                child: Icon(Icons.chat_bubble_outline),
+              ),
+        body: FutureBuilder<List<Map<String, dynamic>>>(
+          // Use the static future to prevent rebuilding
+          future: MessageList._dataFuture, // Use class name
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Lỗi: ${snapshot.error}'));
+            } else if (snapshot.connectionState == ConnectionState.waiting &&
+                MessageList.cachedMessages == null) {
+              // Use class name
+              return const Center(child: CircularProgressIndicator());
+            } else if ((snapshot.hasData && snapshot.data != null) ||
+                MessageList.cachedMessages != null) {
+              // Use class name
+              final messages =
+                  MessageList.cachedMessages ?? snapshot.data!; // Use class name
+              return ListView.builder(
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  final isSelected = message['id'] == widget.selectedUserId;
+                  final isUnread = MessageList.unreadMessages.contains(message['id']);
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.messengerBlue.withOpacity(0.2) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(  // Wrap với ClipRRect để cắt hiệu ứng splash
+                      borderRadius: BorderRadius.circular(12),
+                      child: Material(  // Thêm Material để có hiệu ứng splash
+                        color: Colors.transparent,
+                        child: ListTile(
+                          textColor: Colors.white,
+                          selected: isSelected,
+                          selectedTileColor: Colors.transparent,
+                          onTap: () => _handleUserTap(message['id']),
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                backgroundImage: AssetImage(message['avatar']!),
+                              ),
+                              // Show group indicator for group chats
+                              if (message['isGroup'] == true)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border:
+                                          Border.all(color: Colors.white, width: 1.5),
+                                    ),
+                                    child: Icon(
+                                      Icons.people,
+                                      size: 12,
+                                      color: AppColors.messengerBlue,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          title: Row(
+                            children: [
+                              Text(message['name']!),
+                              if (message['isGroup'] == true)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4.0),
+                                  child: Text(
+                                    // Display member count for groups based on the 'members' list (which now holds IDs)
+                                    '(${(message['members'] as List).length})',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.lightGrey,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            message['message']!,
+                            style: TextStyle(
+                              color: isUnread ? Colors.black87 : AppColors.lightGrey,
+                              fontWeight:
+                                  isUnread ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            } else {
+              return const Center(child: Text("Không có dữ liệu"));
+            }
+          },
+        ),
       ),
     );
   }

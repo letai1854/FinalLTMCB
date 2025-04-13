@@ -1,3 +1,4 @@
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
@@ -31,7 +32,7 @@ class ImagePreviewWidget extends StatelessWidget {
                   height: 70,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade200),
+                    border: Border.all(color: Colors.white),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: kIsWeb
@@ -52,13 +53,13 @@ class ImagePreviewWidget extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade700,
+                        color: AppColors.backgroundGrey,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.close,
                         size: 16,
-                        color: Colors.white,
+                        color: AppColors.messengerBlue,
                       ),
                     ),
                   ),

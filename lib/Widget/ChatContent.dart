@@ -16,6 +16,7 @@ import 'package:finalltmcb/Model/ChatMessage.dart';
 import 'package:finalltmcb/Model/ImageMessage.dart';
 import 'dart:io';
 import 'package:finalltmcb/Widget/ChatBubble.dart';
+import 'package:finalltmcb/constants/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -748,7 +749,7 @@ class _ChatContentState extends State<ChatContent> {
                 icon: Icon(Icons.more_vert)),
           ],
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.messengerBlue,
         foregroundColor: Colors.white,
       ),
       body: Column(
