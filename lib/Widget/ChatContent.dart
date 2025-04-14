@@ -179,18 +179,36 @@ class _ChatContentState extends State<ChatContent> {
     if (downloadData != null &&
         mounted &&
         downloadData['roomId'] == widget.userId) {
-      final newMessage = downloadData['message'] as ChatMessage;
-        if(_groupMembers.contains(Constants.gemini_bot)){
-          setState(() {
-            _isProcessingGeminiRequest = false;
-          });
-        }
+      // Extract the original message and sender info
+      final originalMessage = downloadData['message'] as ChatMessage;
+      final senderName = downloadData['sender_chatid'] ?? downloadData['sender'] ?? 'Unknown Sender'; // Get sender name
+
+      // Create a new message instance with the name explicitly set
+      final newMessageWithName = ChatMessage(
+        text: originalMessage.text,
+        isMe: false, // Received messages are never 'isMe'
+        timestamp: originalMessage.timestamp,
+        name: senderName, // Set the sender's name
+        image: originalMessage.image,
+        audio: originalMessage.audio,
+        isAudioPath: originalMessage.isAudioPath,
+        file: originalMessage.file,
+        video: originalMessage.video,
+        mimeType: originalMessage.mimeType,
+      );
+
+      if (_groupMembers.contains(Constants.gemini_bot)) {
+        setState(() {
+          _isProcessingGeminiRequest = false;
+        }); // Corrected brace placement
+      }
 
       setState(() {
         if (!_userMessages.containsKey(widget.userId)) {
           _userMessages[widget.userId] = [];
         }
-        _userMessages[widget.userId]!.add(newMessage);
+        // Add the message with the name included
+        _userMessages[widget.userId]!.add(newMessageWithName); 
         listhistorymessage = _userMessages[widget.userId]!;
       });
 
@@ -306,7 +324,7 @@ class _ChatContentState extends State<ChatContent> {
     // Handle text message
     if (text != null && text.isNotEmpty) {
       final textMessage =
-          ChatMessage(text: text, isMe: true, timestamp: timestamp);
+          ChatMessage(text: text, isMe: true, timestamp: timestamp, name: userName);
       uiMessagesToAdd.add(textMessage);
 
       try {
@@ -332,22 +350,23 @@ class _ChatContentState extends State<ChatContent> {
       }
 
       for (var img in images) {
-        // Add to UI
-        uiMessagesToAdd.add(ChatMessage(
+        // Add to UI - explicitly set isMe=true and include name
+        ChatMessage imageMessage = ChatMessage(
           text: '',
-          isMe: true,
+          isMe: true,  // Explicitly set to true for sent messages
           timestamp: timestamp,
           image: img.base64Data,
           mimeType: img.mimeType,
-        ));
-        widget.groupController.clientState!.allMessagesConverted[widget.userId]!
-            .add(ChatMessage(
-          text: '',
-          isMe: true,
-          timestamp: timestamp,
-          image: img.base64Data,
-          mimeType: img.mimeType,
-        )); // Add to UI
+          name: userName,  // Include username for media messages
+        );
+        
+        uiMessagesToAdd.add(imageMessage);
+        
+        // Also update in the global state
+        if (!widget.groupController.clientState!.allMessagesConverted.containsKey(widget.userId)) {
+          widget.groupController.clientState!.allMessagesConverted[widget.userId] = [];
+        }
+        widget.groupController.clientState!.allMessagesConverted[widget.userId]!.add(imageMessage);
 
         // Create temporary file from base64
         try {
@@ -477,6 +496,7 @@ class _ChatContentState extends State<ChatContent> {
       }
 
       final fileInfo = fileMessage.file!;
+      final userName = widget.groupController.clientState?.currentChatId ?? "Me";
 
       // Verify file exists and is readable
       final file = File(fileInfo.filePath);
@@ -496,20 +516,26 @@ class _ChatContentState extends State<ChatContent> {
       logger.log('Size: $actualFileSize bytes', name: "ChatContent");
       logger.log('Packages: $actualTotalPackages', name: "ChatContent");
 
+      // Create new message with explicit isMe=true and name properties
+      ChatMessage fileMessageWithName = ChatMessage(
+        text: fileMessage.text,
+        isMe: true,  // Explicitly set to true for sent messages
+        timestamp: fileMessage.timestamp,
+        file: fileMessage.file,
+        name: userName,  // Add username to file messages
+      );
+      
       // Add message to UI before sending
-      _addMessageToUI(fileMessage);
+      _addMessageToUI(fileMessageWithName);
 
       final item = FileTransferItem(
         status: FileConstants.Action_Status_File_Send,
         currentChatId: currentChatId,
         userId: widget.userId,
-        filePath: fileInfo
-            .filePath, // Fix: Use fileInfo.filePath instead of undefined filePath
-        actualFileSize:
-            actualFileSize, // Fix: Use actualFileSize instead of undefined fileSize
+        filePath: fileInfo.filePath,
+        actualFileSize: actualFileSize,
         fileType: 'file',
-        actualTotalPackages:
-            actualTotalPackages, // Fix: Use actualTotalPackages
+        actualTotalPackages: actualTotalPackages,
       );
 
       logger.log('Adding file to transfer queue', name: "ChatContent");
@@ -844,9 +870,25 @@ class _ChatContentState extends State<ChatContent> {
                                     ),
                                   ),
                                   Expanded(
-                                    child: ChatBubble(
-                                      message: message,
-                                      onFileDownload: _handleFileDownload,
+                                    child: Column( // Wrap ChatBubble in a Column
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Padding( // Add padding for the name
+                                          padding: const EdgeInsets.only(bottom: 2.0, left: 8.0), // Adjust padding as needed
+                                          child: Text(
+                                            message.name!, // Display sender's name
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                        ChatBubble(
+                                          message: message,
+                                          onFileDownload: _handleFileDownload,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -995,13 +1037,15 @@ class _ChatContentState extends State<ChatContent> {
     final messages = _userMessages[widget.userId]!;
     int indexToUpdate = -1;
     bool originalIsMe = false;
+    String? originalSenderName; // Variable to store the original sender's name
 
     // Tìm tin nhắn dựa trên tên file trong định dạng "file_path [filename] ..."
     for (int i = 0; i < messages.length; i++) {
       if (messages[i].text.startsWith('file_path ') &&
           messages[i].text.contains(fileName)) {
         originalIsMe = messages[i].isMe;
-        print("Found message to update - Original isMe: $originalIsMe");
+        originalSenderName = messages[i].name; // Store the original name
+        print("Found message to update - Original isMe: $originalIsMe, Original Name: $originalSenderName");
         indexToUpdate = i;
         break;
       }
@@ -1016,7 +1060,7 @@ class _ChatContentState extends State<ChatContent> {
           isMe: originalIsMe, // Giữ nguyên thuộc tính isMe của tin nhắn gốc
           timestamp: updatedMessage.timestamp,
           image: updatedMessage.image,
-          name: updatedMessage.name,
+          name: originalSenderName, // Use the original sender's name
           audio: updatedMessage.audio,
           isAudioPath: updatedMessage.isAudioPath,
           file: updatedMessage.file,
