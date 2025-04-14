@@ -150,15 +150,22 @@ class _MessageListState extends State<MessageList> {
           messageData['name'] ??
           'Unknown';
 
+      // Truncate content to first 10 words if it's longer
+      String displayContent = content;
+      final words = content.split(' ');
+      if (words.length > 10) {
+        displayContent = words.take(10).join(' ') + '...';
+      }
+      
       // Find the chat in cached messages
       final chatIndex = MessageList.cachedMessages!
           .indexWhere((chat) => chat['id'] == roomId);
       print("----------" + chatIndex.toString());
       if (chatIndex != -1) {
         setState(() {
-          // Update message content with sender info
+          // Update message content with sender info using truncated content
           MessageList.cachedMessages![chatIndex]['message'] =
-              '$sender: $content';
+              '$sender: $displayContent';
 
           // Mark message as unread if it's not the currently selected chat
           if (roomId != widget.selectedUserId) {
@@ -172,7 +179,7 @@ class _MessageListState extends State<MessageList> {
           }
         });
         final newMessage = ChatMessage(
-          text: messageData['content'],
+          text: messageData['content'],  // Save the full content in the actual message
           isMe: false,
           // Use sender_chatid from server or fallback to name
           name: messageData['sender_chatid'] ??

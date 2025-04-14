@@ -75,6 +75,12 @@ class DataConverter {
     for (var room in rooms) {
       String text = _getLastMessage(allMessages[room['id']] ?? []);
       String content = GetContent(text);
+      
+      // Truncate content to first 10 words if longer
+      final words = content.split(' ');
+      if (words.length > 10) {
+        content = words.take(10).join(' ') + '...';
+      }
 
       cachedMessages.add({
         'name': room['name'],
