@@ -19,15 +19,7 @@ class NavbarAdmin extends StatelessWidget {
               ? MainAxisAlignment.spaceBetween
               : MainAxisAlignment.spaceAround,
           children: [
-            if (isMobile)
-              IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: AppColors.messengerBlue,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
+            // Xóa nút trở về ở đây
 
             Container(
               margin: isMobile

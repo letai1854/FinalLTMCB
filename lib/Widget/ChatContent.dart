@@ -1,5 +1,6 @@
 // Import UserList to access the static cache
 import 'package:finalltmcb/ClientUdp/client_state.dart';
+import 'package:finalltmcb/ClientUdp/constants.dart';
 import 'package:finalltmcb/ClientUdp/udp_client_singleton.dart';
 import 'package:finalltmcb/Controllers/GroupController.dart';
 import 'package:finalltmcb/File/Models/MediaPlaceholder.dart';
@@ -8,6 +9,7 @@ import 'package:finalltmcb/File/Models/file_constants.dart';
 import 'package:finalltmcb/Model/AudioMessage.dart';
 import 'package:finalltmcb/Model/FileTransferQueue.dart';
 import 'package:finalltmcb/Model/MessageData.dart';
+import 'package:finalltmcb/Screen/Chat/ChatMobile.dart';
 import 'package:finalltmcb/Service/FileDownloadNotifier.dart';
 import 'package:finalltmcb/Service/MessageNotifier.dart';
 import 'package:finalltmcb/Widget/AudioHandlerWidget.dart'; // Import the new widget
@@ -64,7 +66,7 @@ class _ChatContentState extends State<ChatContent> {
   final ScrollController _scrollController = ScrollController();
   bool _isProcessingFile = false;
   bool _isLoading = true; // Add loading state
-  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gu_50f61f8f
+  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gemini_bot
 
   @override
   void initState() {
@@ -153,8 +155,8 @@ class _ChatContentState extends State<ChatContent> {
         print("Received message for room: $roomId");
         print("Currently viewing room: ${widget.userId}");
 
-        // Only update UI if message is for current room
-        if(roomId == "gu_50f61f8f"){
+        // Kiểm tra nếu gemini_bot là một thành viên trong nhóm này
+        if (_groupMembers.contains(Constants.gemini_bot)) {
           setState(() {
             _isProcessingGeminiRequest = false;
           });
@@ -178,7 +180,7 @@ class _ChatContentState extends State<ChatContent> {
         mounted &&
         downloadData['roomId'] == widget.userId) {
       final newMessage = downloadData['message'] as ChatMessage;
-        if(widget.userId == "gu_50f61f8f"){
+        if(_groupMembers.contains(Constants.gemini_bot)){
           setState(() {
             _isProcessingGeminiRequest = false;
           });
@@ -278,7 +280,7 @@ class _ChatContentState extends State<ChatContent> {
     _addMessageToUI(uiMessage);
 
     try {
-      if(widget.userId=="gu_50f61f8f"){
+      if(_groupMembers.contains(Constants.gemini_bot)){
         setState(() {
           _isProcessingGeminiRequest = true;
         });
@@ -711,6 +713,13 @@ class _ChatContentState extends State<ChatContent> {
 
     super.dispose();
   }
+  
+// Hàm kiểm tra xem đây có phải là giao diện mobile hay không
+  bool get _isMobileView {
+    // Kiểm tra dựa trên kích thước màn hình thay vì lớp cha
+    final screenWidth = MediaQuery.of(context).size.width;
+    return screenWidth < 600; // Dùng cùng ngưỡng giống như trong ResponsiveLayout
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -718,7 +727,7 @@ class _ChatContentState extends State<ChatContent> {
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: _isMobileView, // Cho phép hiển thị nút quay lại nếu là mobile
         title: Row(
           children: [
             CircleAvatar(
@@ -764,12 +773,12 @@ class _ChatContentState extends State<ChatContent> {
                         child: Text('No messages yet. Start a conversation!'))
                     : ListView.builder(
                         controller: _scrollController,
-                        itemCount: messages.length + (_isProcessingGeminiRequest && widget.userId == 'gu_50f61f8f' ? 1 : 0),
+                        itemCount: messages.length + (_isProcessingGeminiRequest && _groupMembers.contains(Constants.gemini_bot) ? 1 : 0),
                         padding: EdgeInsets.only(bottom: 16),
                         itemBuilder: (context, index) {
                           // Nếu đây là phần tử cuối cùng và đang chờ xử lý Gemini
                           if (_isProcessingGeminiRequest && 
-                              widget.userId == 'gu_50f61f8f' && 
+                              _groupMembers.contains(Constants.gemini_bot) && 
                               index == messages.length) {
                             // Hiển thị thông báo "đang chờ xử lý"
                             return Align(

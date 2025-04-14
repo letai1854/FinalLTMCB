@@ -200,4 +200,5 @@ class Constants {
       30 * 60 * 1000; // 30 minutes
   static const int PENDING_MESSAGE_TIMEOUT_MS =
       60 * 1000; // 1 minute timeout for pending confirmations/acks
+  static const String gemini_bot = "gemini_bot";
 }
