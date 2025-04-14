@@ -26,33 +26,23 @@ class NavbarAdmin extends StatelessWidget {
                   ? EdgeInsets.zero
                   : EdgeInsets.only(right: isTablet ? 200 : 550),
               child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        'assets/appLogo.png',
-                        height: 60,
-                        width: 60,
+                child: Row(
+                  children: [
+                    Image.asset(
+                      'assets/appLogo.png',
+                      height: 60,
+                      width: 60,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'facebug',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.messengerBlue,
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'facebug',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.messengerBlue,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
