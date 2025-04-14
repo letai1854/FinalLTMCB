@@ -15,15 +15,6 @@ class ResponsiveLogin extends StatelessWidget {
         tableScaffold: const LoginTablet(),
         destopScaffold: const LoginDesktop(),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.grey.shade800,
-        mini: true,
-        child: const Icon(Icons.bug_report, size: 20),
-        onPressed: () {
-          Navigator.pushNamed(context, '/debug');
-        },
-        tooltip: 'UDP Debug Console',
-      ),
     );
   }
 }
