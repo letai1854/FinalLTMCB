@@ -150,15 +150,22 @@ class _MessageListState extends State<MessageList> {
           messageData['name'] ??
           'Unknown';
 
+      // Truncate content to first 10 words if it's longer
+      String displayContent = content;
+      final words = content.split(' ');
+      if (words.length > 10) {
+        displayContent = words.take(10).join(' ') + '...';
+      }
+      
       // Find the chat in cached messages
       final chatIndex = MessageList.cachedMessages!
           .indexWhere((chat) => chat['id'] == roomId);
       print("----------" + chatIndex.toString());
       if (chatIndex != -1) {
         setState(() {
-          // Update message content with sender info
+          // Update message content with sender info using truncated content
           MessageList.cachedMessages![chatIndex]['message'] =
-              '$sender: $content';
+              '$sender: $displayContent';
 
           // Mark message as unread if it's not the currently selected chat
           if (roomId != widget.selectedUserId) {
@@ -172,7 +179,7 @@ class _MessageListState extends State<MessageList> {
           }
         });
         final newMessage = ChatMessage(
-          text: messageData['content'],
+          text: messageData['content'],  // Save the full content in the actual message
           isMe: false,
           // Use sender_chatid from server or fallback to name
           name: messageData['sender_chatid'] ??
@@ -572,15 +579,17 @@ class _MessageListState extends State<MessageList> {
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 12.0),
               child: TextField(
-                style: TextStyle(color: Colors.black), // Thêm style cho text input
+                style:
+                    TextStyle(color: Colors.black), // Thêm style cho text input
                 decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: 'Tìm kiếm trên Messenger',
-                  hintStyle: TextStyle(color: Colors.grey), // Màu cho hint text
-                  icon: Icon(Icons.search, color: Colors.grey), // Màu cho icon
-                  contentPadding: EdgeInsets.symmetric(vertical: 8.5)
-                ),
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: 'Tìm kiếm trên Messenger',
+                    hintStyle:
+                        TextStyle(color: Colors.grey), // Màu cho hint text
+                    icon:
+                        Icon(Icons.search, color: Colors.grey), // Màu cho icon
+                    contentPadding: EdgeInsets.symmetric(vertical: 8.5)),
                 cursorColor: Colors.black, // Màu con trỏ
               ),
             ),
@@ -624,23 +633,28 @@ class _MessageListState extends State<MessageList> {
             } else if ((snapshot.hasData && snapshot.data != null) ||
                 MessageList.cachedMessages != null) {
               // Use class name
-              final messages =
-                  MessageList.cachedMessages ?? snapshot.data!; // Use class name
+              final messages = MessageList.cachedMessages ??
+                  snapshot.data!; // Use class name
               return ListView.builder(
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final message = messages[index];
                   final isSelected = message['id'] == widget.selectedUserId;
-                  final isUnread = MessageList.unreadMessages.contains(message['id']);
+                  final isUnread =
+                      MessageList.unreadMessages.contains(message['id']);
                   return Container(
                     margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.messengerBlue.withOpacity(0.2) : Colors.transparent,
+                      color: isSelected
+                          ? AppColors.messengerBlue.withOpacity(0.2)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ClipRRect(  // Wrap với ClipRRect để cắt hiệu ứng splash
+                    child: ClipRRect(
+                      // Wrap với ClipRRect để cắt hiệu ứng splash
                       borderRadius: BorderRadius.circular(12),
-                      child: Material(  // Thêm Material để có hiệu ứng splash
+                      child: Material(
+                        // Thêm Material để có hiệu ứng splash
                         color: Colors.transparent,
                         child: ListTile(
                           textColor: Colors.white,
@@ -662,8 +676,8 @@ class _MessageListState extends State<MessageList> {
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       shape: BoxShape.circle,
-                                      border:
-                                          Border.all(color: Colors.white, width: 1.5),
+                                      border: Border.all(
+                                          color: Colors.white, width: 1.5),
                                     ),
                                     child: Icon(
                                       Icons.people,
@@ -694,9 +708,12 @@ class _MessageListState extends State<MessageList> {
                           subtitle: Text(
                             message['message']!,
                             style: TextStyle(
-                              color: isUnread ? Colors.black87 : AppColors.lightGrey,
-                              fontWeight:
-                                  isUnread ? FontWeight.w600 : FontWeight.normal,
+                              color: isUnread
+                                  ? Colors.black87
+                                  : AppColors.lightGrey,
+                              fontWeight: isUnread
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                         ),

@@ -70,19 +70,25 @@ class FileCommandProcessor {
   Future<void> processCommandDownload(
       String command, FileHandshakeManager handshakemanager) async {
     final parts = command.split(' ');
-    if (parts.length < 3) {
-      print('Invalid command format. Expected: /download roomId filePath');
+    if (parts.length < 4) {
+      print(
+          'Invalid command format. Expected: /download roomId chatId filePath');
       return;
     }
 
     final type = parts[0].substring(1); // Remove '/'
     final roomId = parts[1];
-    // Get everything after roomId as filename to preserve spaces
-    final filename = parts.sublist(2).join(' ').trim();
+    final chatId = parts[2];
+    // Get everything after roomId and chatId as filename to preserve spaces
+    final filename = parts.sublist(3).join(' ').trim();
 
     final Map<String, dynamic> downloadRequest = {
       'action': FileConstants.ACTION_FILE_DOWNLOAD_REQ,
-      'data': {'room_id': roomId, 'file_name': filename}
+      'data': {
+        'room_id': roomId,
+        'chat_id': chatId, // Thêm chat_id vào request
+        'file_name': filename
+      }
     };
     await handshakemanager.InitFileDownload(downloadRequest);
   }
@@ -94,6 +100,7 @@ class FileDownloadProcessor {
   Map<String, int> totalFileSize = {};
 
   void handleDownloadMeta(Map<String, dynamic> data) {
+    final String chat_id = data['chat_id'];
     final String roomId = data['room_id'];
     final String filePath = data['file_path'];
     final int fileSize = data['file_size'];
@@ -109,6 +116,7 @@ class FileDownloadProcessor {
   }
 
   Future<void> handleDownloadData(Map<String, dynamic> data) async {
+    final String chat_id = data['chat_id'];
     final String roomId = data['room_id'];
     // Thống nhất sử dụng file_name hoặc file_path
     final String fileName = data['file_name'] ?? data['file_path'];
@@ -147,6 +155,7 @@ class FileDownloadProcessor {
   }
 
   Future<void> handleDownloadFinish(Map<String, dynamic> data) async {
+    final String chat_id = data['chat_id'];
     final String roomId = data['room_id'];
     final String filePath = data['file_path'];
     String fileKey = '${roomId}_$filePath';
@@ -220,6 +229,7 @@ class FileDownloadProcessor {
 
       // Create appropriate message based on file type
       ChatMessage newMessage = ChatMessage(
+        name: chat_id,
         isMe: false,
         timestamp: DateTime.now(),
         text: '', // Add required text parameter
@@ -227,6 +237,7 @@ class FileDownloadProcessor {
 
       if (mimeType.startsWith('image/')) {
         newMessage = ChatMessage(
+          name: chat_id,
           text: '', // Required
           isMe: false,
           timestamp: DateTime.now(),
@@ -235,6 +246,7 @@ class FileDownloadProcessor {
         );
       } else if (mimeType.startsWith('video/')) {
         newMessage = ChatMessage(
+          name: chat_id,
           text: '', // Required
           isMe: false,
           timestamp: DateTime.now(),
@@ -248,6 +260,7 @@ class FileDownloadProcessor {
         );
       } else if (mimeType.startsWith('audio/')) {
         newMessage = ChatMessage(
+          name: chat_id,
           text: '', // Required
           isMe: false,
           timestamp: DateTime.now(),
@@ -256,6 +269,7 @@ class FileDownloadProcessor {
         );
       } else {
         newMessage = ChatMessage(
+          name: chat_id,
           text: '', // Required
           isMe: false,
           timestamp: DateTime.now(),
@@ -269,37 +283,41 @@ class FileDownloadProcessor {
           ),
         );
       }
-      
+
       // Check if there's an existing placeholder message to update
       var messageExists = false;
-      
+
       if (UdpClientSingleton().clientState != null) {
-        var messages = UdpClientSingleton().clientState?.allMessagesConverted[roomId];
-        
+        var messages =
+            UdpClientSingleton().clientState?.allMessagesConverted[roomId];
+
         if (messages != null) {
           // Try to find a matching file_path message placeholder
           for (var i = 0; i < messages.length; i++) {
-            if (messages[i].text.startsWith("file_path ") &&  messages[i].text.contains(fileName)) {
+            if (messages[i].text.startsWith("file_path ") &&
+                messages[i].text.contains(fileName)) {
               // Found a placeholder, update using the MessageNotifier
               messageExists = true;
               // Pass fileName (not roomId) as the first parameter
               MessageNotifier.updateChatPubble(fileName, newMessage);
-              logger.log('✅ Updated existing chat bubble for file: $fileName in room: $roomId');
+              logger.log(
+                  '✅ Updated existing chat bubble for file: $fileName in room: $roomId');
               break;
             }
           }
         }
       }
-      
+
       // If no placeholder was found, send as a new message
       if (!messageExists) {
         MessageNotifier.updateRecieveFile({
           'roomId': roomId,
           'type': mimeType,
         });
-        
+
         // Notify UI about new file
         FileDownloadNotifier.instance.updateFileDownload({
+          'name': chat_id,
           'roomId': roomId,
           'message': newMessage,
           'filePath': file.path,

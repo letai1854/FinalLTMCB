@@ -29,18 +29,18 @@ class ChatBubble extends StatelessWidget {
           crossAxisAlignment:
               message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            // Sender name
-            if (showSenderName && !message.isMe && message.name != null)
+            // Always show sender name for any message type if it's not from the current user
+            if (showSenderName && !message.isMe && message.name != null && message.name!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(left: 4.0, bottom: 2.0),
-                child: Text(
-                  message.name!,
-                  style: TextStyle(
-                    fontSize: 12.0,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                // child: Text(
+                //   message.name!,
+                //   style: TextStyle(
+                //     fontSize: 12.0,
+                //     color: Colors.grey.shade600,
+                //     fontWeight: FontWeight.bold, // Make the name bold for better visibility
+                //   ),
+                // ),
               ),
 
             // Content
