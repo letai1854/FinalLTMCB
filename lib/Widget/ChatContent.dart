@@ -991,14 +991,17 @@ class _ChatContentState extends State<ChatContent> {
   // Hàm cập nhật ChatBubble khi nhận được file đầy đủ
   void updateFileMessage(String fileName, ChatMessage updatedMessage) {
     if (!mounted || !_userMessages.containsKey(widget.userId)) return;
-
+    
     final messages = _userMessages[widget.userId]!;
     int indexToUpdate = -1;
+    bool originalIsMe = false;
 
     // Tìm tin nhắn dựa trên tên file trong định dạng "file_path [filename] ..."
     for (int i = 0; i < messages.length; i++) {
       if (messages[i].text.startsWith('file_path ') &&
           messages[i].text.contains(fileName)) {
+        originalIsMe = messages[i].isMe;
+        print("Found message to update - Original isMe: $originalIsMe");
         indexToUpdate = i;
         break;
       }
@@ -1007,8 +1010,22 @@ class _ChatContentState extends State<ChatContent> {
     // Nếu tìm thấy, cập nhật tin nhắn
     if (indexToUpdate >= 0) {
       setState(() {
+        // Đảm bảo thuộc tính isMe được giữ nguyên từ tin nhắn gốc
+        ChatMessage updatedWithIsMe = ChatMessage(
+          text: updatedMessage.text,
+          isMe: originalIsMe, // Giữ nguyên thuộc tính isMe của tin nhắn gốc
+          timestamp: updatedMessage.timestamp,
+          image: updatedMessage.image,
+          name: updatedMessage.name,
+          audio: updatedMessage.audio,
+          isAudioPath: updatedMessage.isAudioPath,
+          file: updatedMessage.file,
+          video: updatedMessage.video,
+          mimeType: updatedMessage.mimeType,
+        );
+        
         // Cập nhật trong bộ nhớ cache local
-        _userMessages[widget.userId]![indexToUpdate] = updatedMessage;
+        _userMessages[widget.userId]![indexToUpdate] = updatedWithIsMe;
 
         // Đồng thời cập nhật trong trạng thái toàn cục
         if (widget.groupController.clientState != null &&
@@ -1016,13 +1033,13 @@ class _ChatContentState extends State<ChatContent> {
                 .containsKey(widget.userId)) {
           widget.groupController.clientState!
                   .allMessagesConverted[widget.userId]![indexToUpdate] =
-              updatedMessage;
+              updatedWithIsMe;
         }
 
         // Cập nhật lại danh sách tin nhắn hiển thị
         listhistorymessage = _userMessages[widget.userId]!;
 
-        print("Cập nhật tin nhắn file tại vị trí $indexToUpdate: $fileName");
+        print("Cập nhật tin nhắn file tại vị trí $indexToUpdate: $fileName, isMe: $originalIsMe");
       });
     } else {
       print("Không tìm thấy tin nhắn file với tên: $fileName");
@@ -1052,6 +1069,7 @@ class _ChatContentState extends State<ChatContent> {
       final fileName = MessageNotifier.name.value;
 
       if (fileName.isNotEmpty) {
+        print("Receiving update for file: $fileName, isMe: ${updatedMessage.isMe}");
         // Tìm và cập nhật tin nhắn dựa trên tên file
         updateFileMessage(fileName, updatedMessage);
       }
