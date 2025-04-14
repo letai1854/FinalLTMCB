@@ -68,6 +68,7 @@ class ChatInputWidget extends StatefulWidget {
 
 class _ChatInputWidgetState extends State<ChatInputWidget> {
   final TextEditingController _textController = TextEditingController();
+  final FocusNode _textFocusNode = FocusNode(); // Add a FocusNode
   List<XFile> _selectedImages = [];
   bool _isAudioHandlerActive = false;
   bool _isProcessingFile = false;
@@ -335,6 +336,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                     child: Center( // Wrap TextField trong Center
                       child: TextField(
                         controller: _textController,
+                        focusNode: _textFocusNode, // Assign the FocusNode
                         enabled: !_isProcessingFile,
                         textAlignVertical: TextAlignVertical.center, // Căn giữa theo chiều dọc
                         decoration: InputDecoration(
@@ -347,17 +349,39 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
                               // Insert emoji at current cursor position
                               final currentText = _textController.text;
                               final selection = _textController.selection;
-                              final newText = currentText.replaceRange(
-                                selection.start,
-                                selection.end,
-                                emoji,
-                              );
-                              _textController.text = newText;
-                              // Move cursor after the inserted emoji
-                              _textController.selection = TextSelection.collapsed(
-                                offset: selection.start + emoji.length,
-                              );
+                              
+                              // If we have a valid selection position
+                              if (selection.baseOffset >= 0 && selection.extentOffset >= 0) {
+                                // Use the position to insert the emoji
+                                final start = selection.start;
+                                final end = selection.end;
+                                final newText = currentText.replaceRange(
+                                  start,
+                                  end,
+                                  emoji,
+                                );
+                                
+                                // Update the text and cursor position properly
+                                _textController.value = TextEditingValue(
+                                  text: newText,
+                                  selection: TextSelection.collapsed(
+                                    offset: start + emoji.length,
+                                  ),
+                                );
+                              } else {
+                                // If no valid selection exists, append to end of text
+                                _textController.text = currentText + emoji;
+                                _textController.selection = TextSelection.collapsed(
+                                  offset: _textController.text.length,
+                                );
+                              }
+                              
+                              // Request focus back to the TextField after a short delay
+                              Future.delayed(Duration(milliseconds: 50), () {
+                                _textFocusNode.requestFocus();
+                              });
                             },
+                            parentContext: context,
                           ),
                         ),
                         textInputAction: TextInputAction.send,
@@ -390,6 +414,7 @@ class _ChatInputWidgetState extends State<ChatInputWidget> {
   @override
   void dispose() {
     _textController.dispose();
+    _textFocusNode.dispose(); // Dispose the FocusNode
     super.dispose();
   }
 }
