@@ -66,7 +66,8 @@ class _ChatContentState extends State<ChatContent> {
   final ScrollController _scrollController = ScrollController();
   bool _isProcessingFile = false;
   bool _isLoading = true; // Add loading state
-  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gemini_bot
+  bool _isProcessingGeminiRequest =
+      false; // Thêm trạng thái đang chờ xử lý cho gemini_bot
 
   @override
   void initState() {
@@ -181,7 +182,9 @@ class _ChatContentState extends State<ChatContent> {
         downloadData['roomId'] == widget.userId) {
       // Extract the original message and sender info
       final originalMessage = downloadData['message'] as ChatMessage;
-      final senderName = downloadData['sender_chatid'] ?? downloadData['sender'] ?? 'Unknown Sender'; // Get sender name
+      final senderName = downloadData['name'] ??
+          downloadData['sender'] ??
+          'Unknown Sender'; // Get sender name
 
       // Create a new message instance with the name explicitly set
       final newMessageWithName = ChatMessage(
@@ -208,7 +211,7 @@ class _ChatContentState extends State<ChatContent> {
           _userMessages[widget.userId] = [];
         }
         // Add the message with the name included
-        _userMessages[widget.userId]!.add(newMessageWithName); 
+        _userMessages[widget.userId]!.add(newMessageWithName);
         listhistorymessage = _userMessages[widget.userId]!;
       });
 
@@ -298,7 +301,7 @@ class _ChatContentState extends State<ChatContent> {
     _addMessageToUI(uiMessage);
 
     try {
-      if(_groupMembers.contains(Constants.gemini_bot)){
+      if (_groupMembers.contains(Constants.gemini_bot)) {
         setState(() {
           _isProcessingGeminiRequest = true;
         });
@@ -323,8 +326,8 @@ class _ChatContentState extends State<ChatContent> {
 
     // Handle text message
     if (text != null && text.isNotEmpty) {
-      final textMessage =
-          ChatMessage(text: text, isMe: true, timestamp: timestamp, name: userName);
+      final textMessage = ChatMessage(
+          text: text, isMe: true, timestamp: timestamp, name: userName);
       uiMessagesToAdd.add(textMessage);
 
       try {
@@ -353,20 +356,23 @@ class _ChatContentState extends State<ChatContent> {
         // Add to UI - explicitly set isMe=true and include name
         ChatMessage imageMessage = ChatMessage(
           text: '',
-          isMe: true,  // Explicitly set to true for sent messages
+          isMe: true, // Explicitly set to true for sent messages
           timestamp: timestamp,
           image: img.base64Data,
           mimeType: img.mimeType,
-          name: userName,  // Include username for media messages
+          name: userName, // Include username for media messages
         );
-        
+
         uiMessagesToAdd.add(imageMessage);
-        
+
         // Also update in the global state
-        if (!widget.groupController.clientState!.allMessagesConverted.containsKey(widget.userId)) {
-          widget.groupController.clientState!.allMessagesConverted[widget.userId] = [];
+        if (!widget.groupController.clientState!.allMessagesConverted
+            .containsKey(widget.userId)) {
+          widget.groupController.clientState!
+              .allMessagesConverted[widget.userId] = [];
         }
-        widget.groupController.clientState!.allMessagesConverted[widget.userId]!.add(imageMessage);
+        widget.groupController.clientState!.allMessagesConverted[widget.userId]!
+            .add(imageMessage);
 
         // Create temporary file from base64
         try {
@@ -496,7 +502,8 @@ class _ChatContentState extends State<ChatContent> {
       }
 
       final fileInfo = fileMessage.file!;
-      final userName = widget.groupController.clientState?.currentChatId ?? "Me";
+      final userName =
+          widget.groupController.clientState?.currentChatId ?? "Me";
 
       // Verify file exists and is readable
       final file = File(fileInfo.filePath);
@@ -519,12 +526,12 @@ class _ChatContentState extends State<ChatContent> {
       // Create new message with explicit isMe=true and name properties
       ChatMessage fileMessageWithName = ChatMessage(
         text: fileMessage.text,
-        isMe: true,  // Explicitly set to true for sent messages
+        isMe: true, // Explicitly set to true for sent messages
         timestamp: fileMessage.timestamp,
         file: fileMessage.file,
-        name: userName,  // Add username to file messages
+        name: userName, // Add username to file messages
       );
-      
+
       // Add message to UI before sending
       _addMessageToUI(fileMessageWithName);
 
@@ -739,12 +746,13 @@ class _ChatContentState extends State<ChatContent> {
 
     super.dispose();
   }
-  
+
 // Hàm kiểm tra xem đây có phải là giao diện mobile hay không
   bool get _isMobileView {
     // Kiểm tra dựa trên kích thước màn hình thay vì lớp cha
     final screenWidth = MediaQuery.of(context).size.width;
-    return screenWidth < 600; // Dùng cùng ngưỡng giống như trong ResponsiveLayout
+    return screenWidth <
+        600; // Dùng cùng ngưỡng giống như trong ResponsiveLayout
   }
 
   @override
@@ -753,7 +761,8 @@ class _ChatContentState extends State<ChatContent> {
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: _isMobileView, // Cho phép hiển thị nút quay lại nếu là mobile
+        automaticallyImplyLeading:
+            _isMobileView, // Cho phép hiển thị nút quay lại nếu là mobile
         title: Row(
           children: [
             CircleAvatar(
@@ -799,18 +808,23 @@ class _ChatContentState extends State<ChatContent> {
                         child: Text('No messages yet. Start a conversation!'))
                     : ListView.builder(
                         controller: _scrollController,
-                        itemCount: messages.length + (_isProcessingGeminiRequest && _groupMembers.contains(Constants.gemini_bot) ? 1 : 0),
+                        itemCount: messages.length +
+                            (_isProcessingGeminiRequest &&
+                                    _groupMembers.contains(Constants.gemini_bot)
+                                ? 1
+                                : 0),
                         padding: EdgeInsets.only(bottom: 16),
                         itemBuilder: (context, index) {
                           // Nếu đây là phần tử cuối cùng và đang chờ xử lý Gemini
-                          if (_isProcessingGeminiRequest && 
-                              _groupMembers.contains(Constants.gemini_bot) && 
+                          if (_isProcessingGeminiRequest &&
+                              _groupMembers.contains(Constants.gemini_bot) &&
                               index == messages.length) {
                             // Hiển thị thông báo "đang chờ xử lý"
                             return Align(
                               alignment: Alignment.centerLeft,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
                                 child: Container(
                                   padding: EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -825,13 +839,16 @@ class _ChatContentState extends State<ChatContent> {
                                         height: 16,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[700]!),
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.grey[700]!),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
                                       Text(
                                         "Đang chờ xử lý...",
-                                        style: TextStyle(color: Colors.grey[800]),
+                                        style:
+                                            TextStyle(color: Colors.grey[800]),
                                       ),
                                     ],
                                   ),
@@ -870,13 +887,20 @@ class _ChatContentState extends State<ChatContent> {
                                     ),
                                   ),
                                   Expanded(
-                                    child: Column( // Wrap ChatBubble in a Column
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    child: Column(
+                                      // Wrap ChatBubble in a Column
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Padding( // Add padding for the name
-                                          padding: const EdgeInsets.only(bottom: 2.0, left: 8.0), // Adjust padding as needed
+                                        Padding(
+                                          // Add padding for the name
+                                          padding: const EdgeInsets.only(
+                                              bottom: 2.0,
+                                              left:
+                                                  8.0), // Adjust padding as needed
                                           child: Text(
-                                            message.name!, // Display sender's name
+                                            message
+                                                .name!, // Display sender's name
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey[600],
@@ -1033,7 +1057,7 @@ class _ChatContentState extends State<ChatContent> {
   // Hàm cập nhật ChatBubble khi nhận được file đầy đủ
   void updateFileMessage(String fileName, ChatMessage updatedMessage) {
     if (!mounted || !_userMessages.containsKey(widget.userId)) return;
-    
+
     final messages = _userMessages[widget.userId]!;
     int indexToUpdate = -1;
     bool originalIsMe = false;
@@ -1045,7 +1069,8 @@ class _ChatContentState extends State<ChatContent> {
           messages[i].text.contains(fileName)) {
         originalIsMe = messages[i].isMe;
         originalSenderName = messages[i].name; // Store the original name
-        print("Found message to update - Original isMe: $originalIsMe, Original Name: $originalSenderName");
+        print(
+            "Found message to update - Original isMe: $originalIsMe, Original Name: $originalSenderName");
         indexToUpdate = i;
         break;
       }
@@ -1067,7 +1092,7 @@ class _ChatContentState extends State<ChatContent> {
           video: updatedMessage.video,
           mimeType: updatedMessage.mimeType,
         );
-        
+
         // Cập nhật trong bộ nhớ cache local
         _userMessages[widget.userId]![indexToUpdate] = updatedWithIsMe;
 
@@ -1083,7 +1108,8 @@ class _ChatContentState extends State<ChatContent> {
         // Cập nhật lại danh sách tin nhắn hiển thị
         listhistorymessage = _userMessages[widget.userId]!;
 
-        print("Cập nhật tin nhắn file tại vị trí $indexToUpdate: $fileName, isMe: $originalIsMe");
+        print(
+            "Cập nhật tin nhắn file tại vị trí $indexToUpdate: $fileName, isMe: $originalIsMe");
       });
     } else {
       print("Không tìm thấy tin nhắn file với tên: $fileName");
@@ -1113,7 +1139,8 @@ class _ChatContentState extends State<ChatContent> {
       final fileName = MessageNotifier.name.value;
 
       if (fileName.isNotEmpty) {
-        print("Receiving update for file: $fileName, isMe: ${updatedMessage.isMe}");
+        print(
+            "Receiving update for file: $fileName, isMe: ${updatedMessage.isMe}");
         // Tìm và cập nhật tin nhắn dựa trên tên file
         updateFileMessage(fileName, updatedMessage);
       }

@@ -104,7 +104,8 @@ class MessageController {
   Future<void> DownloadFileMessage(String chat_id, String room_id,
       String file_path, String file_type) async {
     try {
-      final String commandString = "/download $room_id $file_path";
+      // Thêm chat_id vào commandString
+      final String commandString = "/download $room_id $chat_id $file_path";
 
       final fileClient = MessageController._instance?._udpChatClientFile;
       await fileClient?.commandProcessor
