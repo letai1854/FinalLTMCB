@@ -960,10 +960,15 @@ class _ChatContentState extends State<ChatContent> {
     if (message.isMe) {
       return Align(
         alignment: Alignment.centerRight,
-        child: Padding(
-          padding: const EdgeInsets.only(
-              left: 64.0, right: 8.0, top: 4.0, bottom: 4.0),
-          child: placeholderWidget,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width / 4, // Giới hạn độ rộng tối đa
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(
+                left: 64.0, right: 8.0, top: 4.0, bottom: 4.0),
+            child: placeholderWidget,
+          ),
         ),
       );
     } else {
@@ -973,13 +978,16 @@ class _ChatContentState extends State<ChatContent> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 8.0, right: 4.0),
+              padding: const EdgeInsets.only(left: 8.0, right: 16.0),
               child: CircleAvatar(
                 backgroundImage: AssetImage(_currentUserAvatar),
                 radius: 16,
               ),
             ),
-            Expanded(
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width / 4, // Giới hạn độ rộng tối đa
+              ),
               child: placeholderWidget,
             ),
           ],

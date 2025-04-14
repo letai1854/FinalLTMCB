@@ -25,6 +25,7 @@ import 'package:media_kit/media_kit.dart';
 
 import 'package:finalltmcb/ClientUdp/udpmain.dart';
 import 'constants/colors.dart';
+import 'dart:io' show Platform;
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -120,8 +121,10 @@ Future<void> startUdpService() async {
   }
 }
 
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   HttpOverrides.global = MyHttpOverrides();
 
   // Initialize MediaKit
