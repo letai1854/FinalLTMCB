@@ -64,7 +64,7 @@ class _ChatContentState extends State<ChatContent> {
   final ScrollController _scrollController = ScrollController();
   bool _isProcessingFile = false;
   bool _isLoading = true; // Add loading state
-  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gu_50f61f8f
+  bool _isProcessingGeminiRequest = false; // Thêm trạng thái đang chờ xử lý cho gemini_bot
 
   @override
   void initState() {
@@ -154,7 +154,7 @@ class _ChatContentState extends State<ChatContent> {
         print("Currently viewing room: ${widget.userId}");
 
         // Only update UI if message is for current room
-        if(roomId == "gu_50f61f8f"){
+        if(roomId == "gemini_bot"){
           setState(() {
             _isProcessingGeminiRequest = false;
           });
@@ -178,7 +178,7 @@ class _ChatContentState extends State<ChatContent> {
         mounted &&
         downloadData['roomId'] == widget.userId) {
       final newMessage = downloadData['message'] as ChatMessage;
-        if(widget.userId == "gu_50f61f8f"){
+        if(widget.userId == "gemini_bot"){
           setState(() {
             _isProcessingGeminiRequest = false;
           });
@@ -278,7 +278,7 @@ class _ChatContentState extends State<ChatContent> {
     _addMessageToUI(uiMessage);
 
     try {
-      if(widget.userId=="gu_50f61f8f"){
+      if(widget.userId=="gemini_bot"){
         setState(() {
           _isProcessingGeminiRequest = true;
         });
@@ -764,12 +764,12 @@ class _ChatContentState extends State<ChatContent> {
                         child: Text('No messages yet. Start a conversation!'))
                     : ListView.builder(
                         controller: _scrollController,
-                        itemCount: messages.length + (_isProcessingGeminiRequest && widget.userId == 'gu_50f61f8f' ? 1 : 0),
+                        itemCount: messages.length + (_isProcessingGeminiRequest && widget.userId == 'gemini_bot' ? 1 : 0),
                         padding: EdgeInsets.only(bottom: 16),
                         itemBuilder: (context, index) {
                           // Nếu đây là phần tử cuối cùng và đang chờ xử lý Gemini
                           if (_isProcessingGeminiRequest && 
-                              widget.userId == 'gu_50f61f8f' && 
+                              widget.userId == 'gemini_bot' && 
                               index == messages.length) {
                             // Hiển thị thông báo "đang chờ xử lý"
                             return Align(
