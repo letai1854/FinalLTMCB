@@ -184,6 +184,12 @@ class _LoginFormState extends State<LoginForm> {
             obscureText: !_isPasswordVisible,
             textInputAction: TextInputAction.done,
             style: TextStyle(color: Colors.black),
+            onFieldSubmitted: (_) {
+              // Kích hoạt đăng nhập khi nhấn Enter trên trường mật khẩu
+              if (!_isLoading) {
+                _handleLogin();
+              }
+            },
             onChanged: (value) {
               // Clear error message when user starts typing
               if (_errorMessage != null) {
